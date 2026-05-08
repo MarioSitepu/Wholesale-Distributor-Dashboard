@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
-import { LayoutDashboard, Package, DollarSign, LogOut, ChevronLeft, ChevronRight, ShoppingCart, History, Book, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Package, DollarSign, LogOut, ChevronLeft, ChevronRight, ShoppingCart, History, Book, BookOpen, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { initializeMockData } from '../utils/mockData';
 
@@ -107,6 +107,17 @@ export default function AdminLayout() {
             <BookOpen className="w-5 h-5 flex-shrink-0" />
             <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Buku Produk</span>
           </Link>
+          
+          {user?.branch === 'Pusat' && (
+            <Link
+              to="/admin/accounts"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/accounts') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+              title={!isSidebarExpanded ? 'Kelola Akun' : ''}
+            >
+              <Users className="w-5 h-5 flex-shrink-0" />
+              <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Kelola Akun</span>
+            </Link>
+          )}
         </nav>
         <div className="p-4 border-t border-gray-200">
           <button

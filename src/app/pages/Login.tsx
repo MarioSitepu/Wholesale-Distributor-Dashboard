@@ -4,20 +4,10 @@ import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from 'sonner';
 
-interface User {
-  username: string;
-  password: string;
-  role: 'admin';
-  branch: string;
-}
-
-const USERS: User[] = [
-  { username: 'palembang', password: 'password123', role: 'admin', branch: 'Palembang' },
-  { username: 'baturaja', password: 'password123', role: 'admin', branch: 'Baturaja' },
-  { username: 'jambi', password: 'password123', role: 'admin', branch: 'Jambi' },
-];
+import { getUsers, User } from '../utils/mockData';
 
 export default function Login() {
+  const users = getUsers();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +18,7 @@ export default function Login() {
     setIsLoading(true);
 
     setTimeout(() => {
-      const user = USERS.find(u => u.username === username && u.password === password);
+      const user = users.find(u => u.username === username.toLowerCase() && u.password === password);
 
       if (!user) {
         toast.error('Username atau password salah');
@@ -61,6 +51,25 @@ export default function Login() {
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+              <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Daftar Akun Cabang:
+              </h3>
+              <div className="space-y-2">
+                {users.map((user) => (
+                  <div key={user.username} className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-blue-50 shadow-sm">
+                    <div>
+                      <p className="font-bold text-gray-900">Cabang {user.branch}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-500">U: <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">{user.username}</code> | P: <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">{user.password}</code></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Admin Sign In</h2>
 
             <form onSubmit={handleLogin} className="space-y-5">
@@ -106,20 +115,6 @@ export default function Login() {
             </form>
           </div>
 
-          <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Daftar Akun Cabang:</h3>
-            <div className="space-y-3">
-              {USERS.map((user) => (
-                <div key={user.username} className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-                  <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900">Cabang {user.branch}</p>
-                    <p className="text-gray-600 text-sm">User: <code className="bg-white px-1 rounded">{user.username}</code> | Pass: <code className="bg-white px-1 rounded">{user.password}</code></p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </>

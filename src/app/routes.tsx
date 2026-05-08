@@ -6,6 +6,7 @@ import StockManagement from "./pages/admin/StockManagement";
 import ReceivablesManagement from "./pages/admin/ReceivablesManagement";
 import StoreLedger from "./pages/admin/StoreLedger";
 import ProductLedger from "./pages/admin/ProductLedger";
+import AccountManagement from "./pages/admin/AccountManagement";
 import AdminLayout from "./layouts/AdminLayout";
 import Login from "./pages/Login";
 
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: "receivables", Component: ReceivablesManagement },
       { path: "store-books", Component: StoreLedger },
       { path: "product-books", Component: ProductLedger },
+      { path: "accounts", Component: AccountManagement },
     ],
   },
   {

@@ -1,27 +1,41 @@
 import { useState, useEffect } from 'react';
-import { Plus, Minus, ShoppingCart, X, Store } from 'lucide-react';
-import { getProducts, getCart, updateCart, clearCart, addOrder, getCurrentStore, getStores, getOrders, addReceivable, setCurrentStore, updateProduct } from '../../utils/mockData';
-import { toast } from 'sonner';
-import { Toaster } from 'sonner';
+import { Plus, Minus, ShoppingCart, X, Store, MapPin } from 'lucide-react';
+import { getProducts, getCart, updateCart, clearCart, addOrder, getCurrentStore, getStores, getOrders, addReceivable, setCurrentStore, updateProduct, getCurrentBranch, getBranches, getProductsByBranch, getStoresByBranch } from '../../utils/mockData';
+import { toast, Toaster } from 'sonner';
 
 export default function OrderPage() {
-  const [allProducts] = useState(getProducts());
+  const userStr = localStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isSuperAdmin = user?.branch === 'Pusat';
+
+  const [activeBranch, setActiveBranch] = useState(isSuperAdmin ? 'Palembang' : getCurrentBranch());
+  
+  const [allProducts, setAllProducts] = useState(isSuperAdmin ? getProductsByBranch(activeBranch) : getProducts());
   const [selectedCategory, setSelectedCategory] = useState<'Fiesta' | 'Shifudo'>('Fiesta');
   const [products, setProducts] = useState(allProducts.filter(p => p.category === 'Fiesta'));
   const [cart, setCart] = useState(getCart());
   const [showCart, setShowCart] = useState(false);
-  const [selectedStore, setSelectedStore] = useState(getCurrentStore());
+  const [selectedStore, setSelectedStore] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const stores = getStores();
+  const [stores, setStores] = useState(isSuperAdmin ? getStoresByBranch(activeBranch) : getStores());
 
   useEffect(() => {
     updateCart(cart);
   }, [cart]);
 
   useEffect(() => {
-    const currentProducts = getProducts();
-    setProducts(currentProducts.filter(p => p.category === selectedCategory));
-  }, [selectedCategory]);
+    if (isSuperAdmin) {
+      const branchProducts = getProductsByBranch(activeBranch);
+      const branchStores = getStoresByBranch(activeBranch);
+      setAllProducts(branchProducts);
+      setProducts(branchProducts.filter(p => p.category === selectedCategory));
+      setStores(branchStores);
+      setSelectedStore('');
+    } else {
+      const currentProducts = getProducts();
+      setProducts(currentProducts.filter(p => p.category === selectedCategory));
+    }
+  }, [selectedCategory, activeBranch, isSuperAdmin]);
 
   const handleStoreChange = (storeId: string) => {
     setSelectedStore(storeId);
@@ -135,6 +149,7 @@ export default function OrderPage() {
       id: orderId,
       storeId: selectedStore,
       storeName: store?.name || '',
+      branch: getCurrentBranch(),
       items: orderItems,
       total: cartTotal,
       createdAt: new Date().toISOString(),
@@ -175,6 +190,30 @@ export default function OrderPage() {
             <h1 className="text-3xl font-semibold text-gray-900">Katalog Produk</h1>
             <p className="text-gray-600 mt-1">Pilih kategori dan produk untuk dipesan</p>
           </div>
+
+          {/* Mode Pusat: Pilih Cabang */}
+          {isSuperAdmin && (
+            <div className="flex-1 max-w-md bg-blue-50 border border-blue-100 p-1 rounded-xl flex">
+              {getBranches().map((branch) => (
+                <button
+                  key={branch}
+                  onClick={() => {
+                    setActiveBranch(branch);
+                    clearCart();
+                    setCart([]);
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                    activeBranch === branch
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-blue-600 hover:bg-blue-100/50'
+                  }`}
+                >
+                  {branch}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-4 py-2">
               <Store className="w-5 h-5 text-gray-600" />

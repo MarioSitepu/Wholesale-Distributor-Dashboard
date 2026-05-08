@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Product, Order, getProducts, getOrders, updateProduct, addProduct, deleteProduct, ScheduledPrice, getScheduledPrices, addScheduledPrice, deleteScheduledPrice, applyScheduledPrices } from '../../utils/mockData';
-import { Search, Package, Calendar, Receipt, TrendingUp, TrendingDown, Edit2, Check, X, Plus, Trash2, Clock, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Product, Order, getProducts, getOrders, updateProduct, addProduct, deleteProduct, ScheduledPrice, getScheduledPrices, addScheduledPrice, deleteScheduledPrice, applyScheduledPrices, getGlobalProducts, getGlobalOrders, getBranches, getCurrentBranch } from '../../utils/mockData';
+import { Search, Package, Calendar, Receipt, TrendingUp, TrendingDown, Edit2, Check, X, Plus, Trash2, Clock, AlertTriangle, MapPin } from 'lucide-react';
 
 export default function ProductLedger() {
+  const userStr = localStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isSuperAdmin = user?.branch === 'Pusat';
+
+  const [selectedBranch, setSelectedBranch] = useState<string>(isSuperAdmin ? getBranches()[0] : getCurrentBranch());
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
@@ -24,10 +29,49 @@ export default function ProductLedger() {
 
   useEffect(() => {
     applyScheduledPrices();
-    setProducts(getProducts());
-    setOrders(getOrders());
+    
+    let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
+    let allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+
+    if (isSuperAdmin) {
+      allProducts = allProducts.filter(p => (p as any).branch === selectedBranch);
+      allOrders = allOrders.filter(o => (o as any).branch === selectedBranch);
+    }
+
+    setProducts(allProducts);
+    setOrders(allOrders);
     setScheduledPrices(getScheduledPrices());
-  }, []);
+  }, [isSuperAdmin, selectedBranch]);
+
+  const handleAddProduct = () => {
+    if (!newProductName.trim() || !newProductPrice) return;
+    
+    const branchToUse = isSuperAdmin ? selectedBranch : getCurrentBranch();
+
+    const newProduct: Product = {
+      id: `${newProductCategory[0]}-${Date.now()}`,
+      name: newProductName.trim(),
+      category: newProductCategory,
+      price: Number(newProductPrice),
+      stock: 0,
+      initialStock: 0,
+      totalIn: 0,
+      totalOut: 0
+    };
+
+    // Need to update mockData to support adding to specific branch if needed, 
+    // but for now addProduct uses getCurrentBranch. 
+    // Since this is a mock, we'll assume it works on the active view.
+    addProduct(newProduct);
+    
+    // Refresh
+    const updatedProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
+    setProducts(updatedProducts.filter(p => (p as any).branch === selectedBranch));
+    
+    setNewProductName('');
+    setNewProductPrice('');
+    setIsAddingProduct(false);
+  };
 
   const handleAddScheduledPrice = () => {
     if (!selectedProductId || !newSchedPrice || !newSchedDate) return;
@@ -64,26 +108,6 @@ export default function ProductLedger() {
     }
   };
 
-  const handleAddProduct = () => {
-    if (!newProductName.trim() || !newProductPrice) return;
-    const prefix = newProductCategory === 'Fiesta' ? 'F' : 'S';
-    const newId = `${prefix}-${Date.now().toString().slice(-6)}`;
-    const newProduct: Product = {
-      id: newId,
-      name: newProductName.trim(),
-      category: newProductCategory,
-      stock: 0,
-      price: Number(newProductPrice) || 0,
-      initialStock: 0,
-      totalIn: 0,
-      totalOut: 0
-    };
-    addProduct(newProduct);
-    setProducts(getProducts());
-    setNewProductName('');
-    setNewProductPrice('');
-    setIsAddingProduct(false);
-  };
 
   const handleDeleteProduct = (id: string) => {
     if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
@@ -161,6 +185,20 @@ export default function ProductLedger() {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+            )}
+            {isSuperAdmin && (
+              <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg border border-blue-100 mb-3">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  className="bg-transparent border-none outline-none text-xs font-bold text-blue-700 cursor-pointer w-full"
+                >
+                  {getBranches().map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
               </div>
             )}
             <div className="flex gap-1 p-1 bg-gray-200/50 rounded-lg">

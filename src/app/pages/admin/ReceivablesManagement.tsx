@@ -1,15 +1,34 @@
-import { useState } from 'react';
-import { Check, AlertCircle } from 'lucide-react';
-import { getReceivables, updateReceivable } from '../../utils/mockData';
-import { toast } from 'sonner';
-import { Toaster } from 'sonner';
+import { useState, useEffect } from 'react';
+import { Check, AlertCircle, MapPin } from 'lucide-react';
+import { getReceivables, updateReceivable, getGlobalReceivables, getBranches } from '../../utils/mockData';
+import { toast, Toaster } from 'sonner';
 
 export default function ReceivablesManagement() {
-  const [receivables, setReceivables] = useState(getReceivables());
+  const userStr = localStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isSuperAdmin = user?.branch === 'Pusat';
+
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [receivables, setReceivables] = useState(isSuperAdmin ? getGlobalReceivables() : getReceivables());
+
+  useEffect(() => {
+    let allReceivables = isSuperAdmin ? getGlobalReceivables() : getReceivables();
+    if (isSuperAdmin && selectedBranch !== 'all') {
+      allReceivables = allReceivables.filter(r => (r as any).branch === selectedBranch);
+    }
+    setReceivables(allReceivables);
+  }, [isSuperAdmin, selectedBranch]);
 
   const handleMarkAsPaid = (id: string) => {
     updateReceivable(id, true);
-    setReceivables(getReceivables());
+    
+    // Refresh data
+    let allReceivables = isSuperAdmin ? getGlobalReceivables() : getReceivables();
+    if (isSuperAdmin && selectedBranch !== 'all') {
+      allReceivables = allReceivables.filter(r => (r as any).branch === selectedBranch);
+    }
+    setReceivables(allReceivables);
+    
     toast.success('Piutang ditandai sebagai lunas');
   };
 
@@ -39,9 +58,27 @@ export default function ReceivablesManagement() {
     <>
       <Toaster position="top-center" richColors />
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Kelola Piutang</h1>
-          <p className="text-gray-600 mt-1">Pantau dan kelola piutang toko</p>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900">Kelola Piutang</h1>
+            <p className="text-gray-600 mt-1">Pantau dan kelola piutang toko</p>
+          </div>
+          
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm">
+              <MapPin className="w-5 h-5 text-blue-600" />
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
+              >
+                <option value="all">Semua Cabang</option>
+                {getBranches().map(branch => (
+                  <option key={branch} value={branch}>{branch}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -118,6 +155,11 @@ export default function ReceivablesManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nama Toko
                   </th>
+                  {isSuperAdmin && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-blue-600">
+                      Cabang
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ID Pesanan
                   </th>
@@ -147,6 +189,11 @@ export default function ReceivablesManagement() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {receivable.storeName}
                         </td>
+                        {isSuperAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-bold text-blue-600">{(receivable as any).branch}</div>
+                          </td>
+                        )}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {receivable.orderId}
                         </td>
@@ -195,6 +242,11 @@ export default function ReceivablesManagement() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Nama Toko
                     </th>
+                    {isSuperAdmin && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-blue-600">
+                        Cabang
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ID Pesanan
                     </th>
@@ -212,6 +264,11 @@ export default function ReceivablesManagement() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {receivable.storeName}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-bold text-blue-600">{(receivable as any).branch}</div>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {receivable.orderId}
                       </td>

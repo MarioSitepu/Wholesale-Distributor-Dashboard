@@ -1,14 +1,26 @@
-import { useState } from 'react';
-import { Plus, Package } from 'lucide-react';
-import { getProducts, updateProduct } from '../../utils/mockData';
-import { toast } from 'sonner';
-import { Toaster } from 'sonner';
+import { useState, useEffect } from 'react';
+import { Plus, Package, MapPin } from 'lucide-react';
+import { getProducts, updateProduct, getGlobalProducts, getBranches, getCurrentBranch } from '../../utils/mockData';
+import { toast, Toaster } from 'sonner';
 
 export default function StockManagement() {
-  const [products, setProducts] = useState(getProducts());
+  const userStr = localStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isSuperAdmin = user?.branch === 'Pusat';
+
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [products, setProducts] = useState(isSuperAdmin ? getGlobalProducts() : getProducts());
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
+
+  useEffect(() => {
+    let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
+    if (isSuperAdmin && selectedBranch !== 'all') {
+      allProducts = allProducts.filter(p => (p as any).branch === selectedBranch);
+    }
+    setProducts(allProducts);
+  }, [isSuperAdmin, selectedBranch]);
 
   const handleRestock = () => {
     if (!selectedProduct || !restockAmount) return;
@@ -25,7 +37,13 @@ export default function StockManagement() {
     product.stock += amount;
     product.totalIn += amount;
     updateProduct(product);
-    setProducts(getProducts());
+    
+    // Refresh products based on current view
+    let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
+    if (isSuperAdmin && selectedBranch !== 'all') {
+      allProducts = allProducts.filter(p => (p as any).branch === selectedBranch);
+    }
+    setProducts(allProducts);
     setShowRestockModal(false);
     setSelectedProduct(null);
     setRestockAmount('');
@@ -48,9 +66,27 @@ export default function StockManagement() {
     <>
       <Toaster position="top-center" richColors />
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Kelola Stok</h1>
-          <p className="text-gray-600 mt-1">Pantau dan kelola inventori produk</p>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900">Kelola Stok</h1>
+            <p className="text-gray-600 mt-1">Monitor dan tambah stok produk gudang</p>
+          </div>
+          
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm">
+              <MapPin className="w-5 h-5 text-blue-600" />
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
+              >
+                <option value="all">Semua Cabang</option>
+                {getBranches().map(branch => (
+                  <option key={branch} value={branch}>{branch}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -64,6 +100,11 @@ export default function StockManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nama Produk
                   </th>
+                  {isSuperAdmin && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cabang
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Kategori
                   </th>
@@ -91,6 +132,11 @@ export default function StockManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-blue-600">{(product as any).branch}</div>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.initialStock}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.totalIn}</td>

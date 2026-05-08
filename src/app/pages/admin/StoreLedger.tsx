@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Store, Order, getStores, getOrders, updateStore, addStore, deleteStore } from '../../utils/mockData';
-import { Search, Store as StoreIcon, Calendar, Receipt, ChevronDown, Edit2, Check, X, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Store, Order, getStores, getOrders, updateStore, addStore, deleteStore, getCurrentBranch, getGlobalStores, getGlobalOrders, getBranches } from '../../utils/mockData';
+import { Search, Store as StoreIcon, Calendar, Receipt, ChevronDown, Edit2, Check, X, Plus, Trash2, MapPin } from 'lucide-react';
 
 export default function StoreLedger() {
+  const userStr = localStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isSuperAdmin = user?.branch === 'Pusat';
+
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
@@ -13,19 +18,36 @@ export default function StoreLedger() {
   const [newStoreName, setNewStoreName] = useState('');
 
   useEffect(() => {
-    setStores(getStores());
-    setOrders(getOrders());
-  }, []);
+    let allStores = isSuperAdmin ? getGlobalStores() : getStores();
+    let allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+
+    if (isSuperAdmin && selectedBranch !== 'all') {
+      allStores = allStores.filter(s => s.branch === selectedBranch);
+      allOrders = allOrders.filter(o => (o as any).branch === selectedBranch);
+    }
+
+    setStores(allStores);
+    setOrders(allOrders);
+  }, [isSuperAdmin, selectedBranch]);
 
   const handleAddStore = () => {
     if (!newStoreName.trim()) return;
+    const branchToUse = isSuperAdmin 
+      ? (selectedBranch === 'all' ? 'Palembang' : selectedBranch)
+      : getCurrentBranch();
+
     const newStore: Store = {
       id: `S-${Date.now()}`,
       name: newStoreName.trim(),
+      branch: branchToUse,
       totalDebt: 0
     };
     addStore(newStore);
-    setStores(getStores());
+    
+    // Refresh data
+    const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
+    setStores(selectedBranch === 'all' ? updatedStores : updatedStores.filter(s => s.branch === selectedBranch));
+    
     setNewStoreName('');
     setIsAddingStore(false);
   };
@@ -96,6 +118,21 @@ export default function StoreLedger() {
                 </button>
               </div>
             )}
+            {isSuperAdmin && (
+              <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg border border-blue-100 mb-3">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  className="bg-transparent border-none outline-none text-xs font-bold text-blue-700 cursor-pointer w-full"
+                >
+                  <option value="all">Semua Cabang</option>
+                  {getBranches().map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -122,11 +159,22 @@ export default function StoreLedger() {
                 <div className={`p-2 rounded-lg ${selectedStoreId === store.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
                   <StoreIcon className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className={`font-medium ${selectedStoreId === store.id ? 'text-blue-700' : 'text-gray-800'}`}>
-                    {store.name}
-                  </h3>
-                  <p className="text-sm text-gray-500">{store.id}</p>
+                <div className="flex-1 overflow-hidden">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className={`font-medium truncate ${selectedStoreId === store.id ? 'text-blue-700' : 'text-gray-800'}`}>
+                      {store.name}
+                    </h3>
+                    <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-md font-bold uppercase">
+                      <MapPin className="w-3 h-3" />
+                      {store.branch}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{store.id}</span>
+                    <span className={store.totalDebt > 0 ? 'text-red-500 font-bold' : ''}>
+                      Rp {store.totalDebt.toLocaleString('id-ID')}
+                    </span>
+                  </div>
                 </div>
               </button>
             ))}
