@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Minus, ShoppingCart, X, Store, MapPin } from 'lucide-react';
-import { getProducts, getCart, updateCart, clearCart, addOrder, getCurrentStore, getStores, getOrders, addReceivable, setCurrentStore, updateProduct, getCurrentBranch, getBranches, getProductsByBranch, getStoresByBranch } from '../../utils/mockData';
+import { getProducts, getCart, updateCart, clearCart, addOrder, getCurrentStore, getStores, getOrders, addReceivable, setCurrentStore, updateProduct, getCurrentBranch, getBranches, getProductsByBranch, getStoresByBranch, generateId } from '../../utils/mockData';
 import { toast, Toaster } from 'sonner';
 
 export default function OrderPage() {
@@ -161,7 +161,7 @@ export default function OrderPage() {
     dueDate.setDate(dueDate.getDate() + 30);
 
     addReceivable({
-      id: `RCV-${Date.now()}`,
+      id: generateId('REC'),
       storeId: selectedStore,
       storeName: store?.name || '',
       orderId: orderId,

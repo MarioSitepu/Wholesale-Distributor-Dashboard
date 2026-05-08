@@ -84,6 +84,9 @@ export const addUser = (user: User) => {
   }
   users.push(user);
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  
+  // Bootstrap data for the new branch immediately
+  initializeMockData();
 };
 
 export const deleteUser = (username: string) => {
@@ -98,7 +101,7 @@ export const getBranches = (): string[] => {
   const branches = users
     .map(u => u.branch)
     .filter(b => b !== 'Pusat');
-  return Array.from(new Set(branches));
+  return Array.from(new Set(branches)).sort();
 };
 
 export const getScheduledPrices = (): ScheduledPrice[] => {
@@ -204,6 +207,14 @@ const getBranchKey = (key: string, branch?: string): string => {
   return `${key}_${b.toLowerCase()}`;
 };
 
+export const generateId = (prefix: string, branch?: string): string => {
+  const b = branch || getCurrentBranch();
+  const bCode = b.toUpperCase().substring(0, 3);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const timestamp = Date.now().toString().slice(-6);
+  return `${prefix}-${bCode}-${timestamp}${random}`;
+};
+
 // Global data fetching for Super Admin
 export const getGlobalOrders = (): (Order & { branch: string })[] => {
   let allOrders: (Order & { branch: string })[] = [];
@@ -288,8 +299,18 @@ export const initializeMockData = () => {
 
     if (!localStorage.getItem(storesKey)) {
       localStorage.setItem(storesKey, JSON.stringify([
-        { id: `S-001-${branch.substring(0,3)}`, name: `Toko Berkah ${branch}`, branch: branch, totalDebt: 0 },
-        { id: `S-002-${branch.substring(0,3)}`, name: `Warung Maju ${branch}`, branch: branch, totalDebt: 0 },
+        { 
+          id: `STR-${branch.toUpperCase().substring(0,3)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`, 
+          name: `Toko Berkah ${branch}`, 
+          branch: branch, 
+          totalDebt: 0 
+        },
+        { 
+          id: `STR-${branch.toUpperCase().substring(0,3)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`, 
+          name: `Warung Maju ${branch}`, 
+          branch: branch, 
+          totalDebt: 0 
+        },
       ]));
     }
 

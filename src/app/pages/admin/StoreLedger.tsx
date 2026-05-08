@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Store, Order, getStores, getOrders, updateStore, addStore, deleteStore, getCurrentBranch, getGlobalStores, getGlobalOrders, getBranches } from '../../utils/mockData';
+import { Store, Order, getStores, getOrders, updateStore, addStore, deleteStore, getCurrentBranch, getGlobalStores, getGlobalOrders, getBranches, generateId } from '../../utils/mockData';
 import { Search, Store as StoreIcon, Calendar, Receipt, ChevronDown, Edit2, Check, X, Plus, Trash2, MapPin } from 'lucide-react';
 
 export default function StoreLedger() {
@@ -37,7 +37,7 @@ export default function StoreLedger() {
       : getCurrentBranch();
 
     const newStore: Store = {
-      id: `S-${Date.now()}`,
+      id: generateId('STR', branchToUse),
       name: newStoreName.trim(),
       branch: branchToUse,
       totalDebt: 0

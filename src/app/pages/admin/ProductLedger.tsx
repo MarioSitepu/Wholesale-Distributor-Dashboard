@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Product, Order, getProducts, getOrders, updateProduct, addProduct, deleteProduct, ScheduledPrice, getScheduledPrices, addScheduledPrice, deleteScheduledPrice, applyScheduledPrices, getGlobalProducts, getGlobalOrders, getBranches, getCurrentBranch } from '../../utils/mockData';
+import { Product, Order, getProducts, getOrders, updateProduct, addProduct, deleteProduct, ScheduledPrice, getScheduledPrices, addScheduledPrice, deleteScheduledPrice, applyScheduledPrices, getGlobalProducts, getGlobalOrders, getBranches, getCurrentBranch, generateId } from '../../utils/mockData';
 import { Search, Package, Calendar, Receipt, TrendingUp, TrendingDown, Edit2, Check, X, Plus, Trash2, Clock, AlertTriangle, MapPin } from 'lucide-react';
 
 export default function ProductLedger() {
@@ -49,7 +49,7 @@ export default function ProductLedger() {
     const branchToUse = isSuperAdmin ? selectedBranch : getCurrentBranch();
 
     const newProduct: Product = {
-      id: `${newProductCategory[0]}-${Date.now()}`,
+      id: generateId('PRD', branchToUse),
       name: newProductName.trim(),
       category: newProductCategory,
       price: Number(newProductPrice),
