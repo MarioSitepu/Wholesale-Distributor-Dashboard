@@ -145,30 +145,32 @@ export default function OrderPage() {
     const currentProducts = getProducts();
     setProducts(currentProducts.filter(p => p.category === selectedCategory));
 
+    const orderBranch = isSuperAdmin ? activeBranch : getCurrentBranch();
+
     const newOrder = {
       id: orderId,
       storeId: selectedStore,
       storeName: store?.name || '',
-      branch: getCurrentBranch(),
+      branch: orderBranch,
       items: orderItems,
       total: cartTotal,
       createdAt: new Date().toISOString(),
     };
 
-    addOrder(newOrder);
+    addOrder(newOrder, orderBranch);
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
 
     addReceivable({
-      id: generateId('REC'),
+      id: generateId('REC', orderBranch),
       storeId: selectedStore,
       storeName: store?.name || '',
       orderId: orderId,
       amount: cartTotal,
       dueDate: dueDate.toISOString(),
       isPaid: false,
-    });
+    }, orderBranch);
 
     clearCart();
     setCart([]);
@@ -302,7 +304,7 @@ export default function OrderPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => {
             const inCart = getCartQuantity(product.id);
-            const isRestricted = cartCategory && cartCategory !== product.category;
+            const isRestricted = !!(cartCategory && cartCategory !== product.category);
 
             return (
               <div 

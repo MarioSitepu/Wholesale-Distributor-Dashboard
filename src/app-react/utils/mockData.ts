@@ -62,8 +62,20 @@ const STORAGE_KEYS = {
   USERS: 'wholesale_users'
 };
 
+const isClient = typeof window !== 'undefined';
+
+const safeGet = (key: string): string | null => {
+  if (!isClient) return null;
+  return localStorage.getItem(key);
+};
+
+const safeSet = (key: string, value: string) => {
+  if (!isClient) return;
+  localStorage.setItem(key, value);
+};
+
 export const getUsers = (): User[] => {
-  const users = localStorage.getItem(STORAGE_KEYS.USERS);
+  const users = safeGet(STORAGE_KEYS.USERS);
   if (!users) {
     const defaultUsers: User[] = [
       { username: 'superadmin', password: 'password123', role: 'admin', branch: 'Pusat' },
@@ -71,7 +83,7 @@ export const getUsers = (): User[] => {
       { username: 'baturaja', password: 'password123', role: 'admin', branch: 'Baturaja' },
       { username: 'jambi', password: 'password123', role: 'admin', branch: 'Jambi' },
     ];
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
+    if (isClient) safeSet(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
     return defaultUsers;
   }
   return JSON.parse(users);
@@ -83,7 +95,7 @@ export const addUser = (user: User) => {
     throw new Error('Username sudah digunakan');
   }
   users.push(user);
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  safeSet(STORAGE_KEYS.USERS, JSON.stringify(users));
   
   // Bootstrap data for the new branch immediately
   initializeMockData();
@@ -93,7 +105,7 @@ export const deleteUser = (username: string) => {
   if (username === 'superadmin') throw new Error('Tidak dapat menghapus superadmin');
   const users = getUsers();
   const filtered = users.filter(u => u.username !== username);
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
+  safeSet(STORAGE_KEYS.USERS, JSON.stringify(filtered));
 };
 
 export const getBranches = (): string[] => {
@@ -105,24 +117,24 @@ export const getBranches = (): string[] => {
 };
 
 export const getScheduledPrices = (): ScheduledPrice[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES)) || '[]');
 };
 
 export const addScheduledPrice = (scheduledPrice: ScheduledPrice) => {
   const prices = getScheduledPrices();
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES), JSON.stringify([...prices, scheduledPrice]));
+  safeSet(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES), JSON.stringify([...prices, scheduledPrice]));
 };
 
 export const deleteScheduledPrice = (id: string) => {
   const prices = getScheduledPrices();
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES), JSON.stringify(prices.filter(p => p.id !== id)));
+  safeSet(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES), JSON.stringify(prices.filter(p => p.id !== id)));
 };
 
 export const applyScheduledPrices = () => {
   const scheduledPrices = getScheduledPrices();
   if (scheduledPrices.length === 0) return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
   const products = getProducts();
   const orders = getOrders();
   const receivables = getReceivables();
@@ -143,8 +155,12 @@ export const applyScheduledPrices = () => {
 
       // 2. Retroactive: Update Past Orders from startDate onwards
       orders.forEach(order => {
-        const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
+        const orderDate = new Date(order.createdAt).toLocaleDateString('en-CA');
         if (orderDate >= sp.startDate) {
+          // Point 2: Skip if already paid
+          const receivable = receivables.find(r => r.orderId === order.id);
+          if (receivable?.isPaid) return;
+
           let orderTotalChanged = false;
           order.items.forEach(item => {
             if (item.productId === sp.productId) {
@@ -154,13 +170,11 @@ export const applyScheduledPrices = () => {
           });
 
           if (orderTotalChanged) {
-            const oldTotal = order.total;
             const newTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             order.total = newTotal;
             ordersUpdated = true;
 
             // 3. Update associated Receivables
-            const receivable = receivables.find(r => r.orderId === order.id);
             if (receivable) {
               receivable.amount = newTotal;
               receivablesUpdated = true;
@@ -174,22 +188,22 @@ export const applyScheduledPrices = () => {
   });
 
   if (productsUpdated) {
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(products));
+    safeSet(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(products));
   }
   if (ordersUpdated) {
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.ORDERS), JSON.stringify(orders));
+    safeSet(getBranchKey(STORAGE_KEYS.ORDERS), JSON.stringify(orders));
   }
   if (receivablesUpdated) {
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.RECEIVABLES), JSON.stringify(receivables));
+    safeSet(getBranchKey(STORAGE_KEYS.RECEIVABLES), JSON.stringify(receivables));
   }
   
   if (productsUpdated || ordersUpdated || receivablesUpdated) {
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES), JSON.stringify(remainingScheduled));
+    safeSet(getBranchKey(STORAGE_KEYS.SCHEDULED_PRICES), JSON.stringify(remainingScheduled));
   }
 };
 
 export const getCurrentBranch = (): string => {
-  const userStr = localStorage.getItem('currentUser');
+  const userStr = safeGet('currentUser');
   if (userStr) {
     try {
       const user = JSON.parse(userStr);
@@ -219,7 +233,7 @@ export const generateId = (prefix: string, branch?: string): string => {
 export const getGlobalOrders = (): (Order & { branch: string })[] => {
   let allOrders: (Order & { branch: string })[] = [];
   getBranches().forEach(branch => {
-    const orders: Order[] = JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.ORDERS, branch)) || '[]');
+    const orders: Order[] = JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.ORDERS, branch)) || '[]');
     allOrders = [...allOrders, ...orders.map(o => ({ ...o, branch }))];
   });
   return allOrders;
@@ -228,7 +242,7 @@ export const getGlobalOrders = (): (Order & { branch: string })[] => {
 export const getGlobalProducts = (): (Product & { branch: string })[] => {
   let allProducts: (Product & { branch: string })[] = [];
   getBranches().forEach(branch => {
-    const products: Product[] = JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.PRODUCTS, branch)) || '[]');
+    const products: Product[] = JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.PRODUCTS, branch)) || '[]');
     allProducts = [...allProducts, ...products.map(p => ({ ...p, branch }))];
   });
   return allProducts;
@@ -237,7 +251,7 @@ export const getGlobalProducts = (): (Product & { branch: string })[] => {
 export const getGlobalStores = (): (Store & { branch: string })[] => {
   let allStores: (Store & { branch: string })[] = [];
   getBranches().forEach(branch => {
-    const stores: Store[] = JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.STORES, branch)) || '[]');
+    const stores: Store[] = JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.STORES, branch)) || '[]');
     allStores = [...allStores, ...stores.map(s => ({ ...s, branch }))];
   });
   return allStores;
@@ -246,28 +260,28 @@ export const getGlobalStores = (): (Store & { branch: string })[] => {
 export const getGlobalReceivables = (): (Receivable & { branch: string })[] => {
   let allReceivables: (Receivable & { branch: string })[] = [];
   getBranches().forEach(branch => {
-    const receivables: Receivable[] = JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.RECEIVABLES, branch)) || '[]');
+    const receivables: Receivable[] = JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.RECEIVABLES, branch)) || '[]');
     allReceivables = [...allReceivables, ...receivables.map(r => ({ ...r, branch }))];
   });
   return allReceivables;
 };
 
 export const getProductsByBranch = (branch: string): Product[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.PRODUCTS, branch)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.PRODUCTS, branch)) || '[]');
 };
 
 export const getStoresByBranch = (branch: string): Store[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.STORES, branch)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.STORES, branch)) || '[]');
 };
 
 export const getOrdersByBranch = (branch: string): Order[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.ORDERS, branch)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.ORDERS, branch)) || '[]');
 };
 
 export const addOrderByBranch = (order: Order, branch: string) => {
   const orders = getOrdersByBranch(branch);
   orders.push(order);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.ORDERS, branch), JSON.stringify(orders));
+  safeSet(getBranchKey(STORAGE_KEYS.ORDERS, branch), JSON.stringify(orders));
 };
 
 export const initializeMockData = () => {
@@ -293,12 +307,34 @@ export const initializeMockData = () => {
     const ordersKey = getBranchKey(STORAGE_KEYS.ORDERS, branch);
     const receivablesKey = getBranchKey(STORAGE_KEYS.RECEIVABLES, branch);
 
-    if (!localStorage.getItem(productsKey)) {
-      localStorage.setItem(productsKey, JSON.stringify(INITIAL_PRODUCTS));
+    if (!safeGet(productsKey)) {
+      // Try to find an existing branch to use as a template for products/prices
+      const otherBranches = getBranches().filter(b => b !== branch);
+      let templateProducts = INITIAL_PRODUCTS;
+      
+      for (const other of otherBranches) {
+        const otherKey = getBranchKey(STORAGE_KEYS.PRODUCTS, other);
+        const otherData = safeGet(otherKey);
+        if (otherData) {
+          const parsed = JSON.parse(otherData);
+          if (parsed.length > 0) {
+            // Use existing branch data but reset stock
+            templateProducts = parsed.map((p: Product) => ({
+              ...p,
+              stock: 0,
+              initialStock: 0,
+              totalIn: 0,
+              totalOut: 0
+            }));
+            break;
+          }
+        }
+      }
+      safeSet(productsKey, JSON.stringify(templateProducts));
     }
 
-    if (!localStorage.getItem(storesKey)) {
-      localStorage.setItem(storesKey, JSON.stringify([
+    if (!safeGet(storesKey)) {
+      safeSet(storesKey, JSON.stringify([
         { 
           id: `STR-${branch.toUpperCase().substring(0,3)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`, 
           name: `Toko Berkah ${branch}`, 
@@ -314,44 +350,94 @@ export const initializeMockData = () => {
       ]));
     }
 
-    if (!localStorage.getItem(ordersKey)) localStorage.setItem(ordersKey, JSON.stringify([]));
-    if (!localStorage.getItem(receivablesKey)) localStorage.setItem(receivablesKey, JSON.stringify([]));
+    if (!safeGet(ordersKey)) safeSet(ordersKey, JSON.stringify([]));
+    if (!safeGet(receivablesKey)) safeSet(receivablesKey, JSON.stringify([]));
   });
 };
 
 export const getProducts = (): Product[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.PRODUCTS)) || '[]');
+  // Point 1: Auto-apply scheduled prices when getting products
+  const prices = getScheduledPrices();
+  if (prices.some(p => p.startDate <= new Date().toLocaleDateString('en-CA'))) {
+    applyScheduledPrices();
+  }
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.PRODUCTS)) || '[]');
 };
 
 export const updateProduct = (product: Product) => {
-  const products = getProducts();
-  const index = products.findIndex(p => p.id === product.id);
+  // Point 4: Enforce consistency
+  product.stock = product.totalIn - product.totalOut;
+  if (product.stock < 0) product.stock = 0;
+
+  // 1. Update current branch
+  const currentBranchProducts = getProducts();
+  const index = currentBranchProducts.findIndex(p => p.id === product.id);
   if (index !== -1) {
-    products[index] = product;
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(products));
+    currentBranchProducts[index] = product;
+    safeSet(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(currentBranchProducts));
   }
+
+  // 2. Sync Name and Price to ALL other branches (keep their own stock)
+  getBranches().forEach(branch => {
+    if (branch === getCurrentBranch()) return; // skip current
+    
+    const branchKey = getBranchKey(STORAGE_KEYS.PRODUCTS, branch);
+    const branchProducts: Product[] = JSON.parse(safeGet(branchKey) || '[]');
+    const bIndex = branchProducts.findIndex(p => p.id === product.id);
+    
+    if (bIndex !== -1) {
+      branchProducts[bIndex] = {
+        ...branchProducts[bIndex],
+        name: product.name,
+        price: product.price,
+        category: product.category
+      };
+      safeSet(branchKey, JSON.stringify(branchProducts));
+    }
+  });
 };
 
 export const addProduct = (product: Product) => {
-  const products = getProducts();
-  products.push(product);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(products));
+  // Add to ALL branches with 0 stock in others
+  getBranches().forEach(branch => {
+    const branchKey = getBranchKey(STORAGE_KEYS.PRODUCTS, branch);
+    const branchProducts: Product[] = JSON.parse(safeGet(branchKey) || '[]');
+    
+    // Check if product already exists to avoid duplicates
+    if (!branchProducts.find(p => p.id === product.id)) {
+      const isCurrentBranch = branch === getCurrentBranch();
+      const finalProduct = {
+        ...product,
+        stock: isCurrentBranch ? (product.totalIn - product.totalOut) : 0,
+        initialStock: isCurrentBranch ? product.initialStock : 0,
+        totalIn: isCurrentBranch ? product.totalIn : 0,
+        totalOut: isCurrentBranch ? product.totalOut : 0
+      };
+      if (finalProduct.stock < 0) finalProduct.stock = 0;
+      branchProducts.push(finalProduct);
+      safeSet(branchKey, JSON.stringify(branchProducts));
+    }
+  });
 };
 
 export const deleteProduct = (productId: string) => {
-  const products = getProducts();
-  const updatedProducts = products.filter(p => p.id !== productId);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(updatedProducts));
+  // Delete from ALL branches
+  getBranches().forEach(branch => {
+    const branchKey = getBranchKey(STORAGE_KEYS.PRODUCTS, branch);
+    const branchProducts: Product[] = JSON.parse(safeGet(branchKey) || '[]');
+    const updatedProducts = branchProducts.filter(p => p.id !== productId);
+    safeSet(branchKey, JSON.stringify(updatedProducts));
+  });
 };
 
 export const getOrders = (): Order[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.ORDERS)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.ORDERS)) || '[]');
 };
 
-export const addOrder = (order: Order) => {
-  const orders = getOrders();
+export const addOrder = (order: Order, branch?: string) => {
+  const orders = branch ? getOrdersByBranch(branch) : getOrders();
   orders.push(order);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.ORDERS), JSON.stringify(orders));
+  safeSet(getBranchKey(STORAGE_KEYS.ORDERS, branch), JSON.stringify(orders));
 };
 
 export const updateOrder = (orderId: string, updates: Partial<Order>) => {
@@ -359,18 +445,18 @@ export const updateOrder = (orderId: string, updates: Partial<Order>) => {
   const index = orders.findIndex(o => o.id === orderId);
   if (index !== -1) {
     orders[index] = { ...orders[index], ...updates };
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.ORDERS), JSON.stringify(orders));
+    safeSet(getBranchKey(STORAGE_KEYS.ORDERS), JSON.stringify(orders));
   }
 };
 
 export const getReceivables = (): Receivable[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.RECEIVABLES)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.RECEIVABLES)) || '[]');
 };
 
-export const addReceivable = (receivable: Receivable) => {
-  const receivables = getReceivables();
+export const addReceivable = (receivable: Receivable, branch?: string) => {
+  const receivables = branch ? JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.RECEIVABLES, branch)) || '[]') : getReceivables();
   receivables.push(receivable);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.RECEIVABLES), JSON.stringify(receivables));
+  safeSet(getBranchKey(STORAGE_KEYS.RECEIVABLES, branch), JSON.stringify(receivables));
 };
 
 export const updateReceivable = (id: string, isPaid: boolean) => {
@@ -378,12 +464,12 @@ export const updateReceivable = (id: string, isPaid: boolean) => {
   const index = receivables.findIndex(r => r.id === id);
   if (index !== -1) {
     receivables[index].isPaid = isPaid;
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.RECEIVABLES), JSON.stringify(receivables));
+    safeSet(getBranchKey(STORAGE_KEYS.RECEIVABLES), JSON.stringify(receivables));
   }
 };
 
 export const getStores = (): Store[] => {
-  return JSON.parse(localStorage.getItem(getBranchKey(STORAGE_KEYS.STORES)) || '[]');
+  return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.STORES)) || '[]');
 };
 
 export const updateStore = (store: Store) => {
@@ -391,28 +477,28 @@ export const updateStore = (store: Store) => {
   const index = stores.findIndex(s => s.id === store.id);
   if (index !== -1) {
     stores[index] = store;
-    localStorage.setItem(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(stores));
+    safeSet(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(stores));
   }
 };
 
 export const addStore = (store: Store) => {
   const stores = getStores();
   stores.push(store);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(stores));
+  safeSet(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(stores));
 };
 
 export const deleteStore = (storeId: string) => {
   const stores = getStores();
   const updatedStores = stores.filter(s => s.id !== storeId);
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(updatedStores));
+  safeSet(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(updatedStores));
 };
 
 export const getCurrentStore = (): string => {
-  return localStorage.getItem(getBranchKey(STORAGE_KEYS.CURRENT_STORE)) || 'S001';
+  return safeGet(getBranchKey(STORAGE_KEYS.CURRENT_STORE)) || 'S001';
 };
 
 export const setCurrentStore = (storeId: string) => {
-  localStorage.setItem(getBranchKey(STORAGE_KEYS.CURRENT_STORE), storeId);
+  safeSet(getBranchKey(STORAGE_KEYS.CURRENT_STORE), storeId);
 };
 
 export const getCart = (): Array<{ productId: string; quantity: number }> => {

@@ -156,7 +156,7 @@ export default function ReceivablesManagement() {
                     Nama Toko
                   </th>
                   {isSuperAdmin && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-blue-600">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">
                       Cabang
                     </th>
                   )}
@@ -243,7 +243,7 @@ export default function ReceivablesManagement() {
                       Nama Toko
                     </th>
                     {isSuperAdmin && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-blue-600">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">
                         Cabang
                       </th>
                     )}

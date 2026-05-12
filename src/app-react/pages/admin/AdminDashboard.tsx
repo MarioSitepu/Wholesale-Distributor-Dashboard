@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   );
 
   const receivables = useMemo(() => 
-    selectedBranch === 'all' ? allReceivables : allReceivables.filter(r => r.branch === selectedBranch),
+    selectedBranch === 'all' ? allReceivables : allReceivables.filter(r => (r as any).branch === selectedBranch),
     [allReceivables, selectedBranch]
   );
 
@@ -38,7 +38,7 @@ export default function AdminDashboard() {
 
   const [selectedReportStore, setSelectedReportStore] = useState<string>('all');
   const [selectedReportDate, setSelectedReportDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    new Date().toLocaleDateString('en-CA')
   );
 
   const dailyReportData = useMemo(() => {

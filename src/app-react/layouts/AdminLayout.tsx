@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { Outlet, Link, useLocation, useNavigate } from '../router-compat';
 import { LayoutDashboard, Package, DollarSign, LogOut, ChevronLeft, ChevronRight, ShoppingCart, History, Book, BookOpen, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { initializeMockData } from '../utils/mockData';

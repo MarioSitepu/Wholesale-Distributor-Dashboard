@@ -327,7 +327,7 @@ export default function ProductLedger() {
                                 />
                               </div>
                             </div>
-                            {newSchedDate && newSchedDate < today && (
+                            {newSchedDate && newSchedDate < new Date().toISOString().split('T')[0] && (
                               <div className="flex items-start gap-2 text-xs text-orange-700 font-medium leading-tight">
                                 <AlertTriangle className="w-4 h-4 shrink-0" />
                                 <p>Perhatian: Karena tanggal yang dipilih sudah lewat, data penjualan dan piutang lama akan dikoreksi otomatis.</p>

@@ -1,17 +1,19 @@
+'use client';
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useRouter } from 'next/navigation';
 import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from 'sonner';
 
-import { getUsers, User } from '../utils/mockData';
+import { getUsers } from '../app-react/utils/mockData';
 
 export default function Login() {
   const users = getUsers();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +32,7 @@ export default function Login() {
       toast.success(`Selamat datang, Admin ${user.branch}!`);
 
       setTimeout(() => {
-        navigate('/admin');
+        router.push('/admin');
       }, 500);
 
       setIsLoading(false);
@@ -114,7 +116,6 @@ export default function Login() {
               </button>
             </form>
           </div>
-
         </div>
       </div>
     </>
