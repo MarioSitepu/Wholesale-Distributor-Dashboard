@@ -33,13 +33,16 @@ export default function OrderHistory() {
     const matchesCategory = selectedCategoryFilter === 'all' || orderCategory === selectedCategoryFilter;
     
     // Date filtering
-    const orderDate = new Date(order.createdAt).toISOString();
+    const dateObj = new Date(order.createdAt);
+    const orderDateLocal = dateObj.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const orderMonthLocal = orderDateLocal.slice(0, 7); // YYYY-MM
+    
     let matchesDate = false;
     
     if (filterType === 'day') {
-      matchesDate = orderDate.startsWith(selectedDate);
+      matchesDate = orderDateLocal === selectedDate;
     } else {
-      matchesDate = orderDate.startsWith(selectedMonth);
+      matchesDate = orderMonthLocal === selectedMonth;
     }
     
     return matchesBranch && matchesStore && matchesCategory && matchesDate;
