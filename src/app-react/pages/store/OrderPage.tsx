@@ -38,6 +38,11 @@ export default function OrderPage() {
   }, [selectedCategory, activeBranch, isSuperAdmin]);
 
   const handleStoreChange = (storeId: string) => {
+    if (!storeId) {
+      setSelectedStore('');
+      setCurrentStore('');
+      return;
+    }
     setSelectedStore(storeId);
     setCurrentStore(storeId);
     clearCart();
@@ -46,6 +51,10 @@ export default function OrderPage() {
   };
 
   const addToCart = (productId: string) => {
+    if (!selectedStore) {
+      toast.error('Silakan pilih toko terlebih dahulu!');
+      return;
+    }
     const product = allProducts.find(p => p.id === productId);
     if (!product || product.stock === 0) return;
 
@@ -224,6 +233,7 @@ export default function OrderPage() {
                 onChange={(e) => handleStoreChange(e.target.value)}
                 className="border-none outline-none bg-transparent text-gray-900 cursor-pointer font-medium"
               >
+                <option value="">Pilih Toko...</option>
                 {stores.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.name}
@@ -238,7 +248,14 @@ export default function OrderPage() {
               }`}
             >
               <ShoppingCart className="w-5 h-5" />
-              <span>Keranjang ({cart.length})</span>
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-sm font-bold">Keranjang ({cart.length})</span>
+                {selectedStore && (
+                  <span className="text-[10px] opacity-80 truncate max-w-[120px]">
+                    {stores.find(s => s.id === selectedStore)?.name}
+                  </span>
+                )}
+              </div>
               {cartCategory && (
                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full border-2 border-white font-bold uppercase">
                   {cartCategory}
@@ -301,77 +318,93 @@ export default function OrderPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => {
-            const inCart = getCartQuantity(product.id);
-            const isRestricted = !!(cartCategory && cartCategory !== product.category);
+        <div className="relative">
+          {!selectedStore && (
+            <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200">
+              <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm mx-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <Store className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Pilih Toko Dahulu</h3>
+                <p className="text-gray-500 text-sm">
+                  Silakan pilih toko pada menu di atas untuk mulai melihat stok dan melakukan pemesanan.
+                </p>
+              </div>
+            </div>
+          )}
 
-            return (
-              <div 
-                key={product.id} 
-                className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden group ${
-                  isRestricted ? 'opacity-60 grayscale-[0.5] border-gray-100' : 'border-gray-200 hover:shadow-md hover:border-blue-200'
-                }`}
-              >
-                <div className="p-6">
-                  <div className="mb-4 flex justify-between items-start">
-                    <div>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">{product.category}</p>
-                      <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">{product.name}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {products.map((product) => {
+              const inCart = getCartQuantity(product.id);
+              const isRestricted = !!(cartCategory && cartCategory !== product.category);
+
+              return (
+                <div 
+                  key={product.id} 
+                  className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden group ${
+                    isRestricted ? 'opacity-60 grayscale-[0.5] border-gray-100' : 'border-gray-200 hover:shadow-md hover:border-blue-200'
+                  }`}
+                >
+                  <div className="p-6">
+                    <div className="mb-4 flex justify-between items-start">
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">{product.category}</p>
+                        <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">{product.name}</h3>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mb-6">
-                    <p className="text-2xl font-black text-gray-900">
-                      <span className="text-sm font-normal text-gray-500 mr-1">Rp</span>
-                      {product.price.toLocaleString('id-ID')}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className={`w-2 h-2 rounded-full ${product.stock > 20 ? 'bg-green-500' : 'bg-red-500'}`} />
-                      <p className="text-xs text-gray-500 font-medium">Stok: {product.stock} pcs</p>
+                    <div className="mb-6">
+                      <p className="text-2xl font-black text-gray-900">
+                        <span className="text-sm font-normal text-gray-500 mr-1">Rp</span>
+                        {product.price.toLocaleString('id-ID')}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className={`w-2 h-2 rounded-full ${product.stock > 20 ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <p className="text-xs text-gray-500 font-medium">Stok: {product.stock} pcs</p>
+                      </div>
                     </div>
-                  </div>
 
-                  {product.stock > 0 ? (
-                    <div className="flex items-center gap-3">
-                      {inCart > 0 ? (
-                        <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
-                          <button
-                            onClick={() => decreaseQuantity(product.id)}
-                            className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="font-bold text-blue-700 flex-1 text-center text-lg">{inCart}</span>
+                    {product.stock > 0 ? (
+                      <div className="flex items-center gap-3">
+                        {inCart > 0 ? (
+                          <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
+                            <button
+                              onClick={() => decreaseQuantity(product.id)}
+                              className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="font-bold text-blue-700 flex-1 text-center text-lg">{inCart}</span>
+                            <button
+                              onClick={() => addToCart(product.id)}
+                              className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             onClick={() => addToCart(product.id)}
-                            className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                            disabled={isRestricted}
+                            className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                              isRestricted 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md active:scale-95'
+                            }`}
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-5 h-5" />
+                            Tambah Ke Bon
                           </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => addToCart(product.id)}
-                          disabled={isRestricted}
-                          className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-                            isRestricted 
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md active:scale-95'
-                          }`}
-                        >
-                          <Plus className="w-5 h-5" />
-                          Tambah Ke Bon
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-3 bg-gray-50 rounded-xl text-gray-400 font-bold text-sm">STOK HABIS</div>
-                  )}
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-3 bg-gray-50 rounded-xl text-gray-400 font-bold text-sm">STOK HABIS</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -392,7 +425,7 @@ export default function OrderPage() {
               <div className="mb-4 flex items-center gap-2">
                 <Store className="w-5 h-5 text-blue-600" />
                 <span className="font-medium text-gray-800">
-                  Transaksi untuk: <span className="font-bold text-blue-700">{stores.find(s => s.id === selectedStore)?.name}</span>
+                  Pesanan Untuk: <span className="font-bold text-blue-700 text-lg ml-1">{stores.find(s => s.id === selectedStore)?.name || 'Pilih Toko...'}</span>
                 </span>
               </div>
               <div>

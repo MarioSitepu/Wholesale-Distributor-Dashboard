@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { ChevronDown, ChevronUp, Filter, Download, MapPin } from 'lucide-react';
 import { getOrders, getStores, getProducts, getGlobalOrders, getGlobalStores, getBranches } from '../../utils/mockData';
 
@@ -7,11 +7,11 @@ export default function OrderHistory() {
   const user = userStr ? JSON.parse(userStr) : null;
   const isSuperAdmin = user?.branch === 'Pusat';
 
-  const [allOrders] = useState(isSuperAdmin ? getGlobalOrders() : getOrders());
-  const [stores] = useState(isSuperAdmin ? getGlobalStores() : getStores());
+  const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+  const stores = isSuperAdmin ? getGlobalStores() : getStores();
   const products = getProducts();
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const currentMonth = new Date().toISOString().slice(0, 7);
 
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
@@ -218,9 +218,11 @@ export default function OrderHistory() {
                   </td>
                 </tr>
               ) : (
-                storeOrders.map((order) => (
-                  <>
-                    <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                storeOrders.map((order) => {
+                  const uniqueKey = `${(order as any).branch || 'General'}|${order.id}`;
+                return (
+                  <Fragment key={uniqueKey}>
+                    <tr className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
                           Selesai
@@ -273,9 +275,10 @@ export default function OrderHistory() {
                         </td>
                       </tr>
                     )}
-                  </>
-                ))
-              )}
+                  </Fragment>
+                );
+              })
+            )}
             </tbody>
           </table>
         </div>

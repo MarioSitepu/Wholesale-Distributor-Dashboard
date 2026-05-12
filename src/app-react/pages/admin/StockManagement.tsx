@@ -31,12 +31,25 @@ export default function StockManagement() {
       return;
     }
 
-    const product = products.find(p => p.id === selectedProduct);
+    const product = products.find(p => {
+      const pId = p.id;
+      const pBranch = (p as any).branch || getCurrentBranch();
+      const sProductParts = selectedProduct.split('|');
+      return pId === sProductParts[1] && pBranch === sProductParts[0];
+    });
+
     if (!product) return;
 
-    product.stock += amount;
-    product.totalIn += amount;
-    updateProduct(product);
+    const targetBranch = (product as any).branch || getCurrentBranch();
+    
+    // Create a copy to avoid state mutation issues
+    const updatedProduct = {
+      ...product,
+      stock: Number(product.stock) + amount,
+      totalIn: Number(product.totalIn) + amount
+    };
+    
+    updateProduct(updatedProduct, targetBranch);
     
     // Refresh products based on current view
     let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
@@ -126,9 +139,11 @@ export default function StockManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.id}</td>
+                {products.map((product) => {
+                  const uniqueKey = `${(product as any).branch || getCurrentBranch()}|${product.id}`;
+                  return (
+                    <tr key={uniqueKey} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
                     </td>
@@ -148,15 +163,16 @@ export default function StockManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
-                        onClick={() => openRestockModal(product.id)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                        onClick={() => openRestockModal(uniqueKey)}
+                        className="text-blue-600 hover:text-blue-900 font-medium flex items-center gap-1"
                       >
                         <Plus className="w-4 h-4" />
-                        Restock
+                        Tambah Stok
                       </button>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

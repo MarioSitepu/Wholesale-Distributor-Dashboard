@@ -131,11 +131,12 @@ export const deleteScheduledPrice = (id: string) => {
 };
 
 export const applyScheduledPrices = () => {
+  if (!isClient) return;
   const scheduledPrices = getScheduledPrices();
   if (scheduledPrices.length === 0) return;
 
   const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-  const products = getProducts();
+  const products = _getProductsRaw();
   const orders = getOrders();
   const receivables = getReceivables();
   
@@ -285,6 +286,17 @@ export const addOrderByBranch = (order: Order, branch: string) => {
 };
 
 export const initializeMockData = () => {
+  if (!isClient) return;
+
+  // ONE-TIME CLEANUP of test orders (requested by user)
+  const cleanupFlag = localStorage.getItem('cleanup_orders_v1');
+  if (!cleanupFlag) {
+    getBranches().forEach(branch => {
+      safeSet(getBranchKey(STORAGE_KEYS.ORDERS, branch), JSON.stringify([]));
+      safeSet(getBranchKey(STORAGE_KEYS.RECEIVABLES, branch), JSON.stringify([]));
+    });
+    localStorage.setItem('cleanup_orders_v1', 'true');
+  }
   const INITIAL_PRODUCTS: Product[] = [
     { id: 'F001', name: 'Fiesta Chicken Nugget 500g', category: 'Fiesta', stock: 120, price: 48500, initialStock: 200, totalIn: 200, totalOut: 80 },
     { id: 'F002', name: 'Fiesta Spicy Wing 500g', category: 'Fiesta', stock: 85, price: 58000, initialStock: 150, totalIn: 150, totalOut: 65 },
@@ -355,31 +367,48 @@ export const initializeMockData = () => {
   });
 };
 
-export const getProducts = (): Product[] => {
-  // Point 1: Auto-apply scheduled prices when getting products
-  const prices = getScheduledPrices();
-  if (prices.some(p => p.startDate <= new Date().toLocaleDateString('en-CA'))) {
-    applyScheduledPrices();
-  }
+// Internal raw getter to avoid recursion
+const _getProductsRaw = (): Product[] => {
   return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.PRODUCTS)) || '[]');
 };
 
-export const updateProduct = (product: Product) => {
+export const getProducts = (): Product[] => {
+  // Point 1: Auto-apply scheduled prices when getting products
+  const prices = getScheduledPrices();
+  if (isClient && prices.some(p => p.startDate <= new Date().toLocaleDateString('en-CA'))) {
+    applyScheduledPrices();
+  }
+  return _getProductsRaw();
+};
+
+export const updateProduct = (product: Product, targetBranch?: string) => {
+  const currentBranch = targetBranch || getCurrentBranch();
+  
   // Point 4: Enforce consistency
-  product.stock = product.totalIn - product.totalOut;
+  const oldProducts = targetBranch ? getProductsByBranch(targetBranch) : _getProductsRaw();
+  const oldProduct = oldProducts.find(p => p.id === product.id);
+  
+  if (oldProduct && Number(product.stock) !== (Number(oldProduct.totalIn) - Number(oldProduct.totalOut))) {
+    product.totalIn = Number(product.stock) + Number(product.totalOut);
+  } else {
+    product.stock = Number(product.totalIn) - Number(product.totalOut);
+  }
+  
   if (product.stock < 0) product.stock = 0;
 
-  // 1. Update current branch
-  const currentBranchProducts = getProducts();
-  const index = currentBranchProducts.findIndex(p => p.id === product.id);
+  // 1. Update target branch
+  const branchKey = getBranchKey(STORAGE_KEYS.PRODUCTS, targetBranch);
+  const branchProducts = targetBranch ? getProductsByBranch(targetBranch) : _getProductsRaw();
+  const index = branchProducts.findIndex(p => p.id === product.id);
+  
   if (index !== -1) {
-    currentBranchProducts[index] = product;
-    safeSet(getBranchKey(STORAGE_KEYS.PRODUCTS), JSON.stringify(currentBranchProducts));
+    branchProducts[index] = product;
+    safeSet(branchKey, JSON.stringify(branchProducts));
   }
 
   // 2. Sync Name and Price to ALL other branches (keep their own stock)
   getBranches().forEach(branch => {
-    if (branch === getCurrentBranch()) return; // skip current
+    if (branch === currentBranch) return; // skip target branch
     
     const branchKey = getBranchKey(STORAGE_KEYS.PRODUCTS, branch);
     const branchProducts: Product[] = JSON.parse(safeGet(branchKey) || '[]');
@@ -435,9 +464,35 @@ export const getOrders = (): Order[] => {
 };
 
 export const addOrder = (order: Order, branch?: string) => {
+  // 1. Save the order
   const orders = branch ? getOrdersByBranch(branch) : getOrders();
   orders.push(order);
   safeSet(getBranchKey(STORAGE_KEYS.ORDERS, branch), JSON.stringify(orders));
+
+  // 2. Deduct stock from the correct branch
+  const branchKey = getBranchKey(STORAGE_KEYS.PRODUCTS, branch);
+  const products: Product[] = JSON.parse(safeGet(branchKey) || '[]');
+  
+  order.items.forEach(item => {
+    const productIndex = products.findIndex(p => p.id === item.productId);
+    if (productIndex !== -1) {
+      // Point 4: Maintain consistency
+      products[productIndex].totalOut = Number(products[productIndex].totalOut) + Number(item.quantity);
+      products[productIndex].stock = Number(products[productIndex].totalIn) - Number(products[productIndex].totalOut);
+      if (products[productIndex].stock < 0) products[productIndex].stock = 0;
+    }
+  });
+
+  safeSet(branchKey, JSON.stringify(products));
+
+  // 3. Update Store Debt
+  const storesKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+  const stores: Store[] = JSON.parse(safeGet(storesKey) || '[]');
+  const storeIndex = stores.findIndex(s => s.id === order.storeId);
+  if (storeIndex !== -1) {
+    stores[storeIndex].totalDebt = (Number(stores[storeIndex].totalDebt) || 0) + Number(order.total);
+    safeSet(storesKey, JSON.stringify(stores));
+  }
 };
 
 export const updateOrder = (orderId: string, updates: Partial<Order>) => {
@@ -459,12 +514,27 @@ export const addReceivable = (receivable: Receivable, branch?: string) => {
   safeSet(getBranchKey(STORAGE_KEYS.RECEIVABLES, branch), JSON.stringify(receivables));
 };
 
-export const updateReceivable = (id: string, isPaid: boolean) => {
-  const receivables = getReceivables();
+export const updateReceivable = (id: string, isPaid: boolean, branch?: string) => {
+  const branchKey = getBranchKey(STORAGE_KEYS.RECEIVABLES, branch);
+  const receivables: Receivable[] = JSON.parse(safeGet(branchKey) || '[]');
   const index = receivables.findIndex(r => r.id === id);
+  
   if (index !== -1) {
-    receivables[index].isPaid = isPaid;
-    safeSet(getBranchKey(STORAGE_KEYS.RECEIVABLES), JSON.stringify(receivables));
+    const receivable = receivables[index];
+    const wasPaid = receivable.isPaid;
+    receivable.isPaid = isPaid;
+    safeSet(branchKey, JSON.stringify(receivables));
+
+    // If status changed to paid, decrease store debt
+    if (!wasPaid && isPaid) {
+      const storesKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+      const stores: Store[] = JSON.parse(safeGet(storesKey) || '[]');
+      const storeIndex = stores.findIndex(s => s.id === receivable.storeId);
+      if (storeIndex !== -1) {
+        stores[storeIndex].totalDebt = Math.max(0, (Number(stores[storeIndex].totalDebt) || 0) - Number(receivable.amount));
+        safeSet(storesKey, JSON.stringify(stores));
+      }
+    }
   }
 };
 
@@ -472,26 +542,30 @@ export const getStores = (): Store[] => {
   return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.STORES)) || '[]');
 };
 
-export const updateStore = (store: Store) => {
-  const stores = getStores();
+export const addStore = (store: Store, branch?: string) => {
+  const branchKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+  const stores = JSON.parse(safeGet(branchKey) || '[]');
+  stores.push(store);
+  safeSet(branchKey, JSON.stringify(stores));
+};
+
+export const updateStore = (store: Store, branch?: string) => {
+  const branchKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+  const stores: Store[] = JSON.parse(safeGet(branchKey) || '[]');
   const index = stores.findIndex(s => s.id === store.id);
   if (index !== -1) {
     stores[index] = store;
-    safeSet(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(stores));
+    safeSet(branchKey, JSON.stringify(stores));
   }
 };
 
-export const addStore = (store: Store) => {
-  const stores = getStores();
-  stores.push(store);
-  safeSet(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(stores));
+export const deleteStore = (id: string, branch?: string) => {
+  const branchKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+  const stores: Store[] = JSON.parse(safeGet(branchKey) || '[]');
+  const updatedStores = stores.filter(s => s.id !== id);
+  safeSet(branchKey, JSON.stringify(updatedStores));
 };
 
-export const deleteStore = (storeId: string) => {
-  const stores = getStores();
-  const updatedStores = stores.filter(s => s.id !== storeId);
-  safeSet(getBranchKey(STORAGE_KEYS.STORES), JSON.stringify(updatedStores));
-};
 
 export const getCurrentStore = (): string => {
   return safeGet(getBranchKey(STORAGE_KEYS.CURRENT_STORE)) || 'S001';

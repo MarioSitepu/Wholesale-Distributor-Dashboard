@@ -46,8 +46,8 @@ export default function AdminDashboard() {
     
     if (selectedReportDate) {
       filteredOrders = filteredOrders.filter(order => {
-        const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
-        return orderDate === selectedReportDate;
+        const orderDateLocal = new Date(order.createdAt).toLocaleDateString('en-CA');
+        return orderDateLocal === selectedReportDate;
       });
     }
 
@@ -363,7 +363,7 @@ export default function AdminDashboard() {
             <button
               onClick={handleExportExcel}
               disabled={dailyReportData.length === 0}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-bold"
             >
               <Download className="w-4 h-4" />
               Export CSV (Excel)

@@ -42,7 +42,7 @@ export default function StoreLedger() {
       branch: branchToUse,
       totalDebt: 0
     };
-    addStore(newStore);
+    addStore(newStore, branchToUse);
     
     // Refresh data
     const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
@@ -54,8 +54,13 @@ export default function StoreLedger() {
 
   const handleDeleteStore = (id: string) => {
     if (confirm('Apakah Anda yakin ingin menghapus toko ini?')) {
-      deleteStore(id);
-      setStores(getStores());
+      const storeToDelete = stores.find(s => s.id === id);
+      const branchToUse = storeToDelete?.branch || getCurrentBranch();
+      deleteStore(id, branchToUse);
+      
+      const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
+      setStores(selectedBranch === 'all' ? updatedStores : updatedStores.filter(s => s.branch === selectedBranch));
+      
       if (selectedStoreId === id) setSelectedStoreId('');
     }
   };
@@ -66,8 +71,10 @@ export default function StoreLedger() {
     const storeToUpdate = stores.find(s => s.id === selectedStoreId);
     if (storeToUpdate) {
       const updatedStore = { ...storeToUpdate, name: editStoreName.trim() };
-      updateStore(updatedStore);
-      setStores(getStores());
+      updateStore(updatedStore, storeToUpdate.branch);
+      
+      const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
+      setStores(selectedBranch === 'all' ? updatedStores : updatedStores.filter(s => s.branch === selectedBranch));
       setIsEditingStore(false);
     }
   };
