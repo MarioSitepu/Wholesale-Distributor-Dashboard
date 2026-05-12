@@ -20,7 +20,11 @@ export default function ReceivablesManagement() {
   }, [isSuperAdmin, selectedBranch]);
 
   const handleMarkAsPaid = (id: string) => {
-    updateReceivable(id, true);
+    const receivable = receivables.find(r => r.id === id);
+    if (!receivable) return;
+
+    const branchToUse = (receivable as any).branch || user?.branch;
+    updateReceivable(id, true, branchToUse);
     
     // Refresh data
     let allReceivables = isSuperAdmin ? getGlobalReceivables() : getReceivables();
