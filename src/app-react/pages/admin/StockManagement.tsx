@@ -255,9 +255,9 @@ export default function StockManagement() {
                   <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">ID Produk</th>
                   <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Produk</th>
                   {isSuperAdmin && <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Cabang</th>}
-                  <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Masuk</th>
-                  <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Keluar</th>
-                  <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Stok Sisa</th>
+                  <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Masuk</th>
+                  <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Keluar</th>
+                  <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Stok Sisa</th>
                   <th className="px-6 py-5 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Aksi</th>
                 </tr>
               </thead>
