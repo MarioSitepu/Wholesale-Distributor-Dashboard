@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Product, Order, getProducts, getOrders, updateProduct, addProduct, deleteProduct, ScheduledPrice, getScheduledPrices, addScheduledPrice, deleteScheduledPrice, applyScheduledPrices, getGlobalProducts, getGlobalOrders, getBranches, getCurrentBranch, generateId } from '../../utils/mockData';
-import { Search, Package, Calendar, Receipt, TrendingUp, TrendingDown, Edit2, Check, X, Plus, Trash2, Clock, AlertTriangle, MapPin } from 'lucide-react';
+import { Product, Order, getProducts, getOrders, updateProduct, addProduct, deleteProduct, ScheduledPrice, getScheduledPrices, addScheduledPrice, deleteScheduledPrice, applyScheduledPrices, getGlobalProducts, getGlobalOrders, getBranches, getCurrentBranch, generateId, getCategories, addCategory, deleteCategory } from '../../utils/mockData';
+import { Search, Package, Calendar, Receipt, TrendingUp, TrendingDown, Edit2, Check, X, Plus, Trash2, Clock, AlertTriangle, MapPin, Tag } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function ProductLedger() {
   const userStr = localStorage.getItem('currentUser');
@@ -16,11 +17,15 @@ export default function ProductLedger() {
   const [editProductName, setEditProductName] = useState('');
   const [editProductPrice, setEditProductPrice] = useState(0);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [newProductId, setNewProductId] = useState('');
   const [newProductName, setNewProductName] = useState('');
   const [newProductPrice, setNewProductPrice] = useState('');
-  const [newProductCategory, setNewProductCategory] = useState<'Fiesta' | 'Shifudo'>('Fiesta');
+  const [newProductCategory, setNewProductCategory] = useState<string>('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [isManagingCategories, setIsManagingCategories] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
-  const [selectedListCategory, setSelectedListCategory] = useState<'All' | 'Fiesta' | 'Shifudo'>('All');
+  const [selectedListCategory, setSelectedListCategory] = useState<string>('All');
 
   const [scheduledPrices, setScheduledPrices] = useState<ScheduledPrice[]>([]);
   const [isSchedulingPrice, setIsSchedulingPrice] = useState(false);
@@ -41,33 +46,64 @@ export default function ProductLedger() {
     setProducts(allProducts);
     setOrders(allOrders);
     setScheduledPrices(getScheduledPrices());
+    const cats = getCategories();
+    setCategories(cats);
+    if (!newProductCategory && cats.length > 0) setNewProductCategory(cats[0]);
   }, [isSuperAdmin, selectedBranch]);
 
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      addCategory(newCategoryName.trim());
+      setCategories(getCategories());
+      setNewCategoryName('');
+      toast.success('Kategori berhasil ditambahkan');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDeleteCategory = (cat: string) => {
+    if (confirm(`Hapus kategori ${cat}? Produk dengan kategori ini tidak akan terhapus tapi filter kategori akan hilang.`)) {
+      deleteCategory(cat);
+      setCategories(getCategories());
+      toast.success('Kategori berhasil dihapus');
+    }
+  };
+
   const handleAddProduct = () => {
-    if (!newProductName.trim() || !newProductPrice) return;
+    if (!newProductId.trim() || !newProductName.trim() || !newProductPrice) {
+      toast.error('Semua field harus diisi');
+      return;
+    }
+
+    // Check if ID already exists
+    const allProducts = getGlobalProducts();
+    if (allProducts.some(p => p.id.toLowerCase() === newProductId.trim().toLowerCase())) {
+      toast.error('ID Produk sudah digunakan');
+      return;
+    }
     
     const branchToUse = isSuperAdmin ? selectedBranch : getCurrentBranch();
 
     const newProduct: Product = {
-      id: generateId('PRD', branchToUse),
+      id: newProductId.trim().toUpperCase(),
       name: newProductName.trim(),
       category: newProductCategory,
       price: Number(newProductPrice),
       stock: 0,
-      initialStock: 0,
       totalIn: 0,
       totalOut: 0
     };
 
-    // Need to update mockData to support adding to specific branch if needed, 
-    // but for now addProduct uses getCurrentBranch. 
-    // Since this is a mock, we'll assume it works on the active view.
     addProduct(newProduct);
+    toast.success('Produk berhasil ditambahkan');
     
     // Refresh
     const updatedProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
     setProducts(updatedProducts.filter(p => (p as any).branch === selectedBranch));
     
+    setNewProductId('');
     setNewProductName('');
     setNewProductPrice('');
     setIsAddingProduct(false);
@@ -117,6 +153,7 @@ export default function ProductLedger() {
     }
   };
 
+
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -144,47 +181,139 @@ export default function ProductLedger() {
           <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <h2 className="font-semibold text-gray-700">Daftar Produk</h2>
-              <button 
-                onClick={() => setIsAddingProduct(true)}
-                className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                title="Tambah Produk"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-            {isAddingProduct && (
-              <div className="flex flex-col gap-2 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                <input
-                  type="text"
-                  placeholder="Nama produk..."
-                  className="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  value={newProductName}
-                  onChange={(e) => setNewProductName(e.target.value)}
-                  autoFocus
-                />
-                <input
-                  type="number"
-                  placeholder="Harga (Rp)..."
-                  className="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  value={newProductPrice}
-                  onChange={(e) => setNewProductPrice(e.target.value)}
-                />
-                <select
-                  className="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  value={newProductCategory}
-                  onChange={(e) => setNewProductCategory(e.target.value as 'Fiesta' | 'Shifudo')}
-                >
-                  <option value="Fiesta">Fiesta</option>
-                  <option value="Shifudo">Shifudo</option>
-                </select>
-                <div className="flex gap-2 justify-end">
-                  <button onClick={handleAddProduct} className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200">
-                    <Check className="w-4 h-4" />
+              <div className="flex flex-wrap gap-2 mt-2">
+                {isSuperAdmin && (
+                  <button 
+                    onClick={() => {
+                      setIsManagingCategories(!isManagingCategories);
+                      if (isAddingProduct) setIsAddingProduct(false);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all border-2 ${
+                      isManagingCategories 
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-100' 
+                        : 'bg-white text-orange-600 border-orange-100 hover:border-orange-500'
+                    }`}
+                  >
+                    <Tag className="w-3 h-3" />
+                    Atur Kategori
                   </button>
-                  <button onClick={() => { setIsAddingProduct(false); setNewProductName(''); setNewProductPrice(''); }} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200">
-                    <X className="w-4 h-4" />
+                )}
+                <button 
+                  onClick={() => {
+                    setIsAddingProduct(!isAddingProduct);
+                    if (isManagingCategories) setIsManagingCategories(false);
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all border-2 ${
+                    isAddingProduct 
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' 
+                      : 'bg-white text-blue-600 border-blue-100 hover:border-blue-600'
+                  }`}
+                >
+                  <Plus className="w-3 h-3" />
+                  Tambah Produk
+                </button>
+              </div>
+            </div>
+            {isManagingCategories && (
+              <div className="p-4 bg-orange-50 rounded-2xl border-2 border-orange-500 shadow-lg animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-orange-500 text-white rounded-lg">
+                      <Tag className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-xs font-black text-orange-600 uppercase tracking-widest">Master Kategori</h3>
+                  </div>
+                  <button onClick={() => setIsManagingCategories(false)} className="text-orange-300 hover:text-red-500"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Contoh: Nugget, Sosis..."
+                    className="flex-1 px-4 py-2 bg-white border-2 border-orange-100 rounded-xl text-sm focus:border-orange-500 outline-none transition-all font-bold placeholder:font-normal"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleAddCategory}
+                    className="bg-orange-500 text-white px-3 rounded-xl hover:bg-orange-600 shadow-md active:scale-95 transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
                   </button>
                 </div>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                  {categories.map(cat => (
+                    <div key={cat} className="group flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-orange-100 text-xs font-bold text-orange-700 shadow-sm hover:border-orange-300 transition-all">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                      {cat}
+                      <button 
+                        onClick={() => handleDeleteCategory(cat)} 
+                        className="opacity-0 group-hover:opacity-100 text-orange-300 hover:text-red-500 transition-all"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {isAddingProduct && (
+              <div className="flex flex-col gap-3 p-4 bg-white rounded-2xl border-2 border-blue-500 shadow-lg animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest">Produk Baru</h3>
+                  <button onClick={() => setIsAddingProduct(false)} className="text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">ID Produk (Manual)</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: F009"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono font-bold"
+                      value={newProductId}
+                      onChange={(e) => setNewProductId(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Nama Produk</label>
+                    <input
+                      type="text"
+                      placeholder="Nama produk..."
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      value={newProductName}
+                      onChange={(e) => setNewProductName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Kategori</label>
+                      <select
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm cursor-pointer"
+                        value={newProductCategory}
+                        onChange={(e) => setNewProductCategory(e.target.value)}
+                      >
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Harga (Rp)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-bold text-blue-600"
+                        value={newProductPrice}
+                        onChange={(e) => setNewProductPrice(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleAddProduct} 
+                  className="w-full mt-2 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-100"
+                >
+                  Tambahkan Produk
+                </button>
               </div>
             )}
             {isSuperAdmin && (
@@ -201,12 +330,12 @@ export default function ProductLedger() {
                 </select>
               </div>
             )}
-            <div className="flex gap-1 p-1 bg-gray-200/50 rounded-lg">
-              {(['All', 'Fiesta', 'Shifudo'] as const).map((cat) => (
+            <div className="flex gap-1 p-1 bg-gray-200/50 rounded-lg overflow-x-auto no-scrollbar">
+              {['All', ...categories].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedListCategory(cat)}
-                  className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-md transition-all ${
+                  className={`whitespace-nowrap py-1.5 px-3 text-[10px] font-bold rounded-md transition-all ${
                     selectedListCategory === cat
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -378,27 +507,33 @@ export default function ProductLedger() {
                         <p className="text-xs font-bold text-gray-400 uppercase mb-1">Harga Jual</p>
                         <div className="flex items-center gap-3">
                           <p className="text-2xl font-black text-blue-600">Rp {selectedProduct.price.toLocaleString('id-ID')}</p>
-                          <button 
-                            onClick={() => {
-                              setEditProductName(selectedProduct.name);
-                              setEditProductPrice(selectedProduct.price);
-                              setIsEditingProduct(true);
-                            }}
-                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95"
-                            title="Ubah Harga & Nama"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
+                          {isSuperAdmin && (
+                            <button 
+                              onClick={() => {
+                                setEditProductName(selectedProduct.name);
+                                setEditProductPrice(selectedProduct.price);
+                                setIsEditingProduct(true);
+                              }}
+                              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95"
+                              title="Ubah Harga & Nama"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <div className="h-10 w-px bg-gray-200 mx-2"></div>
-                      <button 
-                        onClick={() => handleDeleteProduct(selectedProduct.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Hapus Produk"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      {isSuperAdmin && (
+                        <>
+                          <div className="h-10 w-px bg-gray-200 mx-2"></div>
+                          <button 
+                            onClick={() => handleDeleteProduct(selectedProduct.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Hapus Produk"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -434,7 +569,7 @@ export default function ProductLedger() {
                       <Calendar className="w-5 h-5 text-blue-600" />
                       Jadwal Perubahan Harga
                     </h3>
-                    {!isSchedulingPrice && (
+                    {isSuperAdmin && !isSchedulingPrice && (
                       <button 
                         onClick={() => setIsSchedulingPrice(true)}
                         className="text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
@@ -498,12 +633,14 @@ export default function ProductLedger() {
                                 <p className="text-xs text-gray-500">Mulai: {new Date(sp.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                               </div>
                             </div>
-                            <button 
-                              onClick={() => handleRemoveScheduledPrice(sp.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isSuperAdmin && (
+                              <button 
+                                onClick={() => handleRemoveScheduledPrice(sp.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         ))
                       ) : (
@@ -520,6 +657,7 @@ export default function ProductLedger() {
                     <Receipt className="w-5 h-5 text-gray-500" />
                     Riwayat Penjualan
                   </h3>
+                </div>
 
                 {productTransactions.length > 0 ? (
                   <div className="space-y-4">
@@ -534,7 +672,7 @@ export default function ProductLedger() {
                               <p className="font-semibold text-gray-800">
                                 Transaksi ke: <span className="text-blue-600">{order.storeName}</span>
                               </p>
-                              <p className="text-sm text-gray-500">Order #{order.id}</p>
+                              <p className="text-sm text-gray-500">Faktur #{order.id}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-500 flex items-center justify-end gap-1 mb-1">
@@ -566,7 +704,6 @@ export default function ProductLedger() {
                   </div>
                 )}
               </div>
-            </div>
           </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">

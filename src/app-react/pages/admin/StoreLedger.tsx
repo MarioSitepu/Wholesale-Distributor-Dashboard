@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Store, Order, getStores, getOrders, updateStore, addStore, deleteStore, getCurrentBranch, getGlobalStores, getGlobalOrders, getBranches, generateId } from '../../utils/mockData';
 import { Search, Store as StoreIcon, Calendar, Receipt, ChevronDown, Edit2, Check, X, Plus, Trash2, MapPin } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function StoreLedger() {
   const userStr = localStorage.getItem('currentUser');
@@ -31,7 +32,10 @@ export default function StoreLedger() {
   }, [isSuperAdmin, selectedBranch]);
 
   const handleAddStore = () => {
-    if (!newStoreName.trim()) return;
+    if (!newStoreName.trim()) {
+      toast.error('Nama toko harus diisi');
+      return;
+    }
     const branchToUse = isSuperAdmin 
       ? (selectedBranch === 'all' ? 'Palembang' : selectedBranch)
       : getCurrentBranch();
@@ -43,6 +47,7 @@ export default function StoreLedger() {
       totalDebt: 0
     };
     addStore(newStore, branchToUse);
+    toast.success('Toko berhasil ditambahkan');
     
     // Refresh data
     const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
@@ -78,6 +83,7 @@ export default function StoreLedger() {
       setIsEditingStore(false);
     }
   };
+
 
   const filteredStores = stores.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -261,7 +267,7 @@ export default function StoreLedger() {
                       <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
                           <div>
-                            <p className="font-semibold text-gray-800">Order #{order.id}</p>
+                            <p className="font-semibold text-gray-800">Faktur #{order.id}</p>
                             <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                               <Calendar className="w-4 h-4" />
                               {new Date(order.createdAt).toLocaleString('id-ID', {

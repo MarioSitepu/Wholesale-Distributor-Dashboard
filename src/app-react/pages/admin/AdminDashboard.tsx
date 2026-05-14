@@ -77,8 +77,8 @@ export default function AdminDashboard() {
     if (dailyReportData.length === 0) return;
     
     const headers = isSuperAdmin 
-      ? ['Cabang', 'Nomor Invoice', 'Nama Toko', 'Nama Produk', 'Jumlah Barang', 'Harga Satuan', 'Total Harga']
-      : ['Nomor Invoice', 'Nama Toko', 'Nama Produk', 'Jumlah Barang', 'Harga Satuan', 'Total Harga'];
+      ? ['Cabang', 'Nomor Faktur', 'Nama Toko', 'Nama Produk', 'Jumlah Barang', 'Harga Satuan', 'Total Harga']
+      : ['Nomor Faktur', 'Nama Toko', 'Nama Produk', 'Jumlah Barang', 'Harga Satuan', 'Total Harga'];
 
     const csvContent = [
       headers.join(','),
@@ -376,7 +376,7 @@ export default function AdminDashboard() {
             <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
               <tr>
                 {isSuperAdmin && <th className="px-4 py-3 font-medium">Cabang</th>}
-                <th className="px-4 py-3 font-medium">Invoice</th>
+                <th className="px-4 py-3 font-medium">Faktur</th>
                 <th className="px-4 py-3 font-medium">Nama Toko</th>
                 <th className="px-4 py-3 font-medium">Nama Produk</th>
                 <th className="px-4 py-3 font-medium text-right">Jumlah</th>

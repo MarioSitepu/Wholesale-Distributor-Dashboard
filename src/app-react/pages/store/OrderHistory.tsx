@@ -1,6 +1,6 @@
 import { useState, Fragment } from 'react';
 import { ChevronDown, ChevronUp, Filter, Download, MapPin } from 'lucide-react';
-import { getOrders, getStores, getProducts, getGlobalOrders, getGlobalStores, getBranches } from '../../utils/mockData';
+import { getOrders, getStores, getProducts, getGlobalOrders, getGlobalStores, getBranches, getCategories } from '../../utils/mockData';
 
 export default function OrderHistory() {
   const userStr = localStorage.getItem('currentUser');
@@ -16,11 +16,16 @@ export default function OrderHistory() {
 
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | 'Fiesta' | 'Shifudo'>('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [categories, setCategories] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<'day' | 'month'>('day');
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  useState(() => {
+    setCategories(getCategories());
+  });
 
   const filteredOrders = allOrders.filter(order => {
     const matchesBranch = selectedBranchFilter === 'all' || (order as any).branch === selectedBranchFilter;
@@ -54,8 +59,8 @@ export default function OrderHistory() {
     if (storeOrders.length === 0) return;
 
     const headers = isSuperAdmin 
-      ? ['Cabang', 'Invoice', 'Tanggal', 'Toko', 'Produk', 'Qty', 'Harga', 'Subtotal']
-      : ['Invoice', 'Tanggal', 'Toko', 'Produk', 'Qty', 'Harga', 'Subtotal'];
+      ? ['Cabang', 'Faktur', 'Tanggal', 'Toko', 'Produk', 'Qty', 'Harga', 'Subtotal']
+      : ['Faktur', 'Tanggal', 'Toko', 'Produk', 'Qty', 'Harga', 'Subtotal'];
       
     const rows = storeOrders.flatMap(order => 
       order.items.map(item => {
@@ -187,12 +192,13 @@ export default function OrderHistory() {
 
         <select
           value={selectedCategoryFilter}
-          onChange={(e) => setSelectedCategoryFilter(e.target.value as any)}
+          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none"
         >
           <option value="all">Semua Brand</option>
-          <option value="Fiesta">Fiesta</option>
-          <option value="Shifudo">Shifudo</option>
+          {categories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
         </select>
       </div>
 
@@ -203,7 +209,7 @@ export default function OrderHistory() {
               <tr>
                 <th className="px-6 py-4">Status</th>
                 {isSuperAdmin && <th className="px-6 py-4 text-blue-600">Cabang</th>}
-                <th className="px-6 py-4">Invoice</th>
+                <th className="px-6 py-4">Faktur</th>
                 <th className="px-6 py-4">Toko</th>
                 <th className="px-6 py-4">Tanggal</th>
                 <th className="px-6 py-4 text-right">Total</th>

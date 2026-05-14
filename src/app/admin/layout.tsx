@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, Package, DollarSign, LogOut, ChevronLeft, ChevronRight, ShoppingCart, History, Book, BookOpen, Users } from 'lucide-react';
+import { Toaster } from 'sonner';
 import { useEffect, useState } from 'react';
 import { initializeMockData } from '../../app-react/utils/mockData';
 
@@ -43,6 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      <Toaster position="top-center" richColors />
       <aside className={`${isSidebarExpanded ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 fixed top-0 left-0 bottom-0 flex flex-col transition-all duration-300`}>
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>

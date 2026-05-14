@@ -4,7 +4,6 @@ export interface Product {
   category: string;
   stock: number;
   price: number;
-  initialStock: number;
   totalIn: number;
   totalOut: number;
 }
@@ -59,7 +58,8 @@ const STORAGE_KEYS = {
   CART: 'wholesale_cart',
   CURRENT_STORE: 'wholesale_current_store',
   SCHEDULED_PRICES: 'wholesale_scheduled_prices',
-  USERS: 'wholesale_users'
+  USERS: 'wholesale_users',
+  CATEGORIES: 'wholesale_categories'
 };
 
 const isClient = typeof window !== 'undefined';
@@ -114,6 +114,31 @@ export const getBranches = (): string[] => {
     .map(u => u.branch)
     .filter(b => b !== 'Pusat');
   return Array.from(new Set(branches)).sort();
+};
+
+export const getCategories = (): string[] => {
+  const cats = safeGet(STORAGE_KEYS.CATEGORIES);
+  if (!cats) {
+    const defaultCats = ['Fiesta', 'Shifudo'];
+    if (isClient) safeSet(STORAGE_KEYS.CATEGORIES, JSON.stringify(defaultCats));
+    return defaultCats;
+  }
+  return JSON.parse(cats);
+};
+
+export const addCategory = (name: string) => {
+  const cats = getCategories();
+  if (cats.some(c => c.toLowerCase() === name.toLowerCase())) {
+    throw new Error('Kategori sudah ada');
+  }
+  cats.push(name);
+  safeSet(STORAGE_KEYS.CATEGORIES, JSON.stringify(cats));
+};
+
+export const deleteCategory = (name: string) => {
+  const cats = getCategories();
+  const filtered = cats.filter(c => c !== name);
+  safeSet(STORAGE_KEYS.CATEGORIES, JSON.stringify(filtered));
 };
 
 export const getScheduledPrices = (): ScheduledPrice[] => {
@@ -298,19 +323,19 @@ export const initializeMockData = () => {
     localStorage.setItem('cleanup_orders_v1', 'true');
   }
   const INITIAL_PRODUCTS: Product[] = [
-    { id: 'F001', name: 'Fiesta Chicken Nugget 500g', category: 'Fiesta', stock: 120, price: 48500, initialStock: 200, totalIn: 200, totalOut: 80 },
-    { id: 'F002', name: 'Fiesta Spicy Wing 500g', category: 'Fiesta', stock: 85, price: 58000, initialStock: 150, totalIn: 150, totalOut: 65 },
-    { id: 'F003', name: 'Fiesta Schnitzel 500g', category: 'Fiesta', stock: 60, price: 51000, initialStock: 100, totalIn: 100, totalOut: 40 },
-    { id: 'F004', name: 'Fiesta Chicken Stichel 500g', category: 'Fiesta', stock: 95, price: 49000, initialStock: 150, totalIn: 150, totalOut: 55 },
-    { id: 'F005', name: 'Fiesta Cheesy Lover 500g', category: 'Fiesta', stock: 45, price: 62000, initialStock: 100, totalIn: 100, totalOut: 55 },
-    { id: 'F006', name: 'Fiesta Bratwurst Sausage 500g', category: 'Fiesta', stock: 110, price: 42000, initialStock: 200, totalIn: 200, totalOut: 90 },
-    { id: 'F007', name: 'Fiesta Bakso Kuah 500g', category: 'Fiesta', stock: 150, price: 25000, initialStock: 300, totalIn: 300, totalOut: 150 },
-    { id: 'F008', name: 'Fiesta Karage 500g', category: 'Fiesta', stock: 70, price: 55000, initialStock: 120, totalIn: 120, totalOut: 50 },
-    { id: 'S001', name: 'Shifudo Fish Roll 500g', category: 'Shifudo', stock: 95, price: 34500, initialStock: 150, totalIn: 150, totalOut: 55 },
-    { id: 'S002', name: 'Shifudo Chikuwa 500g', category: 'Shifudo', stock: 80, price: 31000, initialStock: 120, totalIn: 120, totalOut: 40 },
-    { id: 'S003', name: 'Shifudo Crab Stick 500g', category: 'Shifudo', stock: 55, price: 39500, initialStock: 100, totalIn: 100, totalOut: 45 },
-    { id: 'S004', name: 'Shifudo Fish Ball 500g', category: 'Shifudo', stock: 115, price: 29000, initialStock: 180, totalIn: 180, totalOut: 65 },
-    { id: 'S005', name: 'Shifudo Shrimp Roll 500g', category: 'Shifudo', stock: 40, price: 45000, initialStock: 80, totalIn: 80, totalOut: 40 },
+    { id: 'F001', name: 'Fiesta Chicken Nugget 500g', category: 'Fiesta', stock: 120, price: 48500, totalIn: 200, totalOut: 80 },
+    { id: 'F002', name: 'Fiesta Spicy Wing 500g', category: 'Fiesta', stock: 85, price: 58000, totalIn: 150, totalOut: 65 },
+    { id: 'F003', name: 'Fiesta Schnitzel 500g', category: 'Fiesta', stock: 60, price: 51000, totalIn: 100, totalOut: 40 },
+    { id: 'F004', name: 'Fiesta Chicken Stichel 500g', category: 'Fiesta', stock: 95, price: 49000, totalIn: 150, totalOut: 55 },
+    { id: 'F005', name: 'Fiesta Cheesy Lover 500g', category: 'Fiesta', stock: 45, price: 62000, totalIn: 100, totalOut: 55 },
+    { id: 'F006', name: 'Fiesta Bratwurst Sausage 500g', category: 'Fiesta', stock: 110, price: 42000, totalIn: 200, totalOut: 90 },
+    { id: 'F007', name: 'Fiesta Bakso Kuah 500g', category: 'Fiesta', stock: 150, price: 25000, totalIn: 300, totalOut: 150 },
+    { id: 'F008', name: 'Fiesta Karage 500g', category: 'Fiesta', stock: 70, price: 55000, totalIn: 120, totalOut: 50 },
+    { id: 'S001', name: 'Shifudo Fish Roll 500g', category: 'Shifudo', stock: 95, price: 34500, totalIn: 150, totalOut: 55 },
+    { id: 'S002', name: 'Shifudo Chikuwa 500g', category: 'Shifudo', stock: 80, price: 31000, totalIn: 120, totalOut: 40 },
+    { id: 'S003', name: 'Shifudo Crab Stick 500g', category: 'Shifudo', stock: 55, price: 39500, totalIn: 100, totalOut: 45 },
+    { id: 'S004', name: 'Shifudo Fish Ball 500g', category: 'Shifudo', stock: 115, price: 29000, totalIn: 180, totalOut: 65 },
+    { id: 'S005', name: 'Shifudo Shrimp Roll 500g', category: 'Shifudo', stock: 40, price: 45000, totalIn: 80, totalOut: 40 },
   ];
 
   getBranches().forEach(branch => {
@@ -334,7 +359,6 @@ export const initializeMockData = () => {
             templateProducts = parsed.map((p: Product) => ({
               ...p,
               stock: 0,
-              initialStock: 0,
               totalIn: 0,
               totalOut: 0
             }));
@@ -438,7 +462,6 @@ export const addProduct = (product: Product) => {
       const finalProduct = {
         ...product,
         stock: isCurrentBranch ? (product.totalIn - product.totalOut) : 0,
-        initialStock: isCurrentBranch ? product.initialStock : 0,
         totalIn: isCurrentBranch ? product.totalIn : 0,
         totalOut: isCurrentBranch ? product.totalOut : 0
       };

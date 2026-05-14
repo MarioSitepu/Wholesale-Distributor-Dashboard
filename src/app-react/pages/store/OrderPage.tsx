@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Minus, ShoppingCart, X, Store, MapPin } from 'lucide-react';
-import { getProducts, getCart, updateCart, clearCart, addOrder, getCurrentStore, getStores, getOrders, addReceivable, setCurrentStore, updateProduct, getCurrentBranch, getBranches, getProductsByBranch, getStoresByBranch, generateId } from '../../utils/mockData';
+import { Plus, Minus, ShoppingCart, X, Store, MapPin, Calendar } from 'lucide-react';
+import { getProducts, getCart, updateCart, clearCart, addOrder, getCurrentStore, getStores, getOrders, addReceivable, setCurrentStore, updateProduct, getCurrentBranch, getBranches, getProductsByBranch, getStoresByBranch, generateId, getCategories } from '../../utils/mockData';
 import { toast, Toaster } from 'sonner';
 
 export default function OrderPage() {
@@ -11,17 +11,27 @@ export default function OrderPage() {
   const [activeBranch, setActiveBranch] = useState(isSuperAdmin ? 'Palembang' : getCurrentBranch());
   
   const [allProducts, setAllProducts] = useState(isSuperAdmin ? getProductsByBranch(activeBranch) : getProducts());
-  const [selectedCategory, setSelectedCategory] = useState<'Fiesta' | 'Shifudo'>('Fiesta');
-  const [products, setProducts] = useState(allProducts.filter(p => p.category === 'Fiesta'));
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [products, setProducts] = useState(allProducts);
   const [cart, setCart] = useState(getCart());
   const [showCart, setShowCart] = useState(false);
   const [selectedStore, setSelectedStore] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [stores, setStores] = useState(isSuperAdmin ? getStoresByBranch(activeBranch) : getStores());
 
   useEffect(() => {
     updateCart(cart);
   }, [cart]);
+
+  useEffect(() => {
+    const cats = getCategories();
+    setCategories(cats);
+    if (!selectedCategory && cats.length > 0) {
+      setSelectedCategory(cats[0]);
+    }
+  }, []);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -120,7 +130,7 @@ export default function OrderPage() {
       return;
     }
     if (!invoiceNumber.trim()) {
-      toast.error('Silakan masukkan nomor invoice');
+      toast.error('Silakan masukkan nomor faktur');
       return;
     }
 
@@ -129,7 +139,7 @@ export default function OrderPage() {
     const orderId = invoiceNumber.trim();
     const existingOrders = getOrders();
     if (existingOrders.some(o => o.id === orderId)) {
-      toast.error('Nomor invoice sudah digunakan, silakan gunakan nomor lain');
+      toast.error('Nomor faktur sudah digunakan, silakan gunakan nomor lain');
       return;
     }
 
@@ -163,12 +173,12 @@ export default function OrderPage() {
       branch: orderBranch,
       items: orderItems,
       total: cartTotal,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(orderDate).toISOString(),
     };
 
     addOrder(newOrder, orderBranch);
 
-    const dueDate = new Date();
+    const dueDate = new Date(orderDate);
     dueDate.setDate(dueDate.getDate() + 30);
 
     addReceivable({
@@ -185,6 +195,7 @@ export default function OrderPage() {
     setCart([]);
     setShowCart(false);
     setInvoiceNumber('');
+    setOrderDate(new Date().toISOString().split('T')[0]);
     toast.success('Pesanan berhasil dibuat!');
   };
 
@@ -266,29 +277,21 @@ export default function OrderPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full max-w-md">
-            <button
-              onClick={() => setSelectedCategory('Fiesta')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-                selectedCategory === 'Fiesta'
-                  ? 'bg-white text-blue-600 shadow-md'
-                  : 'text-gray-500 hover:text-gray-700'
-              } ${cartCategory && cartCategory !== 'Fiesta' ? 'opacity-50' : ''}`}
-            >
-              FIESTA
-              {cartCategory === 'Fiesta' && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
-            </button>
-            <button
-              onClick={() => setSelectedCategory('Shifudo')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-                selectedCategory === 'Shifudo'
-                  ? 'bg-white text-blue-600 shadow-md'
-                  : 'text-gray-500 hover:text-gray-700'
-              } ${cartCategory && cartCategory !== 'Shifudo' ? 'opacity-50' : ''}`}
-            >
-              SHIFUDO
-              {cartCategory === 'Shifudo' && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
-            </button>
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full overflow-x-auto no-scrollbar">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`flex-1 min-w-[120px] py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                  selectedCategory === cat
+                    ? 'bg-white text-blue-600 shadow-md'
+                    : 'text-gray-500 hover:text-gray-700'
+                } ${cartCategory && cartCategory !== cat ? 'opacity-50' : ''}`}
+              >
+                {cat.toUpperCase()}
+                {cartCategory === cat && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
+              </button>
+            ))}
           </div>
 
           {cartCategory && cartCategory !== selectedCategory && (
@@ -428,15 +431,29 @@ export default function OrderPage() {
                   Pesanan Untuk: <span className="font-bold text-blue-700 text-lg ml-1">{stores.find(s => s.id === selectedStore)?.name || 'Pilih Toko...'}</span>
                 </span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Invoice</label>
-                <input
-                  type="text"
-                  placeholder="Masukkan nomor invoice (contoh: INV-001)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Faktur</label>
+                  <input
+                    type="text"
+                    placeholder="Masukkan nomor faktur (contoh: FKT-001)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pesanan</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                      value={orderDate}
+                      onChange={(e) => setOrderDate(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
