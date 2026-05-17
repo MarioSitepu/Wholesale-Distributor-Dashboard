@@ -1,0 +1,1844 @@
+﻿openapi: 3.0.3
+info:
+  title: Wholesale Distributor Dashboard API
+  description: |
+    Kontrak API untuk aplikasi PT Anugerah Indotirta Raharja - Wholesale Distributor Management System.
+    
+    ## Autentikasi
+    Semua endpoint (kecuali `/auth/login`) memerlukan header `Authorization: Bearer <token>`.
+    Token diperoleh dari endpoint `/auth/login` dan berlaku selama **8 jam**.
+    
+    ## Kontrol Akses
+    - **Admin Cabang**: Hanya dapat mengakses data cabangnya sendiri.
+    - **Super Admin** (`branch = "Pusat"`): Dapat mengakses data semua cabang dengan parameter `?branch=all` atau `?branch=<nama_cabang>`.
+    
+    ## Nama Key JSON
+    Semua nama key JSON di response **persis sama** dengan yang digunakan FE (`mockData.ts`).
+  version: 1.0.0
+  contact:
+    name: PT Anugerah Indotirta Raharja
+
+servers:
+  - url: https://api.wholesale-distributor.id/v1
+    description: Production
+  - url: http://localhost:3001/v1
+    description: Local Development
+
+tags:
+  - name: Auth
+    description: Autentikasi dan manajemen sesi
+  - name: Branches
+    description: Manajemen data cabang
+  - name: Accounts
+    description: Manajemen akun admin (Super Admin only)
+  - name: Products
+    description: Manajemen produk dan kategori
+  - name: Stock
+    description: Manajemen stok dan restock
+  - name: ScheduledPrices
+    description: Penjadwalan perubahan harga produk
+  - name: Stores
+    description: Manajemen data toko pelanggan
+  - name: Orders
+    description: Manajemen pesanan dan riwayat transaksi
+  - name: Receivables
+    description: Manajemen piutang toko
+  - name: Dashboard
+    description: KPI, analytics, dan laporan ringkasan
+
+# ============================================================
+# COMPONENTS (Schemas & Security)
+# ============================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # --- Error Responses ---
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: "Terjadi kesalahan"
+
+    # --- Auth ---
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: "palembang"
+        password:
+          type: string
+          example: "password123"
+
+    LoginResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+          description: JWT token berlaku 8 jam
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          type: object
+          required: [username, role, branch]
+          properties:
+            username:
+              type: string
+              example: "palembang"
+            role:
+              type: string
+              enum: [admin]
+              example: "admin"
+            branch:
+              type: string
+              description: Nama cabang. "Pusat" berarti Super Admin.
+              example: "Palembang"
+
+    # --- User / Account ---
+    User:
+      type: object
+      required: [username, role, branch]
+      properties:
+        username:
+          type: string
+          example: "adminlampung"
+        role:
+          type: string
+          enum: [admin]
+          example: "admin"
+        branch:
+          type: string
+          example: "Lampung"
+
+    CreateAccountRequest:
+      type: object
+      required: [username, password, role, branch]
+      properties:
+        username:
+          type: string
+          example: "adminlampung"
+        password:
+          type: string
+          example: "securepassword"
+        role:
+          type: string
+          enum: [admin]
+          example: "admin"
+        branch:
+          type: string
+          example: "Lampung"
+
+    # --- Product ---
+    Product:
+      type: object
+      required: [id, name, category, price, stock, totalIn, totalOut]
+      properties:
+        id:
+          type: string
+          example: "F001"
+        name:
+          type: string
+          example: "Fiesta Chicken Nugget 500g"
+        category:
+          type: string
+          example: "Fiesta"
+        price:
+          type: number
+          format: float
+          example: 48500
+        stock:
+          type: integer
+          example: 120
+        totalIn:
+          type: integer
+          description: Total unit yang pernah masuk ke gudang
+          example: 200
+        totalOut:
+          type: integer
+          description: Total unit yang pernah keluar (terjual)
+          example: 80
+
+    ProductWithBranch:
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          required: [branch]
+          properties:
+            branch:
+              type: string
+              example: "Palembang"
+
+    CreateProductRequest:
+      type: object
+      required: [id, name, category, price]
+      properties:
+        id:
+          type: string
+          description: ID produk unik, diinput manual (contoh F009)
+          example: "F009"
+        name:
+          type: string
+          example: "Fiesta Baru 500g"
+        category:
+          type: string
+          example: "Fiesta"
+        price:
+          type: number
+          format: float
+          example: 55000
+
+    UpdateProductRequest:
+      type: object
+      required: [name, price, category]
+      properties:
+        name:
+          type: string
+          example: "Fiesta Chicken Nugget 500g (Updated)"
+        price:
+          type: number
+          format: float
+          example: 50000
+        category:
+          type: string
+          example: "Fiesta"
+
+    # --- Category ---
+    CategoriesResponse:
+      type: object
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+          example: ["Fiesta", "Shifudo"]
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Nugget"
+
+    # --- Scheduled Price ---
+    ScheduledPrice:
+      type: object
+      required: [id, productId, productName, newPrice, startDate]
+      properties:
+        id:
+          type: string
+          example: "SP-1716789012345"
+        productId:
+          type: string
+          example: "F001"
+        productName:
+          type: string
+          example: "Fiesta Chicken Nugget 500g"
+        newPrice:
+          type: number
+          format: float
+          example: 52000
+        startDate:
+          type: string
+          format: date
+          description: Format YYYY-MM-DD
+          example: "2026-06-01"
+
+    CreateScheduledPriceRequest:
+      type: object
+      required: [productId, newPrice, startDate]
+      properties:
+        productId:
+          type: string
+          example: "F001"
+        newPrice:
+          type: number
+          format: float
+          minimum: 0.01
+          example: 52000
+        startDate:
+          type: string
+          format: date
+          description: Format YYYY-MM-DD
+          example: "2026-06-01"
+
+    CreateScheduledPriceResponse:
+      allOf:
+        - $ref: '#/components/schemas/ScheduledPrice'
+        - type: object
+          required: [warning]
+          properties:
+            warning:
+              type: boolean
+              description: true jika startDate sudah lewat, artinya data historis akan dikoreksi
+              example: false
+
+    # --- Store ---
+    Store:
+      type: object
+      required: [id, name, branch, totalDebt]
+      properties:
+        id:
+          type: string
+          example: "STR-PAL-1234567890"
+        name:
+          type: string
+          example: "Toko Berkah Palembang"
+        branch:
+          type: string
+          example: "Palembang"
+        totalDebt:
+          type: number
+          format: float
+          description: Total piutang belum lunas milik toko ini
+          example: 150000
+
+    CreateStoreRequest:
+      type: object
+      required: [name, branch]
+      properties:
+        name:
+          type: string
+          example: "Warung Maju Baru"
+        branch:
+          type: string
+          example: "Palembang"
+
+    UpdateStoreRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Warung Maju Palembang (Updated)"
+
+    # --- Order ---
+    OrderItem:
+      type: object
+      required: [productId, productName, quantity, price]
+      properties:
+        productId:
+          type: string
+          example: "F001"
+        productName:
+          type: string
+          example: "Fiesta Chicken Nugget 500g"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 5
+        price:
+          type: number
+          format: float
+          example: 48500
+
+    Order:
+      type: object
+      required: [id, storeId, storeName, branch, items, total, createdAt]
+      properties:
+        id:
+          type: string
+          description: Nomor faktur, unik, diinput manual oleh admin
+          example: "FKT-001"
+        storeId:
+          type: string
+          example: "STR-PAL-1234567890"
+        storeName:
+          type: string
+          example: "Toko Berkah Palembang"
+        branch:
+          type: string
+          example: "Palembang"
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          type: number
+          format: float
+          description: Harus sama dengan sum(item.quantity * item.price)
+          example: 242500
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601
+          example: "2026-05-15T08:30:00.000Z"
+
+    CreateOrderRequest:
+      $ref: '#/components/schemas/Order'
+
+    # --- Receivable ---
+    Receivable:
+      type: object
+      required: [id, storeId, storeName, orderId, amount, dueDate, isPaid]
+      properties:
+        id:
+          type: string
+          example: "REC-PAL-1716789012345"
+        storeId:
+          type: string
+          example: "STR-PAL-1234567890"
+        storeName:
+          type: string
+          example: "Toko Berkah Palembang"
+        orderId:
+          type: string
+          description: Referensi ke nomor faktur pesanan
+          example: "FKT-001"
+        amount:
+          type: number
+          format: float
+          example: 242500
+        dueDate:
+          type: string
+          format: date-time
+          description: ISO 8601, otomatis = createdAt + 30 hari
+          example: "2026-06-14T08:30:00.000Z"
+        isPaid:
+          type: boolean
+          example: false
+
+    ReceivableWithBranch:
+      allOf:
+        - $ref: '#/components/schemas/Receivable'
+        - type: object
+          required: [branch]
+          properties:
+            branch:
+              type: string
+              example: "Palembang"
+
+    PatchReceivableRequest:
+      type: object
+      required: [isPaid]
+      properties:
+        isPaid:
+          type: boolean
+          enum: [true]
+          description: Hanya boleh diubah menjadi true (tidak bisa dikembalikan ke false)
+          example: true
+
+    ReceivablesSummary:
+      type: object
+      required: [totalUnpaid, overdueCount, storeCount]
+      properties:
+        totalUnpaid:
+          type: number
+          format: float
+          description: Total nominal piutang yang belum lunas
+          example: 1500000
+        overdueCount:
+          type: integer
+          description: Jumlah piutang yang sudah jatuh tempo (dueDate < hari ini dan isPaid = false)
+          example: 3
+        storeCount:
+          type: integer
+          description: Jumlah toko yang memiliki piutang belum lunas
+          example: 5
+
+    # --- Stock ---
+    StockItem:
+      type: object
+      required: [id, name, category, totalIn, totalOut, stock, branch]
+      properties:
+        id:
+          type: string
+          example: "F001"
+        name:
+          type: string
+          example: "Fiesta Chicken Nugget 500g"
+        category:
+          type: string
+          example: "Fiesta"
+        totalIn:
+          type: integer
+          example: 200
+        totalOut:
+          type: integer
+          example: 80
+        stock:
+          type: integer
+          description: Selalu = totalIn - totalOut
+          example: 120
+        branch:
+          type: string
+          example: "Palembang"
+
+    RestockRequest:
+      type: object
+      required: [productId, branch, amount]
+      properties:
+        productId:
+          type: string
+          example: "F001"
+        branch:
+          type: string
+          example: "Palembang"
+        amount:
+          type: integer
+          minimum: 1
+          description: Jumlah unit yang masuk ke gudang
+          example: 50
+
+    # --- Dashboard ---
+    KpiResponse:
+      type: object
+      required: [dailySales, monthlySales, totalReceivables, lowStockCount]
+      properties:
+        dailySales:
+          type: number
+          format: float
+          description: Total penjualan hari ini
+          example: 2500000
+        monthlySales:
+          type: number
+          format: float
+          description: Total penjualan bulan ini
+          example: 45000000
+        totalReceivables:
+          type: number
+          format: float
+          description: Total piutang yang belum lunas
+          example: 8750000
+        lowStockCount:
+          type: integer
+          description: Jumlah produk dengan stock < 50
+          example: 4
+
+    WeeklySalesItem:
+      type: object
+      required: [name, sales]
+      properties:
+        name:
+          type: string
+          description: Nama hari singkat dalam Bahasa Indonesia
+          example: "Sen"
+        sales:
+          type: number
+          format: float
+          description: Total penjualan hari tersebut (dalam Rupiah)
+          example: 3500000
+
+    BranchContributionItem:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+          description: Nama cabang
+          example: "Palembang"
+        value:
+          type: number
+          format: float
+          description: Total penjualan cabang tersebut
+          example: 15000000
+
+    LowStockItem:
+      type: object
+      required: [id, name, category, stock, branch]
+      properties:
+        id:
+          type: string
+          example: "S005"
+        name:
+          type: string
+          example: "Shifudo Shrimp Roll 500g"
+        category:
+          type: string
+          example: "Shifudo"
+        stock:
+          type: integer
+          example: 12
+        branch:
+          type: string
+          example: "Palembang"
+
+    RecentOrderItem:
+      type: object
+      required: [id, storeName, total, branch]
+      properties:
+        id:
+          type: string
+          example: "FKT-099"
+        storeName:
+          type: string
+          example: "Toko Berkah Palembang"
+        total:
+          type: number
+          format: float
+          example: 485000
+        branch:
+          type: string
+          example: "Palembang"
+
+    DailyReportRow:
+      type: object
+      required: [orderId, storeName, branch, productName, quantity, price, total]
+      properties:
+        orderId:
+          type: string
+          example: "FKT-001"
+        storeName:
+          type: string
+          example: "Toko Berkah Palembang"
+        branch:
+          type: string
+          example: "Palembang"
+        productName:
+          type: string
+          example: "Fiesta Chicken Nugget 500g"
+        quantity:
+          type: integer
+          example: 5
+        price:
+          type: number
+          format: float
+          example: 48500
+        total:
+          type: number
+          format: float
+          description: quantity * price
+          example: 242500
+
+    # --- Branches ---
+    BranchesResponse:
+      type: object
+      required: [branches]
+      properties:
+        branches:
+          type: array
+          items:
+            type: string
+          description: Daftar nama cabang (tidak termasuk "Pusat"), diurutkan alfabetis
+          example: ["Baturaja", "Jambi", "Palembang"]
+
+    # --- Stock Export (binary) ---
+    StockExportResponse:
+      type: string
+      format: binary
+      description: File CSV dengan kolom ID Produk, Nama Produk, Kategori, Total Masuk, Total Keluar, Stok Saat Ini (+ Cabang jika Super Admin)
+
+security:
+  - BearerAuth: []
+
+# ============================================================
+# PATHS
+# ============================================================
+paths:
+
+  # ──────────────────────────────────────────────
+  # AUTH
+  # ──────────────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login admin
+      description: Mengembalikan JWT token yang berlaku 8 jam. Tidak memerlukan autentikasi.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Username atau password salah
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Username atau password salah"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout dan invalidasi token
+      description: Menginvalidasi token saat ini. Token yang sama tidak dapat digunakan lagi setelah logout.
+      responses:
+        '200':
+          description: Logout berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logout berhasil"
+        '401':
+          description: Token tidak valid atau sudah kedaluwarsa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ──────────────────────────────────────────────
+  # BRANCHES
+  # ──────────────────────────────────────────────
+  /branches:
+    get:
+      tags: [Branches]
+      summary: Daftar semua cabang
+      description: |
+        Mengembalikan daftar nama cabang yang terdaftar (tidak termasuk "Pusat"), diurutkan alfabetis.
+        Digunakan di semua halaman untuk filter dropdown cabang.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      responses:
+        '200':
+          description: Daftar cabang berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchesResponse'
+        '401':
+          description: Token tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Bukan Super Admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ──────────────────────────────────────────────
+  # ACCOUNTS
+  # ──────────────────────────────────────────────
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: Daftar semua akun admin
+      description: |
+        Mengembalikan semua akun admin. **Password tidak pernah dikembalikan.**
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      responses:
+        '200':
+          description: Daftar akun berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Accounts]
+      summary: Tambah akun admin baru
+      description: |
+        Membuat akun admin baru untuk cabang baru.
+        Secara otomatis menginisialisasi data produk (stok 0, menyalin katalog) dan toko awal untuk cabang tersebut.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Akun berhasil dibuat (password tidak dikembalikan)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Username sudah digunakan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Username sudah digunakan"
+
+  /accounts/{username}:
+    delete:
+      tags: [Accounts]
+      summary: Hapus akun admin
+      description: |
+        Menghapus akun admin berdasarkan username.
+        Akun `superadmin` tidak dapat dihapus.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "adminlampung"
+      responses:
+        '200':
+          description: Akun berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Akun berhasil dihapus"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Tidak dapat menghapus superadmin atau bukan Super Admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Tidak dapat menghapus superadmin"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────
+  # PRODUCTS
+  # ──────────────────────────────────────────────
+  /products:
+    get:
+      tags: [Products]
+      summary: Daftar produk
+      description: |
+        Mengembalikan daftar produk berdasarkan cabang.
+        - Admin Cabang: hanya produk cabangnya, tanpa field `branch`.
+        - Super Admin dengan `?branch=<nama>`: produk cabang tersebut.
+        - Super Admin dengan `?branch=all`: semua produk dari semua cabang, masing-masing dengan field `branch`.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Daftar produk berhasil diambil
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                    description: Response untuk Admin Cabang
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/ProductWithBranch'
+                    description: Response untuk Super Admin dengan branch=all
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Products]
+      summary: Tambah produk baru
+      description: |
+        Menambahkan produk baru ke **semua cabang**.
+        - Cabang pengirim: menggunakan nilai `stock`, `totalIn`, `totalOut` dari request (default 0 jika tidak disertakan).
+        - Cabang lain: `stock: 0, totalIn: 0, totalOut: 0`.
+        - ID produk bersifat unik global (lintas cabang).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '201':
+          description: Produk berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: ID produk sudah digunakan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "ID Produk sudah digunakan"
+
+  /products/{id}:
+    put:
+      tags: [Products]
+      summary: Edit nama, harga, dan kategori produk
+      description: |
+        Memperbarui nama, harga, dan kategori produk di **semua cabang** secara atomik.
+        Stok masing-masing cabang tidak berubah.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "F001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductRequest'
+      responses:
+        '200':
+          description: Produk berhasil diperbarui di semua cabang
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Products]
+      summary: Hapus produk dari semua cabang
+      description: |
+        Menghapus produk dari **semua cabang**.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "F001"
+      responses:
+        '200':
+          description: Produk berhasil dihapus dari semua cabang
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Produk berhasil dihapus"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────
+  # CATEGORIES
+  # ──────────────────────────────────────────────
+  /categories:
+    get:
+      tags: [Products]
+      summary: Daftar kategori produk
+      description: Mengembalikan semua kategori yang tersedia. Digunakan di halaman Buku Produk dan Order.
+      responses:
+        '200':
+          description: Daftar kategori berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Products]
+      summary: Tambah kategori baru
+      description: |
+        Menambahkan kategori produk baru.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Kategori berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Kategori sudah ada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Kategori sudah ada"
+
+  /categories/{name}:
+    delete:
+      tags: [Products]
+      summary: Hapus kategori
+      description: |
+        Menghapus kategori. Produk yang sudah menggunakan kategori ini tidak terhapus.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "Nugget"
+      responses:
+        '200':
+          description: Kategori berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Kategori berhasil dihapus"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────
+  # SCHEDULED PRICES
+  # ──────────────────────────────────────────────
+  /scheduled-prices:
+    get:
+      tags: [ScheduledPrices]
+      summary: Daftar jadwal perubahan harga
+      description: |
+        Mengembalikan semua jadwal perubahan harga yang belum diproses untuk cabang tertentu.
+        Mengembalikan array kosong `[]` jika tidak ada jadwal.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      parameters:
+        - name: branch
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "Palembang"
+      responses:
+        '200':
+          description: Daftar jadwal berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduledPrice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [ScheduledPrices]
+      summary: Tambah jadwal perubahan harga
+      description: |
+        Menjadwalkan perubahan harga produk yang berlaku di tanggal tertentu.
+        - Jika `startDate` sudah lewat, field `warning: true` dikembalikan dan data historis akan dikoreksi.
+        - Tidak boleh ada duplikat `productId + startDate` yang sama.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledPriceRequest'
+      responses:
+        '201':
+          description: Jadwal berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateScheduledPriceResponse'
+              examples:
+                future_date:
+                  summary: Tanggal di masa depan
+                  value:
+                    id: "SP-1716789012345"
+                    productId: "F001"
+                    productName: "Fiesta Chicken Nugget 500g"
+                    newPrice: 52000
+                    startDate: "2026-06-01"
+                    warning: false
+                past_date:
+                  summary: Tanggal sudah lewat (data historis akan dikoreksi)
+                  value:
+                    id: "SP-1716789012346"
+                    productId: "F001"
+                    productName: "Fiesta Chicken Nugget 500g"
+                    newPrice: 52000
+                    startDate: "2026-04-01"
+                    warning: true
+        '400':
+          description: Input tidak valid (newPrice <= 0 atau format startDate salah)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Input tidak valid"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Jadwal untuk produk dan tanggal ini sudah ada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Jadwal untuk produk dan tanggal ini sudah ada"
+
+  /scheduled-prices/{id}:
+    delete:
+      tags: [ScheduledPrices]
+      summary: Hapus jadwal perubahan harga
+      description: |
+        Menghapus jadwal perubahan harga yang belum diproses.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "SP-1716789012345"
+      responses:
+        '200':
+          description: Jadwal berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Jadwal berhasil dihapus"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Jadwal tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Jadwal tidak ditemukan"
+
+  # ──────────────────────────────────────────────
+  # STOCK
+  # ──────────────────────────────────────────────
+  /stock:
+    get:
+      tags: [Stock]
+      summary: Data stok semua produk
+      description: |
+        Mengembalikan data stok produk untuk cabang tertentu.
+        - Admin Cabang: hanya produk cabangnya.
+        - Super Admin dengan `?branch=all`: semua produk dari semua cabang.
+        - Super Admin dengan `?branch=<nama>`: produk cabang tersebut.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Data stok berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /stock/restock:
+    post:
+      tags: [Stock]
+      summary: Tambah stok masuk (restock)
+      description: |
+        Menambahkan unit masuk ke gudang untuk produk tertentu di cabang tertentu.
+        Setelah restock: `totalIn += amount`, `stock = totalIn - totalOut`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestockRequest'
+      responses:
+        '200':
+          description: Restock berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockItem'
+        '400':
+          description: Jumlah restock tidak valid (bukan bilangan bulat positif)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Jumlah restock tidak valid"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /stock/export:
+    get:
+      tags: [Stock]
+      summary: Export data stok ke CSV
+      description: |
+        Mengembalikan file CSV data stok.
+        Kolom: `ID Produk, Nama Produk, Kategori, Total Masuk, Total Keluar, Stok Saat Ini`
+        (ditambah kolom `Cabang` di posisi pertama jika Super Admin).
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: File CSV data stok
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: 'attachment; filename="Stok_Palembang.csv"'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ──────────────────────────────────────────────
+  # STORES
+  # ──────────────────────────────────────────────
+  /stores:
+    get:
+      tags: [Stores]
+      summary: Daftar toko pelanggan
+      description: |
+        Mengembalikan daftar toko berdasarkan cabang.
+        - Admin Cabang: hanya toko cabangnya.
+        - Super Admin dengan `?branch=all`: semua toko dari semua cabang.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Daftar toko berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Store'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Stores]
+      summary: Tambah toko baru
+      description: |
+        Membuat toko baru. ID toko di-generate server dengan format `STR-{BRANCH_CODE}-{TIMESTAMP}`.
+        `totalDebt` diinisialisasi ke 0.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStoreRequest'
+      responses:
+        '201':
+          description: Toko berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /stores/{id}:
+    put:
+      tags: [Stores]
+      summary: Edit nama toko
+      description: Memperbarui nama toko berdasarkan ID.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "STR-PAL-1234567890"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoreRequest'
+      responses:
+        '200':
+          description: Toko berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Stores]
+      summary: Hapus toko
+      description: Menghapus toko dari cabang yang bersangkutan.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "STR-PAL-1234567890"
+      responses:
+        '200':
+          description: Toko berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Toko berhasil dihapus"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────
+  # ORDERS
+  # ──────────────────────────────────────────────
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Riwayat pesanan
+      description: |
+        Mengembalikan daftar pesanan dengan filter cabang dan tanggal/bulan.
+        
+        **Filter tanggal:**
+        - `?date=YYYY-MM-DD` — filter per hari
+        - `?month=YYYY-MM` — filter per bulan
+        
+        **Filter cabang:**
+        - Admin Cabang: otomatis hanya cabangnya, parameter `branch` diabaikan.
+        - Super Admin: gunakan `?branch=<nama>` atau `?branch=all`.
+        
+        Response menyertakan field `branch` pada setiap pesanan jika `branch=all`.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter per tanggal (YYYY-MM-DD). Tidak bisa digunakan bersamaan dengan `month`.
+          example: "2026-05-15"
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          description: Filter per bulan (YYYY-MM). Tidak bisa digunakan bersamaan dengan `date`.
+          example: "2026-05"
+      responses:
+        '200':
+          description: Daftar pesanan berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Orders]
+      summary: Buat pesanan baru
+      description: |
+        Membuat pesanan baru secara **atomik**:
+        1. Menyimpan data pesanan
+        2. Mengurangi stok setiap produk dalam pesanan
+        3. Membuat piutang baru (`dueDate = createdAt + 30 hari`, `isPaid: false`)
+        4. Menambah `totalDebt` toko sebesar `total`
+        
+        Jika salah satu langkah gagal, tidak ada perubahan yang tersimpan.
+        
+        **Validasi:**
+        - `id` (nomor faktur) harus unik
+        - Stok setiap produk harus mencukupi
+        - `total` harus sama dengan `sum(item.quantity * item.price)`
+        - `items` tidak boleh kosong
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            example:
+              id: "FKT-001"
+              storeId: "STR-PAL-1234567890"
+              storeName: "Toko Berkah Palembang"
+              branch: "Palembang"
+              items:
+                - productId: "F001"
+                  productName: "Fiesta Chicken Nugget 500g"
+                  quantity: 5
+                  price: 48500
+              total: 242500
+              createdAt: "2026-05-15T08:30:00.000Z"
+      responses:
+        '201':
+          description: Pesanan berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Data pesanan tidak valid (items kosong atau total tidak cocok)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Data pesanan tidak valid"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Nomor faktur sudah digunakan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Nomor faktur sudah digunakan"
+        '422':
+          description: Stok tidak mencukupi
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, productId]
+                properties:
+                  message:
+                    type: string
+                    example: "Stok tidak mencukupi"
+                  productId:
+                    type: string
+                    description: ID produk yang stoknya tidak mencukupi
+                    example: "F001"
+
+  /orders/daily-report:
+    get:
+      tags: [Orders]
+      summary: Laporan penjualan harian
+      description: |
+        Mengembalikan data laporan penjualan harian dalam format yang siap diekspor ke CSV.
+        Setiap baris mewakili satu item produk dalam satu pesanan.
+        
+        Jika `storeId` tidak disertakan atau `storeId=all`, mengembalikan semua toko.
+        Response menyertakan field `branch` untuk setiap baris.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Tanggal laporan (YYYY-MM-DD)
+          example: "2026-05-15"
+        - name: storeId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter per toko. Kosongkan atau gunakan "all" untuk semua toko.
+          example: "STR-PAL-1234567890"
+      responses:
+        '200':
+          description: Data laporan harian berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyReportRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ──────────────────────────────────────────────
+  # RECEIVABLES
+  # ──────────────────────────────────────────────
+  /receivables:
+    get:
+      tags: [Receivables]
+      summary: Daftar piutang
+      description: |
+        Mengembalikan semua piutang (lunas maupun belum) berdasarkan cabang.
+        - Admin Cabang: hanya piutang cabangnya.
+        - Super Admin dengan `?branch=all`: semua piutang dari semua cabang, masing-masing dengan field `branch`.
+        
+        Piutang dianggap **jatuh tempo (overdue)** jika `dueDate < hari ini` dan `isPaid === false`.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Daftar piutang berhasil diambil
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Receivable'
+                    description: Response untuk Admin Cabang
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/ReceivableWithBranch'
+                    description: Response untuk Super Admin dengan branch=all
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /receivables/summary:
+    get:
+      tags: [Receivables]
+      summary: Ringkasan statistik piutang
+      description: |
+        Mengembalikan ringkasan statistik piutang untuk ditampilkan di KPI cards halaman Piutang.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Ringkasan piutang berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivablesSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /receivables/{id}:
+    patch:
+      tags: [Receivables]
+      summary: Tandai piutang sebagai lunas
+      description: |
+        Menandai piutang sebagai lunas secara **atomik**:
+        1. Memperbarui `isPaid` menjadi `true`
+        2. Mengurangi `totalDebt` toko terkait sebesar `amount` piutang
+        
+        **Catatan:** Piutang yang sudah `isPaid: true` tidak dapat diubah kembali ke `false`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "REC-PAL-1716789012345"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchReceivableRequest'
+      responses:
+        '200':
+          description: Piutang berhasil ditandai lunas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receivable'
+        '400':
+          description: Piutang sudah lunas atau nilai isPaid tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Piutang sudah lunas"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────
+  # DASHBOARD
+  # ──────────────────────────────────────────────
+  /dashboard/kpi:
+    get:
+      tags: [Dashboard]
+      summary: KPI cards ringkasan performa
+      description: |
+        Mengembalikan 4 metrik utama untuk KPI cards di halaman Dashboard:
+        - `dailySales`: total penjualan hari ini
+        - `monthlySales`: total penjualan bulan ini
+        - `totalReceivables`: total piutang belum lunas
+        - `lowStockCount`: jumlah produk dengan `stock < 50`
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: KPI berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /dashboard/weekly-sales:
+    get:
+      tags: [Dashboard]
+      summary: Tren penjualan 7 hari terakhir
+      description: |
+        Mengembalikan data penjualan 7 hari terakhir untuk grafik bar chart.
+        Field `name` adalah nama hari singkat dalam Bahasa Indonesia (contoh: "Sen", "Sel", "Rab").
+        Field `sales` adalah total penjualan hari tersebut dalam Rupiah.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Data penjualan mingguan berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 7
+                maxItems: 7
+                items:
+                  $ref: '#/components/schemas/WeeklySalesItem'
+              example:
+                - name: "Min"
+                  sales: 1500000
+                - name: "Sen"
+                  sales: 3200000
+                - name: "Sel"
+                  sales: 2800000
+                - name: "Rab"
+                  sales: 4100000
+                - name: "Kam"
+                  sales: 3600000
+                - name: "Jum"
+                  sales: 5200000
+                - name: "Sab"
+                  sales: 2100000
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /dashboard/branch-contribution:
+    get:
+      tags: [Dashboard]
+      summary: Kontribusi penjualan per cabang (Super Admin only)
+      description: |
+        Mengembalikan total penjualan per cabang untuk pie chart di Dashboard.
+        **Hanya Super Admin** yang dapat mengakses endpoint ini.
+      responses:
+        '200':
+          description: Data kontribusi cabang berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BranchContributionItem'
+              example:
+                - name: "Palembang"
+                  value: 45000000
+                - name: "Baturaja"
+                  value: 28000000
+                - name: "Jambi"
+                  value: 33000000
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /dashboard/low-stock:
+    get:
+      tags: [Dashboard]
+      summary: Produk dengan stok menipis
+      description: |
+        Mengembalikan produk dengan `stock < 50` untuk ditampilkan di widget Dashboard.
+        Maksimal 5 produk ditampilkan di widget (FE melakukan slice).
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Daftar produk stok menipis berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LowStockItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /dashboard/recent-orders:
+    get:
+      tags: [Dashboard]
+      summary: 5 pesanan terbaru
+      description: |
+        Mengembalikan 5 pesanan terbaru untuk ditampilkan di widget Dashboard.
+        Diurutkan dari yang paling baru.
+      parameters:
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Nama cabang atau "all" (Super Admin only)
+          example: "Palembang"
+      responses:
+        '200':
+          description: Pesanan terbaru berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 5
+                items:
+                  $ref: '#/components/schemas/RecentOrderItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# ============================================================
+# REUSABLE RESPONSES
+# ============================================================
+  responses:
+    Unauthorized:
+      description: Token tidak valid atau sudah kedaluwarsa
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: "Token tidak valid atau sudah kedaluwarsa"
+    Forbidden:
+      description: Tidak memiliki izin (bukan Super Admin)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: "Akses ditolak"
+    NotFound:
+      description: Data tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: "Data tidak ditemukan"
