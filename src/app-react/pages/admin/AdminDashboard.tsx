@@ -5,6 +5,7 @@ import {
   ShoppingBag,
   Download,
   MapPin,
+  RefreshCw,
 } from "lucide-react";
 import KPICard from "../../components/KPICard";
 import {
@@ -18,7 +19,7 @@ import {
   getGlobalStores,
   getBranches,
 } from "../../utils/mockData";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -32,28 +33,65 @@ import {
   Cell,
 } from "recharts";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useAppStore } from "../../../store/useAppStore";
+import SalesTrendChart from "../../components/charts/SalesTrendChart";
+import TopProductsChart from "../../components/charts/TopProductsChart";
+import {
+  getWeeklySalesTrend,
+  getTopSellingProducts,
+} from "../../utils/chartData";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
 
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+
+  // Set fallback activeBranch to "all" if not set initially for SuperAdmin
+  const selectedBranch = activeBranch || "all";
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Sync data dynamically by adding a refresh listener/interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey((prev) => prev + 1);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const effectiveChartBranch =
+    selectedBranch === "all" ? undefined : selectedBranch;
+
+  const dataTrend = useMemo(
+    () => getWeeklySalesTrend(effectiveChartBranch),
+    [effectiveChartBranch, refreshKey],
+  );
+
+  const topProducts = useMemo(
+    () => getTopSellingProducts(effectiveChartBranch),
+    [effectiveChartBranch, refreshKey],
+  );
 
   const allOrders = useMemo(
     () => (isSuperAdmin ? getGlobalOrders() : getOrders()),
-    [isSuperAdmin],
+    [isSuperAdmin, refreshKey],
   );
   const allProducts = useMemo(
     () => (isSuperAdmin ? getGlobalProducts() : getProducts()),
-    [isSuperAdmin],
+    [isSuperAdmin, refreshKey],
   );
   const allReceivables = useMemo(
     () => (isSuperAdmin ? getGlobalReceivables() : getReceivables()),
-    [isSuperAdmin],
+    [isSuperAdmin, refreshKey],
   );
   const allStores = useMemo(
     () => (isSuperAdmin ? getGlobalStores() : getStores()),
-    [isSuperAdmin],
+    [isSuperAdmin, refreshKey],
   );
 
   const orders = useMemo(
@@ -270,7 +308,7 @@ export default function AdminDashboard() {
               <MapPin className="w-5 h-5 text-blue-600" />
               <select
                 value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
+                onChange={(e) => setActiveBranch(e.target.value)}
                 className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
               >
                 <option value="all">Semua Cabang</option>
@@ -314,36 +352,30 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative">
+          <button
+            onClick={handleRefresh}
+            className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
           <h2 className="text-xl font-semibold text-gray-900 mb-6">
             Trend Penjualan Mingguan
           </h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={weeklyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#6b7280" />
-              <YAxis
-                stroke="#6b7280"
-                label={{
-                  value: "Penjualan (ribuan)",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
-              />
-              <Tooltip
-                formatter={(value: number) => `Rp ${value.toFixed(0)}K`}
-                contentStyle={{
-                  backgroundColor: "white",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "0.5rem",
-                }}
-              />
-              <Bar dataKey="sales" fill="#2563eb" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <SalesTrendChart data={dataTrend} />
         </div>
 
-        {isSuperAdmin && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">
+            Produk Terlaris
+          </h2>
+          <TopProductsChart data={topProducts} />
+        </div>
+      </div>
+
+      {isSuperAdmin && (
+        <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
               Kontribusi Cabang
@@ -393,8 +425,8 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
