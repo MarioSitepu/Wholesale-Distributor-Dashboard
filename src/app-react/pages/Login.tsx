@@ -1,36 +1,40 @@
-import { useState } from 'react';
-import { useNavigate } from '../router-compat';
-import { Shield } from 'lucide-react';
-import { toast } from 'sonner';
-import { Toaster } from 'sonner';
+import { useState } from "react";
+import { useNavigate } from "../router-compat";
+import { Shield } from "lucide-react";
+import { toast } from "sonner";
+import { Toaster } from "sonner";
 
-import { getUsers, User } from '../utils/mockData';
+import { getUsers, User } from "../utils/mockData";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function Login() {
   const users = getUsers();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     setTimeout(() => {
-      const user = users.find(u => u.username === username.toLowerCase() && u.password === password);
+      const user = users.find(
+        (u) => u.username === username.toLowerCase() && u.password === password,
+      );
 
       if (!user) {
-        toast.error('Username atau password salah');
+        toast.error("Username atau password salah");
         setIsLoading(false);
         return;
       }
 
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      login(user);
       toast.success(`Selamat datang, Admin ${user.branch}!`);
 
       setTimeout(() => {
-        navigate('/admin');
+        navigate("/admin");
       }, 500);
 
       setIsLoading(false);
@@ -46,8 +50,12 @@ export default function Login() {
             <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">PT Anugerah Indotirta Raharja</h1>
-            <p className="text-gray-600">Wholesale Distributor Management System</p>
+            <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+              PT Anugerah Indotirta Raharja
+            </h1>
+            <p className="text-gray-600">
+              Wholesale Distributor Management System
+            </p>
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-8">
@@ -58,23 +66,42 @@ export default function Login() {
               </h3>
               <div className="space-y-2">
                 {users.map((user) => (
-                  <div key={user.username} className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-blue-50 shadow-sm">
+                  <div
+                    key={user.username}
+                    className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-blue-50 shadow-sm"
+                  >
                     <div>
-                      <p className="font-bold text-gray-900">Cabang {user.branch}</p>
+                      <p className="font-bold text-gray-900">
+                        Cabang {user.branch}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-gray-500">U: <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">{user.username}</code> | P: <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">{user.password}</code></p>
+                      <p className="text-gray-500">
+                        U:{" "}
+                        <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">
+                          {user.username}
+                        </code>{" "}
+                        | P:{" "}
+                        <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">
+                          {user.password}
+                        </code>
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Admin Sign In</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              Admin Sign In
+            </h2>
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Username
                 </label>
                 <input
@@ -90,7 +117,10 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Password
                 </label>
                 <input
@@ -110,11 +140,10 @@ export default function Login() {
                 disabled={isLoading}
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors"
               >
-                {isLoading ? 'Memproses...' : 'Sign In'}
+                {isLoading ? "Memproses..." : "Sign In"}
               </button>
             </form>
           </div>
-
         </div>
       </div>
     </>

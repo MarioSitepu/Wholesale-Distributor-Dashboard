@@ -1,33 +1,48 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Package, DollarSign, LogOut, ChevronLeft, ChevronRight, ShoppingCart, History, Book, BookOpen, Users } from 'lucide-react';
-import { Toaster } from 'sonner';
-import { useEffect, useState } from 'react';
-import { initializeMockData } from '../../app-react/utils/mockData';
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  Package,
+  DollarSign,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  ShoppingCart,
+  History,
+  Book,
+  BookOpen,
+  Users,
+} from "lucide-react";
+import { Toaster } from "sonner";
+import { useEffect, useState } from "react";
+import { initializeMockData } from "../../app-react/utils/mockData";
+import { useAuthStore } from "../../store/useAuthStore";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-  const [user, setUser] = useState<{ branch: string } | null>(null);
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
     initializeMockData();
-    const currentUser = localStorage.getItem('currentUser');
-    if (currentUser) {
-      setUser(JSON.parse(currentUser));
-    } else {
-      router.replace('/');
+    if (!user) {
+      router.replace("/");
     }
-  }, [router]);
+  }, [router, user]);
 
   const isActive = (path: string) => pathname === path;
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    router.replace('/');
+    logout();
+    router.replace("/");
   };
 
   const toggleSidebar = () => {
@@ -45,18 +60,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Toaster position="top-center" richColors />
-      <aside className={`${isSidebarExpanded ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 fixed top-0 left-0 bottom-0 flex flex-col transition-all duration-300`}>
+      <aside
+        className={`${isSidebarExpanded ? "w-64" : "w-20"} bg-white border-r border-gray-200 fixed top-0 left-0 bottom-0 flex flex-col transition-all duration-300`}
+      >
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <div className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>
-            <h1 className="text-lg font-semibold text-blue-600">PT Anugerah Indotirta</h1>
+          <div className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+            <h1 className="text-lg font-semibold text-blue-600">
+              PT Anugerah Indotirta
+            </h1>
             <p className="text-xs text-gray-600 mt-1 font-medium bg-blue-50 px-2 py-1 rounded inline-block">
-              Admin {user?.branch || 'Dashboard'}
+              Admin {user?.branch || "Dashboard"}
             </p>
           </div>
           <button
             onClick={toggleSidebar}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            title={isSidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
           >
             {isSidebarExpanded ? (
               <ChevronLeft className="w-5 h-5 text-gray-600" />
@@ -68,69 +87,85 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav className="flex-1 p-4 space-y-2">
           <Link
             href="/admin"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Dashboard' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Dashboard" : ""}
           >
             <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Dashboard</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Dashboard
+            </span>
           </Link>
           <Link
             href="/admin/order"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/order') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Pesan Produk' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/order") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Pesan Produk" : ""}
           >
             <ShoppingCart className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Pesan Produk</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Pesan Produk
+            </span>
           </Link>
           <Link
             href="/admin/history"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/history') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Riwayat Pesanan' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/history") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Riwayat Pesanan" : ""}
           >
             <History className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Riwayat Pesanan</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Riwayat Pesanan
+            </span>
           </Link>
           <Link
             href="/admin/stock"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/stock') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Kelola Stok' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/stock") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Kelola Stok" : ""}
           >
             <Package className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Kelola Stok</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Kelola Stok
+            </span>
           </Link>
           <Link
             href="/admin/receivables"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/receivables') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Piutang' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/receivables") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Piutang" : ""}
           >
             <DollarSign className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Piutang</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Piutang
+            </span>
           </Link>
           <Link
             href="/admin/store-books"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/store-books') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Buku Toko' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/store-books") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Buku Toko" : ""}
           >
             <Book className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Buku Toko</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Buku Toko
+            </span>
           </Link>
           <Link
             href="/admin/product-books"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/product-books') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-            title={!isSidebarExpanded ? 'Buku Produk' : ''}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/product-books") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded ? "Buku Produk" : ""}
           >
             <BookOpen className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Buku Produk</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Buku Produk
+            </span>
           </Link>
-          
-          {user?.branch === 'Pusat' && (
+
+          {user?.branch === "Pusat" && (
             <Link
               href="/admin/accounts"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive('/admin/accounts') ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-              title={!isSidebarExpanded ? 'Kelola Akun' : ''}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/accounts") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+              title={!isSidebarExpanded ? "Kelola Akun" : ""}
             >
               <Users className="w-5 h-5 flex-shrink-0" />
-              <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Kelola Akun</span>
+              <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+                Kelola Akun
+              </span>
             </Link>
           )}
         </nav>
@@ -138,15 +173,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             onClick={handleLogout}
             className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg`}
-            title={!isSidebarExpanded ? 'Keluar' : ''}
+            title={!isSidebarExpanded ? "Keluar" : ""}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isSidebarExpanded ? 'block' : 'hidden'}`}>Keluar</span>
+            <span className={`${isSidebarExpanded ? "block" : "hidden"}`}>
+              Keluar
+            </span>
           </button>
         </div>
       </aside>
 
-      <main className={`flex-1 ${isSidebarExpanded ? 'ml-64' : 'ml-20'} p-8 transition-all duration-300`}>
+      <main
+        className={`flex-1 ${isSidebarExpanded ? "ml-64" : "ml-20"} p-8 transition-all duration-300`}
+      >
         {children}
       </main>
     </div>

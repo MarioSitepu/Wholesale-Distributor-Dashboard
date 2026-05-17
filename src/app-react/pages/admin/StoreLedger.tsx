@@ -1,30 +1,55 @@
-import { useState, useEffect } from 'react';
-import { Store, Order, getStores, getOrders, updateStore, addStore, deleteStore, getCurrentBranch, getGlobalStores, getGlobalOrders, getBranches, generateId } from '../../utils/mockData';
-import { Search, Store as StoreIcon, Calendar, Receipt, ChevronDown, Edit2, Check, X, Plus, Trash2, MapPin } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import {
+  Store,
+  Order,
+  getStores,
+  getOrders,
+  updateStore,
+  addStore,
+  deleteStore,
+  getCurrentBranch,
+  getGlobalStores,
+  getGlobalOrders,
+  getBranches,
+  generateId,
+} from "../../utils/mockData";
+import {
+  Search,
+  Store as StoreIcon,
+  Calendar,
+  Receipt,
+  ChevronDown,
+  Edit2,
+  Check,
+  X,
+  Plus,
+  Trash2,
+  MapPin,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAuthStore } from "../../../store/useAuthStore";
 
 export default function StoreLedger() {
-  const userStr = localStorage.getItem('currentUser');
-  const user = userStr ? JSON.parse(userStr) : null;
-  const isSuperAdmin = user?.branch === 'Pusat';
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.branch === "Pusat";
 
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [isEditingStore, setIsEditingStore] = useState(false);
-  const [editStoreName, setEditStoreName] = useState('');
+  const [editStoreName, setEditStoreName] = useState("");
   const [isAddingStore, setIsAddingStore] = useState(false);
-  const [newStoreName, setNewStoreName] = useState('');
+  const [newStoreName, setNewStoreName] = useState("");
 
   useEffect(() => {
     let allStores = isSuperAdmin ? getGlobalStores() : getStores();
     let allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
 
-    if (isSuperAdmin && selectedBranch !== 'all') {
-      allStores = allStores.filter(s => s.branch === selectedBranch);
-      allOrders = allOrders.filter(o => (o as any).branch === selectedBranch);
+    if (isSuperAdmin && selectedBranch !== "all") {
+      allStores = allStores.filter((s) => s.branch === selectedBranch);
+      allOrders = allOrders.filter((o) => (o as any).branch === selectedBranch);
     }
 
     setStores(allStores);
@@ -33,64 +58,82 @@ export default function StoreLedger() {
 
   const handleAddStore = () => {
     if (!newStoreName.trim()) {
-      toast.error('Nama toko harus diisi');
+      toast.error("Nama toko harus diisi");
       return;
     }
-    const branchToUse = isSuperAdmin 
-      ? (selectedBranch === 'all' ? 'Palembang' : selectedBranch)
+    const branchToUse = isSuperAdmin
+      ? selectedBranch === "all"
+        ? "Palembang"
+        : selectedBranch
       : getCurrentBranch();
 
     const newStore: Store = {
-      id: generateId('STR', branchToUse),
+      id: generateId("STR", branchToUse),
       name: newStoreName.trim(),
       branch: branchToUse,
-      totalDebt: 0
+      totalDebt: 0,
     };
     addStore(newStore, branchToUse);
-    toast.success('Toko berhasil ditambahkan');
-    
+    toast.success("Toko berhasil ditambahkan");
+
     // Refresh data
     const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
-    setStores(selectedBranch === 'all' ? updatedStores : updatedStores.filter(s => s.branch === selectedBranch));
-    
-    setNewStoreName('');
+    setStores(
+      selectedBranch === "all"
+        ? updatedStores
+        : updatedStores.filter((s) => s.branch === selectedBranch),
+    );
+
+    setNewStoreName("");
     setIsAddingStore(false);
   };
 
   const handleDeleteStore = (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus toko ini?')) {
-      const storeToDelete = stores.find(s => s.id === id);
+    if (confirm("Apakah Anda yakin ingin menghapus toko ini?")) {
+      const storeToDelete = stores.find((s) => s.id === id);
       const branchToUse = storeToDelete?.branch || getCurrentBranch();
       deleteStore(id, branchToUse);
-      
+
       const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
-      setStores(selectedBranch === 'all' ? updatedStores : updatedStores.filter(s => s.branch === selectedBranch));
-      
-      if (selectedStoreId === id) setSelectedStoreId('');
+      setStores(
+        selectedBranch === "all"
+          ? updatedStores
+          : updatedStores.filter((s) => s.branch === selectedBranch),
+      );
+
+      if (selectedStoreId === id) setSelectedStoreId("");
     }
   };
 
   const handleSaveStore = () => {
     if (!selectedStoreId || !editStoreName.trim()) return;
-    
-    const storeToUpdate = stores.find(s => s.id === selectedStoreId);
+
+    const storeToUpdate = stores.find((s) => s.id === selectedStoreId);
     if (storeToUpdate) {
       const updatedStore = { ...storeToUpdate, name: editStoreName.trim() };
       updateStore(updatedStore, storeToUpdate.branch);
-      
+
       const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
-      setStores(selectedBranch === 'all' ? updatedStores : updatedStores.filter(s => s.branch === selectedBranch));
+      setStores(
+        selectedBranch === "all"
+          ? updatedStores
+          : updatedStores.filter((s) => s.branch === selectedBranch),
+      );
       setIsEditingStore(false);
     }
   };
 
-
-  const filteredStores = stores.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredStores = stores.filter((s) =>
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const selectedStore = stores.find(s => s.id === selectedStoreId);
-  const storeOrders = orders.filter(o => o.storeId === selectedStoreId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const selectedStore = stores.find((s) => s.id === selectedStoreId);
+  const storeOrders = orders
+    .filter((o) => o.storeId === selectedStoreId)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
 
   return (
     <div className="space-y-6">
@@ -105,7 +148,7 @@ export default function StoreLedger() {
           <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <h2 className="font-semibold text-gray-700">Daftar Toko</h2>
-              <button 
+              <button
                 onClick={() => setIsAddingStore(true)}
                 className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
                 title="Tambah Toko"
@@ -123,10 +166,19 @@ export default function StoreLedger() {
                   onChange={(e) => setNewStoreName(e.target.value)}
                   autoFocus
                 />
-                <button onClick={handleAddStore} className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200">
+                <button
+                  onClick={handleAddStore}
+                  className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"
+                >
                   <Check className="w-4 h-4" />
                 </button>
-                <button onClick={() => { setIsAddingStore(false); setNewStoreName(''); }} className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">
+                <button
+                  onClick={() => {
+                    setIsAddingStore(false);
+                    setNewStoreName("");
+                  }}
+                  className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                >
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -140,8 +192,10 @@ export default function StoreLedger() {
                   className="bg-transparent border-none outline-none text-xs font-bold text-blue-700 cursor-pointer w-full"
                 >
                   <option value="all">Semua Cabang</option>
-                  {getBranches().map(b => (
-                    <option key={b} value={b}>{b}</option>
+                  {getBranches().map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -158,7 +212,7 @@ export default function StoreLedger() {
             </div>
           </div>
           <div className="overflow-y-auto flex-1">
-            {filteredStores.map(store => (
+            {filteredStores.map((store) => (
               <button
                 key={store.id}
                 onClick={() => {
@@ -166,15 +220,19 @@ export default function StoreLedger() {
                   setIsEditingStore(false);
                 }}
                 className={`w-full text-left p-4 border-b border-gray-100 transition-colors hover:bg-gray-50 flex items-center gap-3
-                  ${selectedStoreId === store.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}
+                  ${selectedStoreId === store.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""}
                 `}
               >
-                <div className={`p-2 rounded-lg ${selectedStoreId === store.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                <div
+                  className={`p-2 rounded-lg ${selectedStoreId === store.id ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"}`}
+                >
                   <StoreIcon className="w-5 h-5" />
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className={`font-medium truncate ${selectedStoreId === store.id ? 'text-blue-700' : 'text-gray-800'}`}>
+                    <h3
+                      className={`font-medium truncate ${selectedStoreId === store.id ? "text-blue-700" : "text-gray-800"}`}
+                    >
                       {store.name}
                     </h3>
                     <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-md font-bold uppercase">
@@ -184,8 +242,12 @@ export default function StoreLedger() {
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>{store.id}</span>
-                    <span className={store.totalDebt > 0 ? 'text-red-500 font-bold' : ''}>
-                      Rp {store.totalDebt.toLocaleString('id-ID')}
+                    <span
+                      className={
+                        store.totalDebt > 0 ? "text-red-500 font-bold" : ""
+                      }
+                    >
+                      Rp {store.totalDebt.toLocaleString("id-ID")}
                     </span>
                   </div>
                 </div>
@@ -216,10 +278,16 @@ export default function StoreLedger() {
                           onChange={(e) => setEditStoreName(e.target.value)}
                           autoFocus
                         />
-                        <button onClick={handleSaveStore} className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200">
+                        <button
+                          onClick={handleSaveStore}
+                          className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+                        >
                           <Check className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setIsEditingStore(false)} className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                        <button
+                          onClick={() => setIsEditingStore(false)}
+                          className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
+                        >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -227,7 +295,7 @@ export default function StoreLedger() {
                       <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 group">
                         <StoreIcon className="w-6 h-6 text-blue-600" />
                         {selectedStore.name}
-                        <button 
+                        <button
                           onClick={() => {
                             setEditStoreName(selectedStore.name);
                             setIsEditingStore(true);
@@ -237,7 +305,7 @@ export default function StoreLedger() {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteStore(selectedStore.id)}
                           className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-opacity"
                           title="Hapus Toko"
@@ -246,11 +314,17 @@ export default function StoreLedger() {
                         </button>
                       </h2>
                     )}
-                    <p className="text-gray-500 mt-1">ID Toko: {selectedStore.id}</p>
+                    <p className="text-gray-500 mt-1">
+                      ID Toko: {selectedStore.id}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500 mb-1">Total Transaksi</p>
-                    <p className="text-2xl font-bold text-gray-800">{storeOrders.length}</p>
+                    <p className="text-sm text-gray-500 mb-1">
+                      Total Transaksi
+                    </p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {storeOrders.length}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -264,39 +338,57 @@ export default function StoreLedger() {
                 {storeOrders.length > 0 ? (
                   <div className="space-y-4">
                     {storeOrders.map((order) => (
-                      <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div
+                        key={order.id}
+                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
                         <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
                           <div>
-                            <p className="font-semibold text-gray-800">Faktur #{order.id}</p>
+                            <p className="font-semibold text-gray-800">
+                              Faktur #{order.id}
+                            </p>
                             <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                               <Calendar className="w-4 h-4" />
-                              {new Date(order.createdAt).toLocaleString('id-ID', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {new Date(order.createdAt).toLocaleString(
+                                "id-ID",
+                                {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )}
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-500">Total Belanja</p>
+                            <p className="text-sm text-gray-500">
+                              Total Belanja
+                            </p>
                             <p className="font-bold text-green-600">
-                              Rp {order.total.toLocaleString('id-ID')}
+                              Rp {order.total.toLocaleString("id-ID")}
                             </p>
                           </div>
                         </div>
-                        
+
                         <div>
-                          <p className="text-sm font-medium text-gray-700 mb-2">Daftar Barang:</p>
+                          <p className="text-sm font-medium text-gray-700 mb-2">
+                            Daftar Barang:
+                          </p>
                           <div className="space-y-2">
                             {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-sm items-center">
+                              <div
+                                key={idx}
+                                className="flex justify-between text-sm items-center"
+                              >
                                 <span className="text-gray-600">
                                   {item.quantity}x {item.productName}
                                 </span>
                                 <span className="text-gray-800 font-medium">
-                                  Rp {(item.quantity * item.price).toLocaleString('id-ID')}
+                                  Rp{" "}
+                                  {(item.quantity * item.price).toLocaleString(
+                                    "id-ID",
+                                  )}
                                 </span>
                               </div>
                             ))}
@@ -310,7 +402,9 @@ export default function StoreLedger() {
                     <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Receipt className="w-8 h-8 text-gray-400" />
                     </div>
-                    <p className="text-gray-500">Belum ada transaksi untuk toko ini</p>
+                    <p className="text-gray-500">
+                      Belum ada transaksi untuk toko ini
+                    </p>
                   </div>
                 )}
               </div>
@@ -320,7 +414,8 @@ export default function StoreLedger() {
               <StoreIcon className="w-16 h-16 text-gray-300 mb-4" />
               <p className="text-lg font-medium text-gray-600">Pilih Toko</p>
               <p className="text-center max-w-sm mt-2">
-                Silakan pilih salah satu toko dari daftar di sebelah kiri untuk melihat detail dan riwayat transaksinya.
+                Silakan pilih salah satu toko dari daftar di sebelah kiri untuk
+                melihat detail dan riwayat transaksinya.
               </p>
             </div>
           )}
