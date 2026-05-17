@@ -4,6 +4,7 @@ import { StoreRepository } from '../repositories/store.repository';
 import { StockRepository } from '../repositories/stock.repository';
 import { ReceivableRepository } from '../repositories/receivable.repository';
 import { Errors } from '../utils/errors';
+import { prisma } from '../config/prisma';
 
 export class OrderService {
   private orderRepo = new OrderRepository();
@@ -51,64 +52,128 @@ export class OrderService {
       throw Errors.forbidden();
     }
 
-    // Pastikan order ID belum ada
-    const exists = await this.orderRepo.existsById(data.id);
-    if (exists) throw Errors.conflict(`Order '${data.id}' sudah ada`);
+    // Gunakan Prisma Transaction untuk menjamin ACID & Konsistensi Stok (mencegah Race Condition)
+    return await prisma.$transaction(async (tx) => {
+      // 1. Validasi Bisnis: Pastikan nomor faktur (Order ID) unik & tidak duplikat
+      const exists = await tx.order.count({ where: { id: data.id } });
+      if (exists > 0) throw Errors.conflict(`Nomor faktur '${data.id}' sudah digunakan di sistem`);
 
-    // Pastikan toko ada
-    const store = await this.storeRepo.findById(data.storeId);
-    if (!store) throw Errors.notFound(`Toko '${data.storeId}' tidak ditemukan`);
+      // 2. Pastikan toko ada
+      const store = await tx.store.findUnique({ where: { id: data.storeId } });
+      if (!store) throw Errors.notFound(`Toko '${data.storeId}' tidak ditemukan`);
 
-    // Validasi & kurangi stok untuk tiap item
-    for (const item of data.items) {
-      const currentStock = await this.stockRepo.getCurrentStock(item.productId, data.branch);
-      if (currentStock < item.quantity) {
-        throw Errors.unprocessable(
-          `Stok tidak mencukupi untuk produk '${item.productName}'`,
-          { productId: item.productId },
+      let calculatedTotal = 0;
+      const verifiedItems: any[] = [];
+
+      // 3. Validasi stok secara atomik menggunakan SELECT ... FOR UPDATE untuk mengunci baris stok
+      for (const item of data.items) {
+        // Ambil dan kunci baris stok di database
+        const stockRows = await tx.$queryRaw<any[]>`
+          SELECT "totalIn", "totalOut" 
+          FROM stock_items 
+          WHERE "productId" = ${item.productId} AND "branch" = ${data.branch} 
+          FOR UPDATE
+        `;
+
+        const stockItem = stockRows[0];
+        const currentStock = stockItem ? (stockItem.totalIn - stockItem.totalOut) : 0;
+
+        // Validasi Bisnis: Mencegah stok menjadi negatif
+        if (currentStock < item.quantity) {
+          throw Errors.unprocessable(
+            `Stok tidak mencukupi untuk produk '${item.productName}' (Stok Tersedia: ${currentStock}, Diminta: ${item.quantity})`,
+            { productId: item.productId },
+          );
+        }
+
+        // Keamanan Transaksi: Ambil produk dari DB untuk validasi harga (mencegah manipulasi konsol browser)
+        const product = await tx.product.findUnique({
+          where: { id: item.productId }
+        });
+        if (!product) {
+          throw Errors.notFound(`Produk '${item.productId}' tidak ditemukan di database`);
+        }
+
+        const dbPrice = Number(product.price);
+        // Bandingkan harga kiriman klien dengan harga terdaftar di database
+        if (Math.abs(dbPrice - item.price) > 0.01) {
+          throw Errors.badRequest(
+            `Keamanan Transaksi: Ketidakcocokan harga terdeteksi untuk produk '${item.productName}'. Harga sistem: Rp ${dbPrice}, Harga kiriman: Rp ${item.price}`
+          );
+        }
+
+        calculatedTotal += dbPrice * item.quantity;
+        verifiedItems.push({
+          productId: item.productId,
+          productName: product.name,
+          quantity: item.quantity,
+          price: dbPrice
+        });
+
+        // 4. Kurangi stok (secara atomik mengupdate totalOut di bawah kunci FOR UPDATE)
+        await tx.stockItem.update({
+          where: { productId_branch: { productId: item.productId, branch: data.branch } },
+          data: { totalOut: { increment: item.quantity } },
+        });
+      }
+
+      // Keamanan Transaksi: Validasi total belanja keseluruhan
+      if (Math.abs(calculatedTotal - data.total) > 0.01) {
+        throw Errors.badRequest(
+          `Keamanan Transaksi: Manipulasi total belanja terdeteksi. Kalkulasi sistem: Rp ${calculatedTotal}, Kiriman klien: Rp ${data.total}`
         );
       }
-    }
 
-    // Buat order
-    const order = await this.orderRepo.create({
-      id: data.id,
-      storeId: data.storeId,
-      branch: data.branch,
-      total: data.total,
-      createdAt: new Date(data.createdAt),
-      items: data.items,
+      // 5. Buat order
+      const order = await tx.order.create({
+        data: {
+          id: data.id,
+          storeId: data.storeId,
+          branch: data.branch,
+          total: calculatedTotal, // Simpan total yang telah divalidasi sistem
+          createdAt: new Date(data.createdAt),
+          items: {
+            create: verifiedItems.map(item => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              price: item.price
+            }))
+          }
+        },
+        include: {
+          store: true,
+          items: true
+        }
+      });
+
+      // 6. Buat piutang (jatuh tempo 30 hari)
+      const dueDate = new Date(data.createdAt);
+      dueDate.setDate(dueDate.getDate() + 30);
+      await tx.receivable.create({
+        data: {
+          storeId: data.storeId,
+          orderId: data.id,
+          amount: calculatedTotal, // Piutang didasarkan pada harga tervalidasi sistem
+          dueDate,
+        }
+      });
+
+      return {
+        id: order.id,
+        storeId: order.storeId,
+        storeName: order.store.name,
+        branch: order.branch,
+        items: order.items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          quantity: i.quantity,
+          price: Number(i.price),
+        })),
+        total: Number(order.total),
+        createdAt: order.createdAt.toISOString(),
+      };
     });
-
-    // Kurangi stok
-    for (const item of data.items) {
-      await this.stockRepo.deductStock(item.productId, data.branch, item.quantity);
-    }
-
-    // Buat piutang (jatuh tempo 30 hari)
-    const dueDate = new Date(data.createdAt);
-    dueDate.setDate(dueDate.getDate() + 30);
-    await this.receivableRepo.create({
-      storeId: data.storeId,
-      orderId: data.id,
-      amount: data.total,
-      dueDate,
-    });
-
-    return {
-      id: order.id,
-      storeId: order.storeId,
-      storeName: order.store.name,
-      branch: order.branch,
-      items: order.items.map((i) => ({
-        productId: i.productId,
-        productName: i.productName,
-        quantity: i.quantity,
-        price: Number(i.price),
-      })),
-      total: Number(order.total),
-      createdAt: order.createdAt.toISOString(),
-    };
   }
 
   async getDailyReport(
