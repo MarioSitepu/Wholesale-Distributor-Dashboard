@@ -43,6 +43,7 @@ export default function OrderPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [products, setProducts] = useState(allProducts);
   const cart = useCartStore((state) => state.cart);
+  const setCurrentBranch = useCartStore((state) => state.setCurrentBranch);
   const addItem = useCartStore((state) => state.addItem);
   const decreaseCartQuantity = useCartStore((state) => state.decreaseQuantity);
   const removeCartItem = useCartStore((state) => state.removeItem);
@@ -56,6 +57,12 @@ export default function OrderPage() {
   const [stores, setStores] = useState(
     isSuperAdmin ? getStoresByBranch(activeBranch) : getStores(),
   );
+
+  useEffect(() => {
+    setCurrentBranch(
+      isSuperAdmin ? activeBranch : user?.branch || getCurrentBranch(),
+    );
+  }, [activeBranch, isSuperAdmin, setCurrentBranch, user?.branch]);
 
   useEffect(() => {
     const cats = getCategories();
@@ -246,7 +253,6 @@ export default function OrderPage() {
                   key={branch}
                   onClick={() => {
                     setActiveBranch(branch);
-                    clearCart();
                   }}
                   className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
                     activeBranch === branch
