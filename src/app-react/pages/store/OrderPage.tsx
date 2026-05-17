@@ -29,8 +29,10 @@ import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useCartStore } from "../../../store/useCartStore";
 import { useAppStore } from "../../../store/useAppStore";
+import { useNavigate } from "../../router-compat";
 
 export default function OrderPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
   const activeBranch = useAppStore((state) => state.activeBranch);
@@ -118,9 +120,10 @@ export default function OrderPage() {
     if (cart.length > 0) {
       const firstItem = allProducts.find((p) => p.id === cart[0].productId);
       if (firstItem && firstItem.category !== product.category) {
-        toast.error(
-          `Maaf, produk ${product.category} tidak boleh digabung dengan ${firstItem.category} dalam satu bon belanja.`,
-        );
+        toast.warning("Keranjang Terkunci", {
+          description: "Tidak bisa menggabung kategori dalam satu bon.",
+          duration: 5000,
+        });
         return;
       }
     }
@@ -129,7 +132,9 @@ export default function OrderPage() {
     const currentQty = existingItem?.quantity || 0;
 
     if (currentQty >= product.stock) {
-      toast.error("Stok tidak mencukupi");
+      toast.error("Stok Habis!", {
+        description: `Sisa stok untuk ${product.name} hanya ${product.stock} pcs.`,
+      });
       return;
     }
 
@@ -227,7 +232,13 @@ export default function OrderPage() {
     setShowCart(false);
     setInvoiceNumber("");
     setOrderDate(new Date().toISOString().split("T")[0]);
-    toast.success("Pesanan berhasil dibuat!");
+    toast.success("Pesanan Berhasil Dibuat!", {
+      description: "Nomor Faktur: " + invoiceNumber,
+      action: {
+        label: "Lihat Riwayat",
+        onClick: () => navigate("/admin/history"),
+      },
+    });
   };
 
   const cartCategory =
@@ -237,7 +248,7 @@ export default function OrderPage() {
 
   return (
     <>
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" richColors expand={true} />
       <div className="space-y-6 pb-20 md:pb-6">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
