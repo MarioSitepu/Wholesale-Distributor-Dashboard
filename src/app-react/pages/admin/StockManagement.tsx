@@ -1,30 +1,64 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Package, MapPin, Download, Search, Filter, ArrowUpRight, AlertCircle } from 'lucide-react';
-import { getProducts, updateProduct, getGlobalProducts, getBranches, getCurrentBranch, getCategories } from '../../utils/mockData';
+import { getBranches, getCategories } from '../../utils/mockData';
+import { api } from '../../utils/apiClient';
 import { toast, Toaster } from 'sonner';
 
+interface StockItem {
+  id: string;
+  name: string;
+  category: string;
+  totalIn: number;
+  totalOut: number;
+  stock: number;
+  branch: string;
+}
+
 export default function StockManagement() {
-  const userStr = localStorage.getItem('currentUser');
+  const userStr = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
   const user = userStr ? JSON.parse(userStr) : null;
   const isSuperAdmin = user?.branch === 'Pusat';
 
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [branches, setBranches] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [products, setProducts] = useState(isSuperAdmin ? getGlobalProducts() : getProducts());
+  const [products, setProducts] = useState<StockItem[]>([]);
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [selectedProductKey, setSelectedProductKey] = useState<string | null>(null);
   const [restockAmount, setRestockAmount] = useState('');
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load branches and categories
+  useEffect(() => {
+    if (isSuperAdmin) {
+      getBranches()
+        .then(setBranches)
+        .catch(err => toast.error('Gagal memuat cabang: ' + err.message));
+    }
+    getCategories()
+      .then(setCategoriesList)
+      .catch(err => toast.error('Gagal memuat kategori: ' + err.message));
+  }, [isSuperAdmin]);
+
+  // Load dynamic stock levels
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    const targetBranch = isSuperAdmin ? selectedBranch : user?.branch;
+    try {
+      const data = await api.get<StockItem[]>(`/api/stock?branch=${targetBranch}`);
+      setProducts(data);
+    } catch (err: any) {
+      toast.error('Gagal memuat data stok: ' + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isSuperAdmin, selectedBranch, user?.branch]);
 
   useEffect(() => {
-    let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
-    if (isSuperAdmin && selectedBranch !== 'all') {
-      allProducts = allProducts.filter(p => (p as any).branch === selectedBranch);
-    }
-    setProducts(allProducts);
-    setCategoriesList(getCategories());
-  }, [isSuperAdmin, selectedBranch]);
+    loadData();
+  }, [loadData]);
 
   const categories = useMemo(() => {
     return ['all', ...categoriesList];
@@ -39,7 +73,7 @@ export default function StockManagement() {
     });
   }, [products, searchQuery, selectedCategory]);
 
-  const handleRestock = () => {
+  const handleRestock = async () => {
     if (!selectedProductKey || !restockAmount) return;
 
     const amount = parseInt(restockAmount);
@@ -48,72 +82,39 @@ export default function StockManagement() {
       return;
     }
 
-    const sProductParts = selectedProductKey.split('|');
-    const branch = sProductParts[0];
-    const id = sProductParts[1];
+    const [branch, id] = selectedProductKey.split('|');
 
-    const product = products.find(p => {
-      const pId = p.id;
-      const pBranch = (p as any).branch || getCurrentBranch();
-      return pId === id && pBranch === branch;
-    });
-
-    if (!product) return;
-
-    const targetBranch = (product as any).branch || getCurrentBranch();
-    
-    const updatedProduct = {
-      ...product,
-      stock: Number(product.stock) + amount,
-      totalIn: Number(product.totalIn) + amount
-    };
-    
-    updateProduct(updatedProduct, targetBranch);
-    
-    let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
-    if (isSuperAdmin && selectedBranch !== 'all') {
-      allProducts = allProducts.filter(p => (p as any).branch === selectedBranch);
+    try {
+      await api.post('/api/stock/restock', {
+        productId: id,
+        branch,
+        amount
+      });
+      toast.success(`Berhasil restock produk`);
+      setShowRestockModal(false);
+      setSelectedProductKey(null);
+      setRestockAmount('');
+      loadData();
+    } catch (err: any) {
+      toast.error('Gagal melakukan restock: ' + err.message);
     }
-    setProducts(allProducts);
-    setShowRestockModal(false);
-    setSelectedProductKey(null);
-    setRestockAmount('');
-    toast.success(`Berhasil restock ${product.name}`);
   };
 
-  const handleExportCSV = () => {
-    if (filteredProducts.length === 0) return;
-
-    const headers = isSuperAdmin 
-      ? ['Cabang', 'ID Produk', 'Nama Produk', 'Kategori', 'Total Masuk', 'Total Keluar', 'Stok Saat Ini']
-      : ['ID Produk', 'Nama Produk', 'Kategori', 'Total Masuk', 'Total Keluar', 'Stok Saat Ini'];
-      
-    const rows = filteredProducts.map(product => {
-      const base = [
-        product.id,
-        product.name,
-        product.category,
-        product.totalIn,
-        product.totalOut,
-        product.stock
-      ];
-      return isSuperAdmin ? [(product as any).branch || getCurrentBranch(), ...base] : base;
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    const filename = isSuperAdmin && selectedBranch !== 'all' ? `Stok_${selectedBranch}.csv` : 'Stok_Gudang_Semua.csv';
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportCSV = async () => {
+    const targetBranch = isSuperAdmin ? selectedBranch : user?.branch;
+    try {
+      const res = await api.get<any>(`/api/stock/export?branch=${targetBranch}`);
+      const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', res.filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      toast.error('Gagal mengunduh CSV: ' + err.message);
+    }
   };
 
   const openRestockModal = (productKey: string) => {
@@ -131,7 +132,7 @@ export default function StockManagement() {
   const selectedProductData = useMemo(() => {
     if (!selectedProductKey) return null;
     const [branch, id] = selectedProductKey.split('|');
-    return products.find(p => p.id === id && ((p as any).branch || getCurrentBranch()) === branch);
+    return products.find(p => p.id === id && p.branch === branch);
   }, [selectedProductKey, products]);
 
   return (
@@ -156,7 +157,7 @@ export default function StockManagement() {
                     className="bg-transparent border-none outline-none font-semibold text-gray-700 cursor-pointer text-sm"
                   >
                     <option value="all">Semua Cabang</option>
-                    {getBranches().map(branch => (
+                    {branches.map(branch => (
                       <option key={branch} value={branch}>{branch}</option>
                     ))}
                   </select>
@@ -246,122 +247,126 @@ export default function StockManagement() {
         </div>
 
         {/* Main Content - Responsive Table/Cards */}
-        <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
-          {/* Desktop View */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100">
-                  <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">ID Produk</th>
-                  <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Produk</th>
-                  {isSuperAdmin && <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Cabang</th>}
-                  <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Masuk</th>
-                  <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Keluar</th>
-                  <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Stok Sisa</th>
-                  <th className="px-6 py-5 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filteredProducts.map((product) => {
-                  const branch = (product as any).branch || getCurrentBranch();
-                  const uniqueKey = `${branch}|${product.id}`;
-                  return (
-                    <tr key={uniqueKey} className="hover:bg-blue-50/30 transition-colors group">
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-mono text-gray-400">{product.id}</td>
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900">{product.name}</span>
-                          <span className="text-xs text-gray-400">{product.category}</span>
-                        </div>
-                      </td>
-                      {isSuperAdmin && (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-24 bg-white rounded-[2rem] border border-gray-100 shadow-sm">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+            {/* Desktop View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50/50 border-b border-gray-100">
+                    <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">ID Produk</th>
+                    <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Produk</th>
+                    {isSuperAdmin && <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Cabang</th>}
+                    <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Masuk</th>
+                    <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Keluar</th>
+                    <th className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Stok Sisa</th>
+                    <th className="px-6 py-5 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredProducts.map((product) => {
+                    const uniqueKey = `${product.branch}|${product.id}`;
+                    return (
+                      <tr key={uniqueKey} className="hover:bg-blue-50/30 transition-colors group">
+                        <td className="px-6 py-5 whitespace-nowrap text-sm font-mono text-gray-400">{product.id}</td>
                         <td className="px-6 py-5 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700">
-                            {branch}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">{product.name}</span>
+                            <span className="text-xs text-gray-400">{product.category}</span>
+                          </div>
+                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-6 py-5 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700">
+                              {product.branch}
+                            </span>
+                          </td>
+                        )}
+                        <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-emerald-600 font-medium">+{product.totalIn}</td>
+                        <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-rose-600 font-medium">-{product.totalOut}</td>
+                        <td className="px-6 py-5 whitespace-nowrap text-center">
+                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}>
+                            {product.stock}
                           </span>
                         </td>
-                      )}
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-emerald-600 font-medium">+{product.totalIn}</td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-rose-600 font-medium">-{product.totalOut}</td>
-                      <td className="px-6 py-5 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}>
-                          {product.stock}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => openRestockModal(uniqueKey)}
-                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-bold text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all active:scale-95"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Restock
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile View */}
-          <div className="md:hidden divide-y divide-gray-100">
-            {filteredProducts.map((product) => {
-              const branch = (product as any).branch || getCurrentBranch();
-              const uniqueKey = `${branch}|${product.id}`;
-              return (
-                <div key={uniqueKey} className="p-5 space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs font-mono text-gray-400 mb-1">{product.id}</p>
-                      <h3 className="text-base font-bold text-gray-900">{product.name}</h3>
-                      <p className="text-xs text-gray-500">{product.category}</p>
-                    </div>
-                    <span className={`px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}>
-                      {product.stock} Sisa
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
-                    <div className="text-center border-r border-gray-200">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Masuk</p>
-                      <p className="text-sm font-semibold text-emerald-600">+{product.totalIn}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Keluar</p>
-                      <p className="text-sm font-semibold text-rose-600">-{product.totalOut}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    {isSuperAdmin && (
-                      <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                        {branch}
-                      </span>
-                    )}
-                    <button
-                      onClick={() => openRestockModal(uniqueKey)}
-                      className="flex-1 inline-flex items-center justify-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Tambah Stok
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {filteredProducts.length === 0 && (
-            <div className="py-20 text-center">
-              <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-10 h-10 text-gray-300" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">Produk tidak ditemukan</h3>
-              <p className="text-gray-500">Coba gunakan kata kunci pencarian atau filter yang berbeda.</p>
+                        <td className="px-6 py-5 whitespace-nowrap text-right pr-6">
+                          <button
+                            onClick={() => openRestockModal(uniqueKey)}
+                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-bold text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all active:scale-95"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Restock
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {filteredProducts.map((product) => {
+                const uniqueKey = `${product.branch}|${product.id}`;
+                return (
+                  <div key={uniqueKey} className="p-5 space-y-4 animate-in fade-in">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-mono text-gray-400 mb-1">{product.id}</p>
+                        <h3 className="text-base font-bold text-gray-900">{product.name}</h3>
+                        <p className="text-xs text-gray-500">{product.category}</p>
+                      </div>
+                      <span className={`px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}>
+                        {product.stock} Sisa
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
+                      <div className="text-center border-r border-gray-200">
+                        <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Masuk</p>
+                        <p className="text-sm font-semibold text-emerald-600">+{product.totalIn}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Keluar</p>
+                        <p className="text-sm font-semibold text-rose-600">-{product.totalOut}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      {isSuperAdmin && (
+                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
+                          {product.branch}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => openRestockModal(uniqueKey)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Tambah Stok
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {filteredProducts.length === 0 && (
+              <div className="py-20 text-center">
+                <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-10 h-10 text-gray-300" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Produk tidak ditemukan</h3>
+                <p className="text-gray-500">Coba gunakan kata kunci pencarian atau filter yang berbeda.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Restock Modal */}
@@ -386,7 +391,7 @@ export default function StockManagement() {
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs font-mono text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">{selectedProductData.id}</span>
                   <span className="text-xs font-semibold text-gray-500">•</span>
-                  <span className="text-xs font-bold text-blue-600">{(selectedProductData as any).branch || getCurrentBranch()}</span>
+                  <span className="text-xs font-bold text-blue-600">{selectedProductData.branch}</span>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-sm text-gray-600">Stok saat ini</span>
@@ -436,4 +441,3 @@ export default function StockManagement() {
     </>
   );
 }
-

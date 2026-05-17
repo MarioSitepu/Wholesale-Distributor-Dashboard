@@ -3,38 +3,45 @@ import { useNavigate } from '../router-compat';
 import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from 'sonner';
-
-import { getUsers, User } from '../utils/mockData';
+import { api } from '../utils/apiClient';
+import { User } from '../utils/mockData';
 
 export default function Login() {
-  const users = getUsers();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Daftar akun default untuk kemudahan demonstrasi
+  const defaultUsers: User[] = [
+    { username: 'superadmin', password: 'password123', role: 'admin', branch: 'Pusat' },
+    { username: 'palembang', password: 'password123', role: 'admin', branch: 'Palembang' },
+    { username: 'baturaja', password: 'password123', role: 'admin', branch: 'Baturaja' },
+    { username: 'jambi', password: 'password123', role: 'admin', branch: 'Jambi' },
+  ];
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const user = users.find(u => u.username === username.toLowerCase() && u.password === password);
+    try {
+      const response = await api.post<{ token: string; user: User }>('/api/auth/login', {
+        username: username.toLowerCase().trim(),
+        password: password.trim()
+      });
 
-      if (!user) {
-        toast.error('Username atau password salah');
-        setIsLoading(false);
-        return;
-      }
-
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      toast.success(`Selamat datang, Admin ${user.branch}!`);
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('currentUser', JSON.stringify(response.user));
+      toast.success(`Selamat datang, Admin ${response.user.branch}!`);
 
       setTimeout(() => {
         navigate('/admin');
       }, 500);
-
+    } catch (error: any) {
+      toast.error(error.message || 'Username atau password salah');
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -43,21 +50,21 @@ export default function Login() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <div className="text-center mb-8">
-            <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
               <Shield className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-semibold text-gray-900 mb-2">PT Anugerah Indotirta Raharja</h1>
             <p className="text-gray-600">Wholesale Distributor Management System</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-8">
+          <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100/50 backdrop-blur-sm">
             <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
               <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
-                Daftar Akun Cabang:
+                Daftar Akun Cabang (Demo):
               </h3>
               <div className="space-y-2">
-                {users.map((user) => (
+                {defaultUsers.map((user) => (
                   <div key={user.username} className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-blue-50 shadow-sm">
                     <div>
                       <p className="font-bold text-gray-900">Cabang {user.branch}</p>
@@ -108,7 +115,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors"
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-all shadow-md shadow-blue-200"
               >
                 {isLoading ? 'Memproses...' : 'Sign In'}
               </button>

@@ -7,13 +7,22 @@ export default function AccountManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newBranch, setNewBranch] = useState('');
 
+  const loadUsers = () => {
+    setIsLoading(true);
+    getUsers()
+      .then(setUsers)
+      .catch((err) => toast.error(err.message || 'Gagal memuat akun'))
+      .finally(() => setIsLoading(false));
+  };
+
   useEffect(() => {
-    setUsers(getUsers());
+    loadUsers();
   }, []);
 
   const handleAdd = (e: React.FormEvent) => {
@@ -23,33 +32,35 @@ export default function AccountManagement() {
       return;
     }
 
-    try {
-      addUser({
-        username: newUsername.toLowerCase().trim(),
-        password: newPassword.trim(),
-        role: 'admin',
-        branch: newBranch.trim()
+    addUser({
+      username: newUsername.toLowerCase().trim(),
+      password: newPassword.trim(),
+      role: 'admin',
+      branch: newBranch.trim()
+    })
+      .then(() => {
+        toast.success('Akun baru berhasil ditambahkan');
+        setIsAdding(false);
+        setNewUsername('');
+        setNewPassword('');
+        setNewBranch('');
+        loadUsers();
+      })
+      .catch((error: any) => {
+        toast.error(error.message || 'Gagal menambahkan akun');
       });
-      setUsers(getUsers());
-      setIsAdding(false);
-      setNewUsername('');
-      setNewPassword('');
-      setNewBranch('');
-      toast.success('Akun baru berhasil ditambahkan');
-    } catch (error: any) {
-      toast.error(error.message);
-    }
   };
 
   const handleDelete = (username: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus akun ${username}?`)) {
-      try {
-        deleteUser(username);
-        setUsers(getUsers());
-        toast.success('Akun berhasil dihapus');
-      } catch (error: any) {
-        toast.error(error.message);
-      }
+      deleteUser(username)
+        .then(() => {
+          toast.success('Akun berhasil dihapus');
+          loadUsers();
+        })
+        .catch((error: any) => {
+          toast.error(error.message || 'Gagal menghapus akun');
+        });
     }
   };
 
@@ -87,49 +98,52 @@ export default function AccountManagement() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredUsers.map((user) => (
-          <div key={user.username} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="bg-blue-50 p-3 rounded-xl text-blue-600">
-                <Shield className="w-6 h-6" />
-              </div>
-              {user.username !== 'superadmin' && (
-                <button
-                  onClick={() => handleDelete(user.username)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nama Cabang</p>
-                <div className="flex items-center gap-2 text-gray-900 font-bold text-lg">
-                  <MapPin className="w-5 h-5 text-blue-500" />
-                  {user.branch}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredUsers.map((user) => (
+            <div key={user.username} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all group">
+              <div className="flex justify-between items-start mb-4">
+                <div className="bg-blue-50 p-3 rounded-xl text-blue-600">
+                  <Shield className="w-6 h-6" />
                 </div>
+                {user.username !== 'superadmin' && (
+                  <button
+                    onClick={() => handleDelete(user.username)}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
               </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nama Cabang</p>
+                  <div className="flex items-center gap-2 text-gray-900 font-bold text-lg">
+                    <MapPin className="w-5 h-5 text-blue-500" />
+                    {user.branch}
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Username</p>
-                  <p className="text-sm font-mono text-gray-700">{user.username}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Password</p>
-                  <div className="flex items-center gap-2">
-                    <Key className="w-3.5 h-3.5 text-gray-400" />
-                    <p className="text-sm font-mono text-gray-700">{user.password}</p>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Username</p>
+                    <p className="text-sm font-mono text-gray-700">{user.username}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 col-span-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Role</p>
+                    <p className="text-sm font-semibold text-gray-700 capitalize">{user.role || 'Admin'}</p>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Add Modal */}
       {isAdding && (
@@ -167,7 +181,7 @@ export default function AccountManagement() {
                   <input
                     type="text"
                     required
-                    placeholder="Password login"
+                    placeholder="Password login (min 6 karakter)"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all"

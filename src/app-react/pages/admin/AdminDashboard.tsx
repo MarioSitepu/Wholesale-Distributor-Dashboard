@@ -1,77 +1,120 @@
 import { TrendingUp, DollarSign, AlertTriangle, ShoppingBag, Download, MapPin } from 'lucide-react';
 import KPICard from '../../components/KPICard';
-import { getOrders, getProducts, getReceivables, getStores, getGlobalOrders, getGlobalProducts, getGlobalReceivables, getGlobalStores, getBranches } from '../../utils/mockData';
-import { useMemo, useState } from 'react';
+import { getBranches, getStoresByBranch, getStores, Store } from '../../utils/mockData';
+import { api } from '../../utils/apiClient';
+import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { toast, Toaster } from 'sonner';
 
 export default function AdminDashboard() {
-  const userStr = localStorage.getItem('currentUser');
+  const userStr = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
   const user = userStr ? JSON.parse(userStr) : null;
   const isSuperAdmin = user?.branch === 'Pusat';
 
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-
-  const allOrders = useMemo(() => isSuperAdmin ? getGlobalOrders() : getOrders(), [isSuperAdmin]);
-  const allProducts = useMemo(() => isSuperAdmin ? getGlobalProducts() : getProducts(), [isSuperAdmin]);
-  const allReceivables = useMemo(() => isSuperAdmin ? getGlobalReceivables() : getReceivables(), [isSuperAdmin]);
-  const allStores = useMemo(() => isSuperAdmin ? getGlobalStores() : getStores(), [isSuperAdmin]);
-
-  const orders = useMemo(() => 
-    selectedBranch === 'all' ? allOrders : allOrders.filter(o => o.branch === selectedBranch),
-    [allOrders, selectedBranch]
-  );
-
-  const products = useMemo(() => 
-    selectedBranch === 'all' ? allProducts : allProducts.filter(p => (p as any).branch === selectedBranch),
-    [allProducts, selectedBranch]
-  );
-
-  const receivables = useMemo(() => 
-    selectedBranch === 'all' ? allReceivables : allReceivables.filter(r => (r as any).branch === selectedBranch),
-    [allReceivables, selectedBranch]
-  );
-
-  const stores = useMemo(() => 
-    selectedBranch === 'all' ? allStores : allStores.filter(s => s.branch === selectedBranch),
-    [allStores, selectedBranch]
-  );
-
+  const [branches, setBranches] = useState<string[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  
+  // Dashboard Analytics States
+  const [kpis, setKpis] = useState({ todaySales: 0, monthlySales: 0, totalReceivables: 0, lowStockCount: 0 });
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [branchSalesData, setBranchSalesData] = useState<any[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  
+  // Daily Report States
   const [selectedReportStore, setSelectedReportStore] = useState<string>('all');
   const [selectedReportDate, setSelectedReportDate] = useState<string>(
     new Date().toLocaleDateString('en-CA')
   );
+  const [dailyReportData, setDailyReportData] = useState<any[]>([]);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isReportLoading, setIsReportLoading] = useState(false);
 
-  const dailyReportData = useMemo(() => {
-    let filteredOrders = orders;
+  // Load static/initial filters
+  useEffect(() => {
+    if (isSuperAdmin) {
+      getBranches()
+        .then(setBranches)
+        .catch(err => toast.error('Gagal memuat cabang: ' + err.message));
+    }
+  }, [isSuperAdmin]);
+
+  // Load stores based on active branch
+  useEffect(() => {
+    const targetBranch = isSuperAdmin ? selectedBranch : user?.branch;
     
-    if (selectedReportDate) {
-      filteredOrders = filteredOrders.filter(order => {
-        const orderDateLocal = new Date(order.createdAt).toLocaleDateString('en-CA');
-        return orderDateLocal === selectedReportDate;
-      });
+    const fetchStores = async () => {
+      try {
+        const data = await getStoresByBranch(targetBranch);
+        setStores(data);
+      } catch (err: any) {
+        toast.error('Gagal memuat daftar toko: ' + err.message);
+      }
+    };
+    
+    fetchStores();
+  }, [isSuperAdmin, selectedBranch, user?.branch]);
+
+  // Fetch Dashboard core metrics
+  const fetchDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    const targetBranch = isSuperAdmin ? selectedBranch : user?.branch;
+    try {
+      // 1. Fetch KPIs
+      const kpiRes = await api.get<any>(`/api/dashboard/kpi?branch=${targetBranch}`);
+      setKpis(kpiRes);
+
+      // 2. Fetch Weekly Trend
+      const weeklyRes = await api.get<any[]>(`/api/dashboard/weekly-sales?branch=${targetBranch}`);
+      setWeeklyData(weeklyRes);
+
+      // 3. Fetch Branch Sales Contribution (Super Admin only)
+      if (isSuperAdmin) {
+        const contribRes = await api.get<any[]>(`/api/dashboard/branch-contribution`);
+        setBranchSalesData(contribRes);
+      }
+
+      // 4. Fetch Low Stock
+      const stockRes = await api.get<any[]>(`/api/dashboard/low-stock?branch=${targetBranch}`);
+      setLowStockProducts(stockRes);
+
+      // 5. Fetch Recent Orders
+      const ordersRes = await api.get<any[]>(`/api/dashboard/recent-orders?branch=${targetBranch}`);
+      setRecentOrders(ordersRes);
+
+    } catch (err: any) {
+      toast.error('Gagal memuat data analytics: ' + err.message);
+    } finally {
+      setIsLoading(false);
     }
+  }, [isSuperAdmin, selectedBranch, user?.branch]);
 
-    if (selectedReportStore !== 'all') {
-      filteredOrders = filteredOrders.filter(o => o.storeId === selectedReportStore);
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Fetch Daily Report
+  const fetchDailyReport = useCallback(async () => {
+    if (!selectedReportDate) return;
+    setIsReportLoading(true);
+    const targetBranch = isSuperAdmin ? selectedBranch : user?.branch;
+    try {
+      const data = await api.get<any[]>(
+        `/api/orders/daily-report?branch=${targetBranch}&date=${selectedReportDate}&storeId=${selectedReportStore}`
+      );
+      setDailyReportData(data);
+    } catch (err: any) {
+      toast.error('Gagal memuat laporan harian: ' + err.message);
+    } finally {
+      setIsReportLoading(false);
     }
+  }, [isSuperAdmin, selectedBranch, selectedReportDate, selectedReportStore, user?.branch]);
 
-    const rows: { orderId: string, storeName: string, branch: string, productName: string, quantity: number, price: number, total: number }[] = [];
-    filteredOrders.forEach(order => {
-      order.items.forEach(item => {
-        rows.push({
-          orderId: order.id,
-          storeName: order.storeName,
-          branch: (order as any).branch || 'General',
-          productName: item.productName,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.quantity * item.price
-        });
-      });
-    });
-
-    return rows;
-  }, [orders, selectedReportStore, selectedReportDate]);
+  useEffect(() => {
+    fetchDailyReport();
+  }, [fetchDailyReport]);
 
   const handleExportExcel = () => {
     if (dailyReportData.length === 0) return;
@@ -99,75 +142,20 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  const dailySales = useMemo(() => {
-    const todayOrders = orders.filter(order => {
-      const orderDate = new Date(order.createdAt);
-      return (
-        orderDate.getDate() === today.getDate() &&
-        orderDate.getMonth() === currentMonth &&
-        orderDate.getFullYear() === currentYear
-      );
-    });
-    return todayOrders.reduce((sum, order) => sum + order.total, 0);
-  }, [orders, today, currentMonth, currentYear]);
-
-  const monthlySales = useMemo(() => {
-    const monthOrders = orders.filter(order => {
-      const orderDate = new Date(order.createdAt);
-      return (
-        orderDate.getMonth() === currentMonth &&
-        orderDate.getFullYear() === currentYear
-      );
-    });
-    return monthOrders.reduce((sum, order) => sum + order.total, 0);
-  }, [orders, currentMonth, currentYear]);
-
-  const totalReceivables = receivables
-    .filter(r => !r.isPaid)
-    .reduce((sum, r) => sum + r.amount, 0);
-
-  const lowStockProducts = products.filter(p => p.stock < 50);
-
-  const weeklyData = useMemo(() => {
-    const data = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dayOrders = orders.filter(order => {
-        const orderDate = new Date(order.createdAt);
-        return (
-          orderDate.getDate() === date.getDate() &&
-          orderDate.getMonth() === date.getMonth() &&
-          orderDate.getFullYear() === date.getFullYear()
-        );
-      });
-      const total = dayOrders.reduce((sum, order) => sum + order.total, 0);
-      data.push({
-        name: date.toLocaleDateString('id-ID', { weekday: 'short' }),
-        sales: total / 1000,
-      });
-    }
-    return data;
-  }, [orders]);
-
-  const branchSalesData = useMemo(() => {
-    if (!isSuperAdmin) return [];
-    const branchMap: Record<string, number> = {};
-    orders.forEach(order => {
-      const branch = (order as any).branch || 'Unknown';
-      branchMap[branch] = (branchMap[branch] || 0) + order.total;
-    });
-    return Object.entries(branchMap).map(([name, value]) => ({ name, value }));
-  }, [orders, isSuperAdmin]);
-
   const COLORS = ['#2563eb', '#7c3aed', '#db2777', '#ea580c'];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-24 min-h-screen">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" richColors />
+      
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-gray-900">Analytics Dashboard</h1>
@@ -188,12 +176,12 @@ export default function AdminDashboard() {
                 className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
               >
                 <option value="all">Semua Cabang</option>
-                {getBranches().map(branch => (
+                {branches.map(branch => (
                   <option key={branch} value={branch}>{branch}</option>
                 ))}
               </select>
             </div>
-            <div className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-blue-100 flex items-center gap-2">
+            <div className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-blue-100 flex items-center gap-2 animate-pulse">
               MODE PUSAT
             </div>
           </div>
@@ -203,25 +191,25 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="Penjualan Hari Ini"
-          value={`Rp ${(dailySales / 1000).toFixed(0)}K`}
+          value={`Rp ${(kpis.todaySales / 1000).toFixed(0)}K`}
           icon={TrendingUp}
         />
         <KPICard
           title="Penjualan Bulan Ini"
-          value={`Rp ${(monthlySales / 1000).toFixed(0)}K`}
+          value={`Rp ${(kpis.monthlySales / 1000).toFixed(0)}K`}
           icon={ShoppingBag}
         />
         <KPICard
           title="Total Piutang"
-          value={`Rp ${(totalReceivables / 1000).toFixed(0)}K`}
+          value={`Rp ${(kpis.totalReceivables / 1000).toFixed(0)}K`}
           icon={DollarSign}
-          className={totalReceivables > 0 ? 'border-yellow-200' : ''}
+          className={kpis.totalReceivables > 0 ? 'border-yellow-200' : ''}
         />
         <KPICard
           title="Stok Menipis"
-          value={lowStockProducts.length}
+          value={kpis.lowStockCount}
           icon={AlertTriangle}
-          className={lowStockProducts.length > 0 ? 'border-red-200' : ''}
+          className={kpis.lowStockCount > 0 ? 'border-red-200' : ''}
         />
       </div>
 
@@ -245,37 +233,43 @@ export default function AdminDashboard() {
         {isSuperAdmin && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Kontribusi Cabang</h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={branchSalesData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {branchSalesData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            {branchSalesData.length === 0 ? (
+              <p className="text-gray-500 text-center py-16">Belum ada data penjualan cabang</p>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={branchSalesData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {branchSalesData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `Rp ${(value/1000000).toFixed(1)}jt`}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {branchSalesData.map((branch, index) => (
+                    <div key={branch.name} className="flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                        <span className="text-gray-600">{branch.name}</span>
+                      </div>
+                      <span className="font-bold">Rp {(branch.value/1000000).toFixed(1)}jt</span>
+                    </div>
                   ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number) => `Rp ${(value/1000000).toFixed(1)}jt`}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 space-y-2">
-              {branchSalesData.map((branch, index) => (
-                <div key={branch.name} className="flex justify-between items-center text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                    <span className="text-gray-600">{branch.name}</span>
-                  </div>
-                  <span className="font-bold">Rp {(branch.value/1000000).toFixed(1)}jt</span>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -288,13 +282,13 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-3">
               {lowStockProducts.slice(0, 5).map((product) => (
-                <div key={`${product.id}-${(product as any).branch}`} className="flex justify-between items-center p-3 bg-white rounded-lg border border-red-200">
+                <div key={`${product.id}-${product.branch}`} className="flex justify-between items-center p-3 bg-white rounded-lg border border-red-200">
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900">{product.name}</p>
                       {isSuperAdmin && (
                         <span className="text-[9px] px-1 bg-white text-red-600 rounded border border-red-200 font-bold uppercase">
-                          {(product as any).branch || 'Unknown'}
+                          {product.branch || 'Unknown'}
                         </span>
                       )}
                     </div>
@@ -311,11 +305,11 @@ export default function AdminDashboard() {
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Pesanan Terbaru</h2>
-          {orders.length === 0 ? (
+          {recentOrders.length === 0 ? (
             <p className="text-gray-500 text-center py-8">Belum ada pesanan</p>
           ) : (
             <div className="space-y-3">
-              {orders.slice(-5).reverse().map((order) => (
+              {recentOrders.slice(0, 5).map((order) => (
                 <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <div>
                     <div className="flex items-center gap-2">
@@ -362,8 +356,8 @@ export default function AdminDashboard() {
             </select>
             <button
               onClick={handleExportExcel}
-              disabled={dailyReportData.length === 0}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-bold"
+              disabled={dailyReportData.length === 0 || isReportLoading}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-bold shadow-md shadow-green-100"
             >
               <Download className="w-4 h-4" />
               Export CSV (Excel)
@@ -371,48 +365,54 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
-              <tr>
-                {isSuperAdmin && <th className="px-4 py-3 font-medium">Cabang</th>}
-                <th className="px-4 py-3 font-medium">Faktur</th>
-                <th className="px-4 py-3 font-medium">Nama Toko</th>
-                <th className="px-4 py-3 font-medium">Nama Produk</th>
-                <th className="px-4 py-3 font-medium text-right">Jumlah</th>
-                <th className="px-4 py-3 font-medium text-right">Harga Satuan</th>
-                <th className="px-4 py-3 font-medium text-right">Total Harga</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {dailyReportData.length === 0 ? (
+        {isReportLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
                 <tr>
-                  <td colSpan={isSuperAdmin ? 7 : 6} className="px-4 py-8 text-center text-gray-500">
-                    Tidak ada transaksi pada tanggal dan toko tersebut.
-                  </td>
+                  {isSuperAdmin && <th className="px-4 py-3 font-medium">Cabang</th>}
+                  <th className="px-4 py-3 font-medium">Faktur</th>
+                  <th className="px-4 py-3 font-medium">Nama Toko</th>
+                  <th className="px-4 py-3 font-medium">Nama Produk</th>
+                  <th className="px-4 py-3 font-medium text-right">Jumlah</th>
+                  <th className="px-4 py-3 font-medium text-right">Harga Satuan</th>
+                  <th className="px-4 py-3 font-medium text-right">Total Harga</th>
                 </tr>
-              ) : (
-                dailyReportData.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    {isSuperAdmin && (
-                      <td className="px-4 py-3">
-                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded font-bold uppercase">
-                          {(row as any).branch}
-                        </span>
-                      </td>
-                    )}
-                    <td className="px-4 py-3">{row.orderId}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{row.storeName}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.productName}</td>
-                    <td className="px-4 py-3 text-right">{row.quantity}</td>
-                    <td className="px-4 py-3 text-right">Rp {row.price.toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3 text-right font-medium text-green-600">Rp {row.total.toLocaleString('id-ID')}</td>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {dailyReportData.length === 0 ? (
+                  <tr>
+                    <td colSpan={isSuperAdmin ? 7 : 6} className="px-4 py-8 text-center text-gray-500">
+                      Tidak ada transaksi pada tanggal dan toko tersebut.
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  dailyReportData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3">
+                          <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded font-bold uppercase">
+                            {row.branch}
+                          </span>
+                        </td>
+                      )}
+                      <td className="px-4 py-3">{row.orderId}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{row.storeName}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.productName}</td>
+                      <td className="px-4 py-3 text-right">{row.quantity}</td>
+                      <td className="px-4 py-3 text-right">Rp {row.price.toLocaleString('id-ID')}</td>
+                      <td className="px-4 py-3 text-right font-medium text-green-600">Rp {row.total.toLocaleString('id-ID')}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

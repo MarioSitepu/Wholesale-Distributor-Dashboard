@@ -1,26 +1,24 @@
 import { Outlet, Link, useLocation, useNavigate } from '../router-compat';
 import { LayoutDashboard, Package, DollarSign, LogOut, ChevronLeft, ChevronRight, ShoppingCart, History, Book, BookOpen, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { initializeMockData } from '../utils/mockData';
+import { useState } from 'react';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-  const [user, setUser] = useState<{ branch: string } | null>(null);
-
-  useEffect(() => {
-    initializeMockData();
-    const currentUser = localStorage.getItem('currentUser');
-    if (currentUser) {
-      setUser(JSON.parse(currentUser));
+  const [user] = useState<{ branch: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      const currentUser = localStorage.getItem('currentUser');
+      return currentUser ? JSON.parse(currentUser) : null;
     }
-  }, []);
+    return null;
+  });
 
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
     navigate('/');
   };
 
