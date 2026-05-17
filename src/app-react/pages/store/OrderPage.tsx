@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Minus,
@@ -431,35 +432,38 @@ export default function OrderPage() {
                       <div className="flex items-center gap-3">
                         {inCart > 0 ? (
                           <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
-                            <button
+                            <motion.button
+                              whileTap={{ scale: 0.9 }}
                               onClick={() => decreaseQuantity(product.id)}
                               className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
                             >
                               <Minus className="w-4 h-4" />
-                            </button>
+                            </motion.button>
                             <span className="font-bold text-blue-700 flex-1 text-center text-lg">
                               {inCart}
                             </span>
-                            <button
+                            <motion.button
+                              whileTap={{ scale: 0.9 }}
                               onClick={() => addToCart(product.id)}
                               className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
                             >
                               <Plus className="w-4 h-4" />
-                            </button>
+                            </motion.button>
                           </div>
                         ) : (
-                          <button
+                          <motion.button
+                            whileTap={{ scale: 0.9 }}
                             onClick={() => addToCart(product.id)}
                             disabled={isRestricted}
                             className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
                               isRestricted
                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-blue-600 text-white hover:bg-blue-700 shadow-md active:scale-95"
+                                : "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
                             }`}
                           >
                             <Plus className="w-5 h-5" />
                             Tambah Ke Bon
-                          </button>
+                          </motion.button>
                         )}
                       </div>
                     ) : (
@@ -475,142 +479,152 @@ export default function OrderPage() {
         </div>
       </div>
 
-      {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end md:items-center justify-center">
-          <div className="bg-white w-full md:max-w-2xl md:rounded-lg max-h-[90vh] flex flex-col">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Keranjang Belanja
-              </h2>
-              <button
-                onClick={() => setShowCart(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="px-6 pt-6 pb-4 border-b border-gray-100 bg-blue-50/50">
-              <div className="mb-4 flex items-center gap-2">
-                <Store className="w-5 h-5 text-blue-600" />
-                <span className="font-medium text-gray-800">
-                  Pesanan Untuk:{" "}
-                  <span className="font-bold text-blue-700 text-lg ml-1">
-                    {stores.find((s) => s.id === selectedStore)?.name ||
-                      "Pilih Toko..."}
-                  </span>
-                </span>
+      <AnimatePresence>
+        {showCart && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end md:items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white w-full md:max-w-2xl md:rounded-lg max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Keranjang Belanja
+                </h2>
+                <button
+                  onClick={() => setShowCart(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nomor Faktur
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Masukkan nomor faktur (contoh: FKT-001)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                  />
+
+              <div className="px-6 pt-6 pb-4 border-b border-gray-100 bg-blue-50/50">
+                <div className="mb-4 flex items-center gap-2">
+                  <Store className="w-5 h-5 text-blue-600" />
+                  <span className="font-medium text-gray-800">
+                    Pesanan Untuk:{" "}
+                    <span className="font-bold text-blue-700 text-lg ml-1">
+                      {stores.find((s) => s.id === selectedStore)?.name ||
+                        "Pilih Toko..."}
+                    </span>
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tanggal Pesanan
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nomor Faktur
+                    </label>
                     <input
-                      type="date"
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                      value={orderDate}
-                      onChange={(e) => setOrderDate(e.target.value)}
+                      type="text"
+                      placeholder="Masukkan nomor faktur (contoh: FKT-001)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tanggal Pesanan
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      <input
+                        type="date"
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                        value={orderDate}
+                        onChange={(e) => setOrderDate(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              {cart.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  Keranjang kosong
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {cart.map((item) => {
-                    const product = allProducts.find(
-                      (p) => p.id === item.productId,
-                    );
-                    if (!product) return null;
+              <div className="flex-1 overflow-y-auto p-6">
+                {cart.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    Keranjang kosong
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {cart.map((item) => {
+                      const product = allProducts.find(
+                        (p) => p.id === item.productId,
+                      );
+                      if (!product) return null;
 
-                    return (
-                      <div
-                        key={item.productId}
-                        className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg"
-                      >
-                        <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">
-                            {product.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            Rp {product.price.toLocaleString("id-ID")}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => decreaseQuantity(item.productId)}
-                            className="bg-white p-2 rounded-lg hover:bg-gray-100 border border-gray-200"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="font-medium w-8 text-center">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => addToCart(item.productId)}
-                            className="bg-white p-2 rounded-lg hover:bg-gray-100 border border-gray-200"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="font-semibold text-gray-900 w-32 text-right">
-                          Rp{" "}
-                          {(product.price * item.quantity).toLocaleString(
-                            "id-ID",
-                          )}
-                        </div>
-                        <button
-                          onClick={() => removeFromCart(item.productId)}
-                          className="text-red-600 hover:text-red-700"
+                      return (
+                        <div
+                          key={item.productId}
+                          className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg"
                         >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-lg font-medium text-gray-700">Total</span>
-                <span className="text-2xl font-semibold text-gray-900">
-                  Rp {cartTotal.toLocaleString("id-ID")}
-                </span>
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900">
+                              {product.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              Rp {product.price.toLocaleString("id-ID")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => decreaseQuantity(item.productId)}
+                              className="bg-white p-2 rounded-lg hover:bg-gray-100 border border-gray-200"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="font-medium w-8 text-center">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => addToCart(item.productId)}
+                              className="bg-white p-2 rounded-lg hover:bg-gray-100 border border-gray-200"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="font-semibold text-gray-900 w-32 text-right">
+                            Rp{" "}
+                            {(product.price * item.quantity).toLocaleString(
+                              "id-ID",
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeFromCart(item.productId)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <button
-                onClick={handleCheckout}
-                disabled={cart.length === 0}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-              >
-                Checkout
-              </button>
-            </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-lg font-medium text-gray-700">
+                    Total
+                  </span>
+                  <span className="text-2xl font-semibold text-gray-900">
+                    Rp {cartTotal.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0}
+                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                >
+                  Checkout
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </>
   );
 }
