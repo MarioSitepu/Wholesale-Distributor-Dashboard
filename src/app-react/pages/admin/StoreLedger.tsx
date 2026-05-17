@@ -28,12 +28,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useAppStore } from "../../../store/useAppStore";
 
 export default function StoreLedger() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
 
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
@@ -47,14 +50,14 @@ export default function StoreLedger() {
     let allStores = isSuperAdmin ? getGlobalStores() : getStores();
     let allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
 
-    if (isSuperAdmin && selectedBranch !== "all") {
-      allStores = allStores.filter((s) => s.branch === selectedBranch);
-      allOrders = allOrders.filter((o) => (o as any).branch === selectedBranch);
+    if (isSuperAdmin && branchFilter !== "all") {
+      allStores = allStores.filter((s) => s.branch === branchFilter);
+      allOrders = allOrders.filter((o) => (o as any).branch === branchFilter);
     }
 
     setStores(allStores);
     setOrders(allOrders);
-  }, [isSuperAdmin, selectedBranch]);
+  }, [isSuperAdmin, branchFilter]);
 
   const handleAddStore = () => {
     if (!newStoreName.trim()) {
@@ -62,9 +65,9 @@ export default function StoreLedger() {
       return;
     }
     const branchToUse = isSuperAdmin
-      ? selectedBranch === "all"
+      ? branchFilter === "all"
         ? "Palembang"
-        : selectedBranch
+        : branchFilter
       : getCurrentBranch();
 
     const newStore: Store = {
@@ -79,9 +82,9 @@ export default function StoreLedger() {
     // Refresh data
     const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
     setStores(
-      selectedBranch === "all"
+      branchFilter === "all"
         ? updatedStores
-        : updatedStores.filter((s) => s.branch === selectedBranch),
+        : updatedStores.filter((s) => s.branch === branchFilter),
     );
 
     setNewStoreName("");
@@ -96,9 +99,9 @@ export default function StoreLedger() {
 
       const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
       setStores(
-        selectedBranch === "all"
+        branchFilter === "all"
           ? updatedStores
-          : updatedStores.filter((s) => s.branch === selectedBranch),
+          : updatedStores.filter((s) => s.branch === branchFilter),
       );
 
       if (selectedStoreId === id) setSelectedStoreId("");
@@ -115,9 +118,9 @@ export default function StoreLedger() {
 
       const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
       setStores(
-        selectedBranch === "all"
+        branchFilter === "all"
           ? updatedStores
-          : updatedStores.filter((s) => s.branch === selectedBranch),
+          : updatedStores.filter((s) => s.branch === branchFilter),
       );
       setIsEditingStore(false);
     }
@@ -187,8 +190,12 @@ export default function StoreLedger() {
               <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg border border-blue-100 mb-3">
                 <MapPin className="w-4 h-4 text-blue-600" />
                 <select
-                  value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  value={branchFilter}
+                  onChange={(e) =>
+                    setActiveBranch(
+                      e.target.value === "all" ? "" : e.target.value,
+                    )
+                  }
                   className="bg-transparent border-none outline-none text-xs font-bold text-blue-700 cursor-pointer w-full"
                 >
                   <option value="all">Semua Cabang</option>

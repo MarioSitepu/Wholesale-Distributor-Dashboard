@@ -27,20 +27,23 @@ import {
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useCartStore } from "../../../store/useCartStore";
+import { useAppStore } from "../../../store/useAppStore";
 
 export default function OrderPage() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
-
-  const [activeBranch, setActiveBranch] = useState(
-    isSuperAdmin ? "Palembang" : getCurrentBranch(),
-  );
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const selectedCategory = useAppStore((state) => state.selectedCategory);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
+  const effectiveBranch = isSuperAdmin
+    ? activeBranch || "Palembang"
+    : getCurrentBranch();
 
   const [allProducts, setAllProducts] = useState(
-    isSuperAdmin ? getProductsByBranch(activeBranch) : getProducts(),
+    isSuperAdmin ? getProductsByBranch(effectiveBranch) : getProducts(),
   );
   const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [products, setProducts] = useState(allProducts);
   const cart = useCartStore((state) => state.cart);
   const setCurrentBranch = useCartStore((state) => state.setCurrentBranch);
@@ -55,14 +58,14 @@ export default function OrderPage() {
     new Date().toISOString().split("T")[0],
   );
   const [stores, setStores] = useState(
-    isSuperAdmin ? getStoresByBranch(activeBranch) : getStores(),
+    isSuperAdmin ? getStoresByBranch(effectiveBranch) : getStores(),
   );
 
   useEffect(() => {
     setCurrentBranch(
-      isSuperAdmin ? activeBranch : user?.branch || getCurrentBranch(),
+      isSuperAdmin ? effectiveBranch : user?.branch || getCurrentBranch(),
     );
-  }, [activeBranch, isSuperAdmin, setCurrentBranch, user?.branch]);
+  }, [effectiveBranch, isSuperAdmin, setCurrentBranch, user?.branch]);
 
   useEffect(() => {
     const cats = getCategories();
@@ -74,8 +77,8 @@ export default function OrderPage() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      const branchProducts = getProductsByBranch(activeBranch);
-      const branchStores = getStoresByBranch(activeBranch);
+      const branchProducts = getProductsByBranch(effectiveBranch);
+      const branchStores = getStoresByBranch(effectiveBranch);
       setAllProducts(branchProducts);
       setProducts(
         branchProducts.filter((p) => p.category === selectedCategory),
@@ -88,7 +91,7 @@ export default function OrderPage() {
         currentProducts.filter((p) => p.category === selectedCategory),
       );
     }
-  }, [selectedCategory, activeBranch, isSuperAdmin]);
+  }, [selectedCategory, effectiveBranch, isSuperAdmin]);
 
   const handleStoreChange = (storeId: string) => {
     if (!storeId) {
@@ -189,7 +192,7 @@ export default function OrderPage() {
     const currentProducts = getProducts();
     setProducts(currentProducts.filter((p) => p.category === selectedCategory));
 
-    const orderBranch = isSuperAdmin ? activeBranch : getCurrentBranch();
+    const orderBranch = isSuperAdmin ? effectiveBranch : getCurrentBranch();
 
     const newOrder = {
       id: orderId,
@@ -255,7 +258,7 @@ export default function OrderPage() {
                     setActiveBranch(branch);
                   }}
                   className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                    activeBranch === branch
+                    effectiveBranch === branch
                       ? "bg-blue-600 text-white shadow-sm"
                       : "text-blue-600 hover:bg-blue-100/50"
                   }`}

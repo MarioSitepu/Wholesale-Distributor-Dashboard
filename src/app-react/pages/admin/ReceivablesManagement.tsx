@@ -8,12 +8,15 @@ import {
 } from "../../utils/mockData";
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useAppStore } from "../../../store/useAppStore";
 
 export default function ReceivablesManagement() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
 
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [receivables, setReceivables] = useState(
     isSuperAdmin ? getGlobalReceivables() : getReceivables(),
   );
@@ -22,13 +25,13 @@ export default function ReceivablesManagement() {
     let allReceivables = isSuperAdmin
       ? getGlobalReceivables()
       : getReceivables();
-    if (isSuperAdmin && selectedBranch !== "all") {
+    if (isSuperAdmin && branchFilter !== "all") {
       allReceivables = allReceivables.filter(
-        (r) => (r as any).branch === selectedBranch,
+        (r) => (r as any).branch === branchFilter,
       );
     }
     setReceivables(allReceivables);
-  }, [isSuperAdmin, selectedBranch]);
+  }, [isSuperAdmin, branchFilter]);
 
   const handleMarkAsPaid = (id: string) => {
     const receivable = receivables.find((r) => r.id === id);
@@ -41,9 +44,9 @@ export default function ReceivablesManagement() {
     let allReceivables = isSuperAdmin
       ? getGlobalReceivables()
       : getReceivables();
-    if (isSuperAdmin && selectedBranch !== "all") {
+    if (isSuperAdmin && branchFilter !== "all") {
       allReceivables = allReceivables.filter(
-        (r) => (r as any).branch === selectedBranch,
+        (r) => (r as any).branch === branchFilter,
       );
     }
     setReceivables(allReceivables);
@@ -92,8 +95,12 @@ export default function ReceivablesManagement() {
             <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm">
               <MapPin className="w-5 h-5 text-blue-600" />
               <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
+                value={branchFilter}
+                onChange={(e) =>
+                  setActiveBranch(
+                    e.target.value === "all" ? "" : e.target.value,
+                  )
+                }
                 className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
               >
                 <option value="all">Semua Cabang</option>

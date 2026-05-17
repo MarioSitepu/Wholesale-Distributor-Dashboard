@@ -19,14 +19,20 @@ import {
 } from "../../utils/mockData";
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useAppStore } from "../../../store/useAppStore";
 
 export default function StockManagement() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const selectedCategory = useAppStore((state) => state.selectedCategory);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
+  const branchFilter = isSuperAdmin
+    ? activeBranch || "all"
+    : getCurrentBranch();
 
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [products, setProducts] = useState(
     isSuperAdmin ? getGlobalProducts() : getProducts(),
   );
@@ -39,14 +45,18 @@ export default function StockManagement() {
 
   useEffect(() => {
     let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
-    if (isSuperAdmin && selectedBranch !== "all") {
+    if (isSuperAdmin && branchFilter !== "all") {
       allProducts = allProducts.filter(
-        (p) => (p as any).branch === selectedBranch,
+        (p) => (p as any).branch === branchFilter,
       );
     }
-    setProducts(allProducts);
+    const filteredByCategory =
+      selectedCategory === "all"
+        ? allProducts
+        : allProducts.filter((p) => p.category === selectedCategory);
+    setProducts(filteredByCategory);
     setCategoriesList(getCategories());
-  }, [isSuperAdmin, selectedBranch]);
+  }, [isSuperAdmin, branchFilter, selectedCategory]);
 
   const categories = useMemo(() => {
     return ["all", ...categoriesList];
@@ -57,11 +67,9 @@ export default function StockManagement() {
       const matchesSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.id.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory =
-        selectedCategory === "all" || p.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     });
-  }, [products, searchQuery, selectedCategory]);
+  }, [products, searchQuery]);
 
   const handleRestock = () => {
     if (!selectedProductKey || !restockAmount) return;
@@ -95,12 +103,16 @@ export default function StockManagement() {
     updateProduct(updatedProduct, targetBranch);
 
     let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
-    if (isSuperAdmin && selectedBranch !== "all") {
+    if (isSuperAdmin && branchFilter !== "all") {
       allProducts = allProducts.filter(
-        (p) => (p as any).branch === selectedBranch,
+        (p) => (p as any).branch === branchFilter,
       );
     }
-    setProducts(allProducts);
+    const filteredByCategory =
+      selectedCategory === "all"
+        ? allProducts
+        : allProducts.filter((p) => p.category === selectedCategory);
+    setProducts(filteredByCategory);
     setShowRestockModal(false);
     setSelectedProductKey(null);
     setRestockAmount("");
@@ -153,8 +165,8 @@ export default function StockManagement() {
     const link = document.createElement("a");
     link.setAttribute("href", url);
     const filename =
-      isSuperAdmin && selectedBranch !== "all"
-        ? `Stok_${selectedBranch}.csv`
+      isSuperAdmin && branchFilter !== "all"
+        ? `Stok_${branchFilter}.csv`
         : "Stok_Gudang_Semua.csv";
     link.setAttribute("download", filename);
     document.body.appendChild(link);
@@ -205,8 +217,12 @@ export default function StockManagement() {
                 <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2.5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
                   <MapPin className="w-5 h-5 text-blue-500" />
                   <select
-                    value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    value={branchFilter}
+                    onChange={(e) =>
+                      setActiveBranch(
+                        e.target.value === "all" ? "" : e.target.value,
+                      )
+                    }
                     className="bg-transparent border-none outline-none font-semibold text-gray-700 cursor-pointer text-sm"
                   >
                     <option value="all">Semua Cabang</option>
@@ -296,8 +312,12 @@ export default function StockManagement() {
             <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-2xl shadow-sm">
               <Filter className="w-5 h-5 text-gray-400" />
               <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                value={selectedCategory || "all"}
+                onChange={(e) =>
+                  setSelectedCategory(
+                    e.target.value === "all" ? "" : e.target.value,
+                  )
+                }
                 className="bg-transparent border-none outline-none font-medium text-gray-700 cursor-pointer text-sm"
               >
                 <option value="all">Semua Kategori</option>

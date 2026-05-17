@@ -10,10 +10,17 @@ import {
   getCategories,
 } from "../../utils/mockData";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useAppStore } from "../../../store/useAppStore";
 
 export default function OrderHistory() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const selectedCategory = useAppStore((state) => state.selectedCategory);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
+  const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
+  const categoryFilter = selectedCategory || "all";
 
   const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
   const stores = isSuperAdmin ? getGlobalStores() : getStores();
@@ -22,11 +29,7 @@ export default function OrderHistory() {
   const today = new Date().toLocaleDateString("en-CA");
   const currentMonth = new Date().toISOString().slice(0, 7);
 
-  const [selectedBranchFilter, setSelectedBranchFilter] =
-    useState<string>("all");
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>("all");
-  const [selectedCategoryFilter, setSelectedCategoryFilter] =
-    useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<"day" | "month">("day");
   const [selectedDate, setSelectedDate] = useState<string>(today);
@@ -39,8 +42,7 @@ export default function OrderHistory() {
 
   const filteredOrders = allOrders.filter((order) => {
     const matchesBranch =
-      selectedBranchFilter === "all" ||
-      (order as any).branch === selectedBranchFilter;
+      branchFilter === "all" || (order as any).branch === branchFilter;
     const matchesStore =
       selectedStoreFilter === "all" || order.storeId === selectedStoreFilter;
 
@@ -49,8 +51,7 @@ export default function OrderHistory() {
     const product = products.find((p) => p.id === firstItem?.productId);
     const orderCategory = product?.category || "General";
     const matchesCategory =
-      selectedCategoryFilter === "all" ||
-      orderCategory === selectedCategoryFilter;
+      categoryFilter === "all" || orderCategory === categoryFilter;
 
     // Date filtering
     const dateObj = new Date(order.createdAt);
@@ -195,9 +196,9 @@ export default function OrderHistory() {
           <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
             <MapPin className="w-4 h-4 text-blue-600" />
             <select
-              value={selectedBranchFilter}
+              value={branchFilter}
               onChange={(e) => {
-                setSelectedBranchFilter(e.target.value);
+                setActiveBranch(e.target.value === "all" ? "" : e.target.value);
                 setSelectedStoreFilter("all");
               }}
               className="bg-transparent border-none outline-none text-sm font-bold text-blue-700 cursor-pointer"
@@ -219,15 +220,11 @@ export default function OrderHistory() {
         >
           <option value="all">Semua Toko</option>
           {stores
-            .filter(
-              (s) =>
-                selectedBranchFilter === "all" ||
-                s.branch === selectedBranchFilter,
-            )
+            .filter((s) => branchFilter === "all" || s.branch === branchFilter)
             .map((store) => (
               <option key={store.id} value={store.id}>
                 {store.name}{" "}
-                {isSuperAdmin && selectedBranchFilter === "all"
+                {isSuperAdmin && branchFilter === "all"
                   ? `(${store.branch})`
                   : ""}
               </option>
@@ -235,8 +232,10 @@ export default function OrderHistory() {
         </select>
 
         <select
-          value={selectedCategoryFilter}
-          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+          value={categoryFilter}
+          onChange={(e) =>
+            setSelectedCategory(e.target.value === "all" ? "" : e.target.value)
+          }
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none"
         >
           <option value="all">Semua Brand</option>
