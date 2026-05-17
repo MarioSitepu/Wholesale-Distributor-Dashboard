@@ -317,8 +317,10 @@ export default function OrderPage() {
         <div className="flex flex-col gap-4">
           <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-full overflow-x-auto no-scrollbar">
             {categories.map((cat) => (
-              <button
+              <motion.button
                 key={cat}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setSelectedCategory(cat)}
                 className={`flex-1 min-w-[120px] py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   selectedCategory === cat
@@ -330,7 +332,7 @@ export default function OrderPage() {
                 {cartCategory === cat && (
                   <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                 )}
-              </button>
+              </motion.button>
             ))}
           </div>
 
@@ -383,99 +385,109 @@ export default function OrderPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => {
-              const inCart = getCartQuantity(product.id);
-              const isRestricted = !!(
-                cartCategory && cartCategory !== product.category
-              );
+          <motion.div
+            layout
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            <AnimatePresence mode="popLayout">
+              {products.map((product) => {
+                const inCart = getCartQuantity(product.id);
+                const isRestricted = !!(
+                  cartCategory && cartCategory !== product.category
+                );
 
-              return (
-                <div
-                  key={product.id}
-                  className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden group ${
-                    isRestricted
-                      ? "opacity-60 grayscale-[0.5] border-gray-100"
-                      : "border-gray-200 hover:shadow-md hover:border-blue-200"
-                  }`}
-                >
-                  <div className="p-6">
-                    <div className="mb-4 flex justify-between items-start">
-                      <div>
-                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">
-                          {product.category}
-                        </p>
-                        <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">
-                          {product.name}
-                        </h3>
+                return (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.2 }}
+                    key={product.id}
+                    className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden group ${
+                      isRestricted
+                        ? "opacity-60 grayscale-[0.5] border-gray-100"
+                        : "border-gray-200 hover:shadow-md hover:border-blue-200"
+                    }`}
+                  >
+                    <div className="p-6">
+                      <div className="mb-4 flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">
+                            {product.category}
+                          </p>
+                          <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">
+                            {product.name}
+                          </h3>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="mb-6">
-                      <p className="text-2xl font-black text-gray-900">
-                        <span className="text-sm font-normal text-gray-500 mr-1">
-                          Rp
-                        </span>
-                        {product.price.toLocaleString("id-ID")}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${product.stock > 20 ? "bg-green-500" : "bg-red-500"}`}
-                        />
-                        <p className="text-xs text-gray-500 font-medium">
-                          Stok: {product.stock} pcs
+                      <div className="mb-6">
+                        <p className="text-2xl font-black text-gray-900">
+                          <span className="text-sm font-normal text-gray-500 mr-1">
+                            Rp
+                          </span>
+                          {product.price.toLocaleString("id-ID")}
                         </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${product.stock > 20 ? "bg-green-500" : "bg-red-500"}`}
+                          />
+                          <p className="text-xs text-gray-500 font-medium">
+                            Stok: {product.stock} pcs
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {product.stock > 0 ? (
-                      <div className="flex items-center gap-3">
-                        {inCart > 0 ? (
-                          <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
-                            <motion.button
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => decreaseQuantity(product.id)}
-                              className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </motion.button>
-                            <span className="font-bold text-blue-700 flex-1 text-center text-lg">
-                              {inCart}
-                            </span>
+                      {product.stock > 0 ? (
+                        <div className="flex items-center gap-3">
+                          {inCart > 0 ? (
+                            <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => decreaseQuantity(product.id)}
+                                className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </motion.button>
+                              <span className="font-bold text-blue-700 flex-1 text-center text-lg">
+                                {inCart}
+                              </span>
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => addToCart(product.id)}
+                                className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </motion.button>
+                            </div>
+                          ) : (
                             <motion.button
                               whileTap={{ scale: 0.9 }}
                               onClick={() => addToCart(product.id)}
-                              className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                              disabled={isRestricted}
+                              className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                                isRestricted
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                              }`}
                             >
-                              <Plus className="w-4 h-4" />
+                              <Plus className="w-5 h-5" />
+                              Tambah Ke Bon
                             </motion.button>
-                          </div>
-                        ) : (
-                          <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => addToCart(product.id)}
-                            disabled={isRestricted}
-                            className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-                              isRestricted
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
-                            }`}
-                          >
-                            <Plus className="w-5 h-5" />
-                            Tambah Ke Bon
-                          </motion.button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-3 bg-gray-50 rounded-xl text-gray-400 font-bold text-sm">
-                        STOK HABIS
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3 bg-gray-50 rounded-xl text-gray-400 font-bold text-sm">
+                          STOK HABIS
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
 
