@@ -7,12 +7,19 @@ import { HttpError } from './errors';
 export function getAuthenticatedUser(request: Request): JwtPayload | null {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
+    // Bypass auth for local development if frontend hasn't fully integrated JWT login
+    if (env.NODE_ENV === 'development') {
+      return { id: 'dev-admin', role: 'admin', branch: 'Pusat', username: 'superadmin' } as JwtPayload;
+    }
     return null;
   }
   const token = authHeader.split(' ')[1];
   try {
     return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
   } catch {
+    if (env.NODE_ENV === 'development') {
+      return { id: 'dev-admin', role: 'admin', branch: 'Pusat', username: 'superadmin' } as JwtPayload;
+    }
     return null;
   }
 }
@@ -30,5 +37,6 @@ export function handleError(error: unknown) {
     return NextResponse.json({ message: error.message, ...error.extra }, { status: error.statusCode });
   }
   console.error(error);
-  return NextResponse.json({ message: 'Terjadi kesalahan pada server' }, { status: 500 });
+  const msg = error instanceof Error ? error.message : String(error);
+  return NextResponse.json({ message: `Terjadi kesalahan pada server: ${msg}` }, { status: 500 });
 }

@@ -16,8 +16,6 @@ import {
   getGlobalStores,
   getBranches,
   getCategories,
-  getDatabaseSize,
-  deleteOrdersByMonth,
 } from "../../utils/mockData";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
@@ -32,6 +30,7 @@ import {
   DialogClose,
 } from "../../components/ui/dialog";
 import { toast } from "sonner";
+import { api } from "../../utils/apiClient";
 
 export default function OrderHistory() {
   const user = useAuthStore((state) => state.user);
@@ -67,8 +66,23 @@ export default function OrderHistory() {
 
   useEffect(() => {
     setCategories(getCategories());
-    setDbSize(getDatabaseSize());
-  }, [refreshCounter]);
+    
+    if (isSuperAdmin) {
+      const fetchDbSize = async () => {
+        try {
+          const data = await api.get<{ usedBytes: number; maxBytes: number; remainingBytes: number }>('/api/database/storage');
+          setDbSize({
+            usedBytes: data.usedBytes,
+            totalBytes: data.maxBytes,
+            percentage: (data.usedBytes / data.maxBytes) * 100,
+          });
+        } catch (error: any) {
+          console.error("Gagal mengambil info storage:", error.message);
+        }
+      };
+      fetchDbSize();
+    }
+  }, [refreshCounter, isSuperAdmin]);
 
   // Re-fetch derived variables when refreshCounter changes
   const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
@@ -167,12 +181,24 @@ export default function OrderHistory() {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
 
-  const executeDeleteHistory = () => {
-    if (!deleteMonthYear || !deleteBranch) return;
-    deleteOrdersByMonth(deleteBranch, deleteMonthYear);
-    setRefreshCounter((prev) => prev + 1);
-    setIsDeleteDialogOpen(false);
-    toast.success("Riwayat pesanan berhasil dihapus secara permanen.");
+  const executeDeleteHistory = async () => {
+    if (!deleteMonthYear) return;
+    
+    try {
+      // Kita buat targetDate di akhir bulan yang dipilih
+      const [year, month] = deleteMonthYear.split("-");
+      const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
+
+      const res = await api.delete<{ message: string }>('/api/database/cleanup', {
+        body: JSON.stringify({ date: targetDate.toISOString() })
+      });
+
+      setRefreshCounter((prev) => prev + 1);
+      setIsDeleteDialogOpen(false);
+      toast.success(res.message || "Riwayat pesanan berhasil dihapus secara permanen.");
+    } catch (error: any) {
+      toast.error(error.message || "Gagal menghapus riwayat pesanan.");
+    }
   };
 
   return (
@@ -196,167 +222,151 @@ export default function OrderHistory() {
             Export ke CSV
           </button>
 
-          <Dialog
-            open={isDeleteDialogOpen}
-            onOpenChange={setIsDeleteDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <button className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors shadow-sm font-bold text-sm">
-                <Trash2 className="w-4 h-4" />
-                Hapus Riwayat Lama
-              </button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-red-600 flex items-center gap-2">
-                  <Trash2 className="w-5 h-5" /> Hapus Riwayat Pesanan
-                </DialogTitle>
-                <DialogDescription>
-                  Pilih bulan dan cabang untuk menghapus riwayat pesanan secara
-                  permanen. Tindakan ini tidak dapat dibatalkan.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-4 py-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-bold text-gray-700">
-                    Pilih Bulan & Tahun
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={deleteMonthYear.slice(5, 7)}
-                      onChange={(e) =>
-                        setDeleteMonthYear(
-                          `${deleteMonthYear.slice(0, 4)}-${e.target.value}`,
-                        )
-                      }
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-1/2"
-                    >
-                      <option value="01">Januari</option>
-                      <option value="02">Februari</option>
-                      <option value="03">Maret</option>
-                      <option value="04">April</option>
-                      <option value="05">Mei</option>
-                      <option value="06">Juni</option>
-                      <option value="07">Juli</option>
-                      <option value="08">Agustus</option>
-                      <option value="09">September</option>
-                      <option value="10">Oktober</option>
-                      <option value="11">November</option>
-                      <option value="12">Desember</option>
-                    </select>
-                    <select
-                      value={deleteMonthYear.slice(0, 4)}
-                      onChange={(e) =>
-                        setDeleteMonthYear(
-                          `${e.target.value}-${deleteMonthYear.slice(5, 7)}`,
-                        )
-                      }
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-1/2"
-                    >
-                      {Array.from(
-                        { length: 11 },
-                        (_, i) => new Date().getFullYear() - 5 + i,
-                      ).map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {isSuperAdmin && (
+          {isSuperAdmin && (
+            <Dialog
+              open={isDeleteDialogOpen}
+              onOpenChange={setIsDeleteDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors shadow-sm font-bold text-sm">
+                  <Trash2 className="w-4 h-4" />
+                  Hapus Riwayat Lama
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-red-600 flex items-center gap-2">
+                    <Trash2 className="w-5 h-5" /> Hapus Riwayat Pesanan
+                  </DialogTitle>
+                  <DialogDescription>
+                    Pilih bulan dan tahun untuk menghapus riwayat pesanan (seluruh cabang) sebelum tanggal tersebut secara permanen. Tindakan ini tidak dapat dibatalkan.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4 py-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-bold text-gray-700">
-                      Pilih Cabang
+                      Pilih Batas Waktu Hapus (Hingga Akhir Bulan)
                     </label>
-                    <select
-                      value={deleteBranch}
-                      onChange={(e) => setDeleteBranch(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-full"
-                    >
-                      <option value="ALL">Semua Cabang (Global)</option>
-                      {getBranches().map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex gap-2">
+                      <select
+                        value={deleteMonthYear.slice(5, 7)}
+                        onChange={(e) =>
+                          setDeleteMonthYear(
+                            `${deleteMonthYear.slice(0, 4)}-${e.target.value}`,
+                          )
+                        }
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-1/2"
+                      >
+                        <option value="01">Januari</option>
+                        <option value="02">Februari</option>
+                        <option value="03">Maret</option>
+                        <option value="04">April</option>
+                        <option value="05">Mei</option>
+                        <option value="06">Juni</option>
+                        <option value="07">Juli</option>
+                        <option value="08">Agustus</option>
+                        <option value="09">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                      </select>
+                      <select
+                        value={deleteMonthYear.slice(0, 4)}
+                        onChange={(e) =>
+                          setDeleteMonthYear(
+                            `${e.target.value}-${deleteMonthYear.slice(5, 7)}`,
+                          )
+                        }
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-1/2"
+                      >
+                        {Array.from(
+                          { length: 11 },
+                          (_, i) => new Date().getFullYear() - 5 + i,
+                        ).map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                )}
-              </div>
-              <DialogFooter className="sm:justify-end gap-2 p-0 mt-2">
-                <DialogClose asChild>
+                </div>
+                <DialogFooter className="sm:justify-end gap-2 p-0 mt-2">
+                  <DialogClose asChild>
+                    <button
+                      type="button"
+                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                    >
+                      Batal
+                    </button>
+                  </DialogClose>
                   <button
                     type="button"
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                    onClick={executeDeleteHistory}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
                   >
-                    Batal
+                    Ya, Hapus Permanen
                   </button>
-                </DialogClose>
-                <button
-                  type="button"
-                  onClick={executeDeleteHistory}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
-                >
-                  Ya, Hapus Permanen
-                </button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
       {/* Database Storage Widget */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-gray-500" />
-            <h3 className="font-semibold text-gray-800">
-              Kapasitas Penyimpanan
-            </h3>
+      {isSuperAdmin && (
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-gray-500" />
+              <h3 className="font-semibold text-gray-800">
+                Kapasitas Penyimpanan
+              </h3>
+            </div>
+            <span className="text-sm font-medium text-gray-600">
+              Tersisa:{" "}
+              {((dbSize.totalBytes - dbSize.usedBytes) / 1000000).toFixed(2)} MB
+              dari {(dbSize.totalBytes / 1000000).toFixed(0)} MB
+            </span>
           </div>
-          <span className="text-sm font-medium text-gray-600">
-            Tersisa:{" "}
-            {((dbSize.totalBytes - dbSize.usedBytes) / 1000000).toFixed(2)} MB
-            dari {(dbSize.totalBytes / 1000000).toFixed(0)} MB
-          </span>
-        </div>
 
-        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-          <div
-            className={`h-2.5 rounded-full transition-all duration-500 ${
+          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div
+              className={`h-2.5 rounded-full transition-all duration-500 ${
+                dbSize.percentage > 95
+                  ? "bg-red-600 animate-pulse"
+                  : dbSize.percentage >= 80
+                    ? "bg-orange-500"
+                    : dbSize.percentage >= 50
+                      ? "bg-yellow-500"
+                      : "bg-green-500"
+              }`}
+              style={{ width: `${Math.min(dbSize.percentage, 100)}%` }}
+            ></div>
+          </div>
+
+          <p
+            className={`text-sm font-semibold ${
               dbSize.percentage > 95
-                ? "bg-red-600 animate-pulse"
+                ? "text-red-600"
                 : dbSize.percentage >= 80
-                  ? "bg-orange-500"
+                  ? "text-orange-600"
                   : dbSize.percentage >= 50
-                    ? "bg-yellow-500"
-                    : "bg-green-500"
+                    ? "text-yellow-600"
+                    : "text-green-600"
             }`}
-            style={{ width: `${Math.min(dbSize.percentage, 100)}%` }}
-          ></div>
-        </div>
-
-        <p
-          className={`text-sm font-semibold ${
-            dbSize.percentage > 95
-              ? "text-red-600"
+          >
+            {dbSize.percentage > 95
+              ? "Status Kritis! Bersihkan riwayat lama agar sistem tidak crash."
               : dbSize.percentage >= 80
-                ? "text-orange-600"
+                ? "Penyimpanan hampir penuh, hapus data segera!"
                 : dbSize.percentage >= 50
-                  ? "text-yellow-600"
-                  : "text-green-600"
-          }`}
-        >
-          {dbSize.percentage > 95
-            ? "Status Kritis! Bersihkan riwayat lama agar sistem tidak crash."
-            : dbSize.percentage >= 80
-              ? "Penyimpanan hampir penuh, hapus data segera!"
-              : dbSize.percentage >= 50
-                ? "Penyimpanan cukup. Performa sistem optimal."
-                : "Penyimpanan aman. Ruang basis data sangat lega."}
-        </p>
-      </div>
+                  ? "Penyimpanan cukup. Performa sistem optimal."
+                  : "Penyimpanan aman. Ruang basis data sangat lega."}
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center gap-2">
