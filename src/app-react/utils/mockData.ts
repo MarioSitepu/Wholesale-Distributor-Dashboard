@@ -215,7 +215,13 @@ export const applyScheduledPrices = () => {
 
       // 2. Retroactive: Update Past Orders from startDate onwards
       orders.forEach((order) => {
-        const orderDate = new Date(order.createdAt).toLocaleDateString("en-CA");
+        let orderDate = "";
+        if (order.createdAt.includes("T")) {
+          orderDate = order.createdAt.split("T")[0];
+        } else {
+          orderDate = new Date(order.createdAt).toLocaleDateString("en-CA");
+        }
+
         if (orderDate >= sp.startDate) {
           // Point 2: Skip if already paid
           const receivable = receivables.find((r) => r.orderId === order.id);
@@ -831,11 +837,15 @@ export const deleteOrdersByMonth = (branch: string, monthYear: string) => {
     const orders: Order[] = JSON.parse(safeGet(ordersKey) || "[]");
 
     const filteredOrders = orders.filter((order) => {
-      const orderDate = new Date(order.createdAt);
-      const year = orderDate.getFullYear();
-      const month = String(orderDate.getMonth() + 1).padStart(2, "0");
-      const orderMonthYear = `${year}-${month}`;
-
+      let orderMonthYear = "";
+      if (order.createdAt.includes("T")) {
+        orderMonthYear = order.createdAt.slice(0, 7); // YYYY-MM
+      } else {
+        const orderDate = new Date(order.createdAt);
+        const year = orderDate.getFullYear();
+        const month = String(orderDate.getMonth() + 1).padStart(2, "0");
+        orderMonthYear = `${year}-${month}`;
+      }
       return orderMonthYear !== monthYear;
     });
 

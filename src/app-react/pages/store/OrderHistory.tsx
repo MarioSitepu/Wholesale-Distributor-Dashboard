@@ -89,9 +89,17 @@ export default function OrderHistory() {
       categoryFilter === "all" || orderCategory === categoryFilter;
 
     // Date filtering
-    const dateObj = new Date(order.createdAt);
-    const orderDateLocal = dateObj.toLocaleDateString("en-CA"); // YYYY-MM-DD
-    const orderMonthLocal = orderDateLocal.slice(0, 7); // YYYY-MM
+    let orderDateLocal = "";
+    let orderMonthLocal = "";
+
+    if (order.createdAt.includes("T")) {
+      // If it's a valid ISO string, extract the date part safely to avoid timezone shift bugs
+      orderDateLocal = order.createdAt.split("T")[0];
+    } else {
+      const dateObj = new Date(order.createdAt);
+      orderDateLocal = dateObj.toLocaleDateString("en-CA"); // Fallback
+    }
+    orderMonthLocal = orderDateLocal.slice(0, 7); // YYYY-MM
 
     let matchesDate = false;
 
@@ -211,39 +219,70 @@ export default function OrderHistory() {
               <div className="flex flex-col gap-4 py-4">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-bold text-gray-700">
-                    Pilih Bulan
+                    Pilih Bulan & Tahun
                   </label>
-                  <input
-                    type="month"
-                    value={deleteMonthYear}
-                    onChange={(e) => setDeleteMonthYear(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-full"
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={deleteMonthYear.slice(5, 7)}
+                      onChange={(e) =>
+                        setDeleteMonthYear(
+                          `${deleteMonthYear.slice(0, 4)}-${e.target.value}`,
+                        )
+                      }
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-1/2"
+                    >
+                      <option value="01">Januari</option>
+                      <option value="02">Februari</option>
+                      <option value="03">Maret</option>
+                      <option value="04">April</option>
+                      <option value="05">Mei</option>
+                      <option value="06">Juni</option>
+                      <option value="07">Juli</option>
+                      <option value="08">Agustus</option>
+                      <option value="09">September</option>
+                      <option value="10">Oktober</option>
+                      <option value="11">November</option>
+                      <option value="12">Desember</option>
+                    </select>
+                    <select
+                      value={deleteMonthYear.slice(0, 4)}
+                      onChange={(e) =>
+                        setDeleteMonthYear(
+                          `${e.target.value}-${deleteMonthYear.slice(5, 7)}`,
+                        )
+                      }
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-1/2"
+                    >
+                      {Array.from(
+                        { length: 11 },
+                        (_, i) => new Date().getFullYear() - 5 + i,
+                      ).map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-bold text-gray-700">
-                    Pilih Cabang
-                  </label>
-                  <select
-                    value={deleteBranch}
-                    onChange={(e) => setDeleteBranch(e.target.value)}
-                    disabled={!isSuperAdmin}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-full disabled:bg-gray-100 disabled:text-gray-500"
-                  >
-                    {isSuperAdmin && (
+                {isSuperAdmin && (
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-bold text-gray-700">
+                      Pilih Cabang
+                    </label>
+                    <select
+                      value={deleteBranch}
+                      onChange={(e) => setDeleteBranch(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-full"
+                    >
                       <option value="ALL">Semua Cabang (Global)</option>
-                    )}
-                    {isSuperAdmin ? (
-                      getBranches().map((b) => (
+                      {getBranches().map((b) => (
                         <option key={b} value={b}>
                           {b}
                         </option>
-                      ))
-                    ) : (
-                      <option value={user?.branch}>{user?.branch}</option>
-                    )}
-                  </select>
-                </div>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               <DialogFooter className="sm:justify-end gap-2 p-0 mt-2">
                 <DialogClose asChild>
@@ -358,12 +397,48 @@ export default function OrderHistory() {
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
           />
         ) : (
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
+          <div className="flex gap-2">
+            <select
+              value={selectedMonth.slice(5, 7)}
+              onChange={(e) =>
+                setSelectedMonth(
+                  `${selectedMonth.slice(0, 4)}-${e.target.value}`,
+                )
+              }
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none w-32"
+            >
+              <option value="01">Januari</option>
+              <option value="02">Februari</option>
+              <option value="03">Maret</option>
+              <option value="04">April</option>
+              <option value="05">Mei</option>
+              <option value="06">Juni</option>
+              <option value="07">Juli</option>
+              <option value="08">Agustus</option>
+              <option value="09">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Desember</option>
+            </select>
+            <select
+              value={selectedMonth.slice(0, 4)}
+              onChange={(e) =>
+                setSelectedMonth(
+                  `${e.target.value}-${selectedMonth.slice(5, 7)}`,
+                )
+              }
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none w-24"
+            >
+              {Array.from(
+                { length: 11 },
+                (_, i) => new Date().getFullYear() - 5 + i,
+              ).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         {isSuperAdmin && (
