@@ -1,5 +1,12 @@
-import { useState, Fragment } from "react";
-import { ChevronDown, ChevronUp, Filter, Download, MapPin } from "lucide-react";
+import { useState, Fragment, useEffect } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  Download,
+  MapPin,
+  Database,
+} from "lucide-react";
 import {
   getOrders,
   getStores,
@@ -8,6 +15,7 @@ import {
   getGlobalStores,
   getBranches,
   getCategories,
+  getDatabaseSize,
 } from "../../utils/mockData";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
@@ -35,10 +43,16 @@ export default function OrderHistory() {
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-
-  useState(() => {
-    setCategories(getCategories());
+  const [dbSize, setDbSize] = useState({
+    usedBytes: 0,
+    totalBytes: 5000000,
+    percentage: 0,
   });
+
+  useEffect(() => {
+    setCategories(getCategories());
+    setDbSize(getDatabaseSize());
+  }, []);
 
   const filteredOrders = allOrders.filter((order) => {
     const matchesBranch =
@@ -143,6 +157,58 @@ export default function OrderHistory() {
           <Download className="w-4 h-4" />
           Export ke CSV
         </button>
+      </div>
+
+      {/* Database Storage Widget */}
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Database className="w-5 h-5 text-gray-500" />
+            <h3 className="font-semibold text-gray-800">
+              Kapasitas Penyimpanan
+            </h3>
+          </div>
+          <span className="text-sm font-medium text-gray-600">
+            Tersisa:{" "}
+            {((dbSize.totalBytes - dbSize.usedBytes) / 1000000).toFixed(2)} MB
+            dari {(dbSize.totalBytes / 1000000).toFixed(0)} MB
+          </span>
+        </div>
+
+        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+          <div
+            className={`h-2.5 rounded-full transition-all duration-500 ${
+              dbSize.percentage > 95
+                ? "bg-red-600 animate-pulse"
+                : dbSize.percentage >= 80
+                  ? "bg-orange-500"
+                  : dbSize.percentage >= 50
+                    ? "bg-yellow-500"
+                    : "bg-green-500"
+            }`}
+            style={{ width: `${Math.min(dbSize.percentage, 100)}%` }}
+          ></div>
+        </div>
+
+        <p
+          className={`text-sm font-semibold ${
+            dbSize.percentage > 95
+              ? "text-red-600"
+              : dbSize.percentage >= 80
+                ? "text-orange-600"
+                : dbSize.percentage >= 50
+                  ? "text-yellow-600"
+                  : "text-green-600"
+          }`}
+        >
+          {dbSize.percentage > 95
+            ? "Status Kritis! Bersihkan riwayat lama agar sistem tidak crash."
+            : dbSize.percentage >= 80
+              ? "Penyimpanan hampir penuh, hapus data segera!"
+              : dbSize.percentage >= 50
+                ? "Penyimpanan cukup. Performa sistem optimal."
+                : "Penyimpanan aman. Ruang basis data sangat lega."}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
