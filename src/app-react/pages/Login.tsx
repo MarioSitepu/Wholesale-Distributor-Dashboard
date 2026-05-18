@@ -1,47 +1,44 @@
-import { useState } from 'react';
-import { useNavigate } from '../router-compat';
-import { Shield } from 'lucide-react';
-import { toast } from 'sonner';
-import { Toaster } from 'sonner';
-import { api } from '../utils/apiClient';
-import { User } from '../utils/mockData';
+import { useState } from "react";
+import { useNavigate } from "../router-compat";
+import { Shield } from "lucide-react";
+import { toast } from "sonner";
+import { Toaster } from "sonner";
+
+import { getUsers, User } from "../utils/mockData";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function Login() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const users = getUsers();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
 
-  // Daftar akun default untuk kemudahan demonstrasi
-  const defaultUsers: User[] = [
-    { username: 'superadmin', password: 'password123', role: 'admin', branch: 'Pusat' },
-    { username: 'palembang', password: 'password123', role: 'admin', branch: 'Palembang' },
-    { username: 'baturaja', password: 'password123', role: 'admin', branch: 'Baturaja' },
-    { username: 'jambi', password: 'password123', role: 'admin', branch: 'Jambi' },
-  ];
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      const response = await api.post<{ token: string; user: User }>('/api/auth/login', {
-        username: username.toLowerCase().trim(),
-        password: password.trim()
-      });
+    setTimeout(() => {
+      const user = users.find(
+        (u) => u.username === username.toLowerCase() && u.password === password,
+      );
 
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('currentUser', JSON.stringify(response.user));
-      toast.success(`Selamat datang, Admin ${response.user.branch}!`);
+      if (!user) {
+        toast.error("Username atau password salah");
+        setIsLoading(false);
+        return;
+      }
+
+      login(user);
+      toast.success(`Selamat datang, Admin ${user.branch}!`);
 
       setTimeout(() => {
-        navigate('/admin');
+        navigate("/admin");
       }, 500);
-    } catch (error: any) {
-      toast.error(error.message || 'Username atau password salah');
-    } finally {
+
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   return (
@@ -50,38 +47,61 @@ export default function Login() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <div className="text-center mb-8">
-            <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+            <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">PT Anugerah Indotirta Raharja</h1>
-            <p className="text-gray-600">Wholesale Distributor Management System</p>
+            <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+              PT Anugerah Indotirta Raharja
+            </h1>
+            <p className="text-gray-600">
+              Wholesale Distributor Management System
+            </p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-lg p-8">
             <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
               <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
-                Daftar Akun Cabang (Demo):
+                Daftar Akun Cabang:
               </h3>
               <div className="space-y-2">
-                {defaultUsers.map((user) => (
-                  <div key={user.username} className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-blue-50 shadow-sm">
+                {users.map((user) => (
+                  <div
+                    key={user.username}
+                    className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-blue-50 shadow-sm"
+                  >
                     <div>
-                      <p className="font-bold text-gray-900">Cabang {user.branch}</p>
+                      <p className="font-bold text-gray-900">
+                        Cabang {user.branch}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-gray-500">U: <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">{user.username}</code> | P: <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">{user.password}</code></p>
+                      <p className="text-gray-500">
+                        U:{" "}
+                        <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">
+                          {user.username}
+                        </code>{" "}
+                        | P:{" "}
+                        <code className="bg-blue-50 px-1 rounded text-blue-700 font-bold">
+                          {user.password}
+                        </code>
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Admin Sign In</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              Admin Sign In
+            </h2>
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Username
                 </label>
                 <input
@@ -97,7 +117,10 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Password
                 </label>
                 <input
@@ -115,13 +138,12 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-all shadow-md shadow-blue-200"
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors"
               >
-                {isLoading ? 'Memproses...' : 'Sign In'}
+                {isLoading ? "Memproses..." : "Sign In"}
               </button>
             </form>
           </div>
-
         </div>
       </div>
     </>

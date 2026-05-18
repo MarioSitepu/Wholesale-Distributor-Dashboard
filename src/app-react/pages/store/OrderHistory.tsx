@@ -1,85 +1,71 @@
-import { useState, useEffect, useCallback, Fragment } from 'react';
-import { ChevronDown, ChevronUp, Filter, Download, MapPin } from 'lucide-react';
-import { getOrders, getStores, getProducts, getGlobalOrders, getGlobalStores, getBranches, getCategories, Order, Store, Product } from '../../utils/mockData';
-import { toast, Toaster } from 'sonner';
+import { useState, Fragment } from "react";
+import { ChevronDown, ChevronUp, Filter, Download, MapPin } from "lucide-react";
+import {
+  getOrders,
+  getStores,
+  getProducts,
+  getGlobalOrders,
+  getGlobalStores,
+  getBranches,
+  getCategories,
+} from "../../utils/mockData";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { useAppStore } from "../../../store/useAppStore";
 
 export default function OrderHistory() {
-  const userStr = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
-  const user = userStr ? JSON.parse(userStr) : null;
-  const isSuperAdmin = user?.branch === 'Pusat';
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.branch === "Pusat";
+  const activeBranch = useAppStore((state) => state.activeBranch);
+  const selectedCategory = useAppStore((state) => state.selectedCategory);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
+  const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
+  const categoryFilter = selectedCategory || "all";
 
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [stores, setStores] = useState<Store[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [branches, setBranches] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const today = new Date().toLocaleDateString('en-CA');
+  const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+  const stores = isSuperAdmin ? getGlobalStores() : getStores();
+  const products = getProducts();
+
+  const today = new Date().toLocaleDateString("en-CA");
   const currentMonth = new Date().toISOString().slice(0, 7);
 
-  const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
-  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
-  const [filterType, setFilterType] = useState<'day' | 'month'>('day');
+  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>("all");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [filterType, setFilterType] = useState<"day" | "month">("day");
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
-  // Load static and initial values
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [ordersData, storesData, productsData, categoriesData] = await Promise.all([
-        isSuperAdmin ? getGlobalOrders() : getOrders(),
-        isSuperAdmin ? getGlobalStores() : getStores(),
-        getProducts(),
-        getCategories()
-      ]);
+  useState(() => {
+    setCategories(getCategories());
+  });
 
-      setAllOrders(ordersData);
-      setStores(storesData);
-      setProducts(productsData);
-      setCategories(categoriesData);
+  const filteredOrders = allOrders.filter((order) => {
+    const matchesBranch =
+      branchFilter === "all" || (order as any).branch === branchFilter;
+    const matchesStore =
+      selectedStoreFilter === "all" || order.storeId === selectedStoreFilter;
 
-      if (isSuperAdmin) {
-        const branchesData = await getBranches();
-        setBranches(branchesData);
-      }
-    } catch (err: any) {
-      toast.error('Gagal memuat riwayat pesanan: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isSuperAdmin]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const filteredOrders = allOrders.filter(order => {
-    const matchesBranch = selectedBranchFilter === 'all' || (order as any).branch === selectedBranchFilter;
-    const matchesStore = selectedStoreFilter === 'all' || order.storeId === selectedStoreFilter;
-    
     // Determine order category
     const firstItem = order.items[0];
-    const product = products.find(p => p.id === firstItem?.productId);
-    const orderCategory = product?.category || 'General';
-    const matchesCategory = selectedCategoryFilter === 'all' || orderCategory === selectedCategoryFilter;
-    
+    const product = products.find((p) => p.id === firstItem?.productId);
+    const orderCategory = product?.category || "General";
+    const matchesCategory =
+      categoryFilter === "all" || orderCategory === categoryFilter;
+
     // Date filtering
     const dateObj = new Date(order.createdAt);
-    const orderDateLocal = dateObj.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const orderDateLocal = dateObj.toLocaleDateString("en-CA"); // YYYY-MM-DD
     const orderMonthLocal = orderDateLocal.slice(0, 7); // YYYY-MM
-    
+
     let matchesDate = false;
-    
-    if (filterType === 'day') {
+
+    if (filterType === "day") {
       matchesDate = orderDateLocal === selectedDate;
     } else {
       matchesDate = orderMonthLocal === selectedMonth;
     }
-    
+
     return matchesBranch && matchesStore && matchesCategory && matchesDate;
   });
 
@@ -88,36 +74,47 @@ export default function OrderHistory() {
   const handleExportCSV = () => {
     if (storeOrders.length === 0) return;
 
-    const headers = isSuperAdmin 
-      ? ['Cabang', 'Faktur', 'Tanggal', 'Toko', 'Produk', 'Qty', 'Harga', 'Subtotal']
-      : ['Faktur', 'Tanggal', 'Toko', 'Produk', 'Qty', 'Harga', 'Subtotal'];
-      
-    const rows = storeOrders.flatMap(order => 
-      order.items.map(item => {
+    const headers = isSuperAdmin
+      ? [
+          "Cabang",
+          "Faktur",
+          "Tanggal",
+          "Toko",
+          "Produk",
+          "Qty",
+          "Harga",
+          "Subtotal",
+        ]
+      : ["Faktur", "Tanggal", "Toko", "Produk", "Qty", "Harga", "Subtotal"];
+
+    const rows = storeOrders.flatMap((order) =>
+      order.items.map((item) => {
         const base = [
           order.id,
-          new Date(order.createdAt).toLocaleDateString('id-ID'),
+          new Date(order.createdAt).toLocaleDateString("id-ID"),
           order.storeName,
           item.productName,
           item.quantity,
           item.price,
-          item.quantity * item.price
+          item.quantity * item.price,
         ];
         return isSuperAdmin ? [(order as any).branch, ...base] : base;
-      })
+      }),
     );
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const urlString = url;
-    link.setAttribute('href', urlString);
-    link.setAttribute('download', `Riwayat_Pesanan_${filterType}_${filterType === 'day' ? selectedDate : selectedMonth}.csv`);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `Riwayat_Pesanan_${filterType}_${filterType === "day" ? selectedDate : selectedMonth}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -129,11 +126,14 @@ export default function OrderHistory() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-6">
-      <Toaster position="top-center" richColors />
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Riwayat Pesanan</h1>
-          <p className="text-gray-600 mt-1">Lihat semua pesanan yang pernah dibuat</p>
+          <h1 className="text-3xl font-semibold text-gray-900">
+            Riwayat Pesanan
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Lihat semua pesanan yang pernah dibuat
+          </p>
         </div>
         <button
           onClick={handleExportCSV}
@@ -154,17 +154,21 @@ export default function OrderHistory() {
         {/* Filter Type Toggle */}
         <div className="flex bg-gray-100 p-1 rounded-lg">
           <button
-            onClick={() => setFilterType('day')}
+            onClick={() => setFilterType("day")}
             className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${
-              filterType === 'day' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
+              filterType === "day"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-500"
             }`}
           >
             Harian
           </button>
           <button
-            onClick={() => setFilterType('month')}
+            onClick={() => setFilterType("month")}
             className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${
-              filterType === 'month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
+              filterType === "month"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-500"
             }`}
           >
             Bulanan
@@ -172,7 +176,7 @@ export default function OrderHistory() {
         </div>
 
         {/* Date Picker */}
-        {filterType === 'day' ? (
+        {filterType === "day" ? (
           <input
             type="date"
             value={selectedDate}
@@ -192,16 +196,18 @@ export default function OrderHistory() {
           <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
             <MapPin className="w-4 h-4 text-blue-600" />
             <select
-              value={selectedBranchFilter}
+              value={branchFilter}
               onChange={(e) => {
-                setSelectedBranchFilter(e.target.value);
-                setSelectedStoreFilter('all');
+                setActiveBranch(e.target.value === "all" ? "" : e.target.value);
+                setSelectedStoreFilter("all");
               }}
               className="bg-transparent border-none outline-none text-sm font-bold text-blue-700 cursor-pointer"
             >
               <option value="all">Semua Cabang</option>
-              {branches.map(branch => (
-                <option key={branch} value={branch}>{branch}</option>
+              {getBranches().map((branch) => (
+                <option key={branch} value={branch}>
+                  {branch}
+                </option>
               ))}
             </select>
           </div>
@@ -210,123 +216,155 @@ export default function OrderHistory() {
         <select
           value={selectedStoreFilter}
           onChange={(e) => setSelectedStoreFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none cursor-pointer"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none"
         >
           <option value="all">Semua Toko</option>
           {stores
-            .filter(s => selectedBranchFilter === 'all' || s.branch === selectedBranchFilter)
+            .filter((s) => branchFilter === "all" || s.branch === branchFilter)
             .map((store) => (
               <option key={store.id} value={store.id}>
-                {store.name} {isSuperAdmin && selectedBranchFilter === 'all' ? `(${store.branch})` : ''}
+                {store.name}{" "}
+                {isSuperAdmin && branchFilter === "all"
+                  ? `(${store.branch})`
+                  : ""}
               </option>
             ))}
         </select>
 
         <select
-          value={selectedCategoryFilter}
-          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none cursor-pointer"
+          value={categoryFilter}
+          onChange={(e) =>
+            setSelectedCategory(e.target.value === "all" ? "" : e.target.value)
+          }
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none"
         >
           <option value="all">Semua Brand</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center items-center py-24 bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-xs font-bold">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-xs font-bold">
+              <tr>
+                <th className="px-6 py-4">Status</th>
+                {isSuperAdmin && (
+                  <th className="px-6 py-4 text-blue-600">Cabang</th>
+                )}
+                <th className="px-6 py-4">Faktur</th>
+                <th className="px-6 py-4">Toko</th>
+                <th className="px-6 py-4">Tanggal</th>
+                <th className="px-6 py-4 text-right">Total</th>
+                <th className="px-6 py-4"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {storeOrders.length === 0 ? (
                 <tr>
-                  <th className="px-6 py-4">Status</th>
-                  {isSuperAdmin && <th className="px-6 py-4 text-blue-600">Cabang</th>}
-                  <th className="px-6 py-4">Faktur</th>
-                  <th className="px-6 py-4">Toko</th>
-                  <th className="px-6 py-4">Tanggal</th>
-                  <th className="px-6 py-4 text-right">Total</th>
-                  <th className="px-6 py-4"></th>
+                  <td
+                    colSpan={isSuperAdmin ? 7 : 6}
+                    className="px-6 py-10 text-center text-gray-500"
+                  >
+                    Belum ada riwayat pesanan.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {storeOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={isSuperAdmin ? 7 : 6} className="px-6 py-10 text-center text-gray-500">
-                      Belum ada riwayat pesanan.
-                    </td>
-                  </tr>
-                ) : (
-                  storeOrders.map((order) => {
-                    const uniqueKey = `${(order as any).branch || 'General'}|${order.id}`;
-                    return (
-                      <Fragment key={uniqueKey}>
-                        <tr className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
-                              Selesai
-                            </span>
+              ) : (
+                storeOrders.map((order) => {
+                  const uniqueKey = `${(order as any).branch || "General"}|${order.id}`;
+                  return (
+                    <Fragment key={uniqueKey}>
+                      <tr className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
+                            Selesai
+                          </span>
+                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-6 py-4 font-bold text-blue-700">
+                            {(order as any).branch}
                           </td>
-                          {isSuperAdmin && (
-                            <td className="px-6 py-4 font-bold text-blue-700">
-                              {(order as any).branch}
-                            </td>
+                        )}
+                        <td className="px-6 py-4 font-mono font-medium">
+                          {order.id}
+                        </td>
+                        <td className="px-6 py-4 font-medium">
+                          {order.storeName}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">
+                          {new Date(order.createdAt).toLocaleDateString(
+                            "id-ID",
                           )}
-                          <td className="px-6 py-4 font-mono font-medium">{order.id}</td>
-                          <td className="px-6 py-4 font-semibold text-gray-800">{order.storeName}</td>
-                          <td className="px-6 py-4 text-gray-600">
-                            {new Date(order.createdAt).toLocaleDateString('id-ID')}
-                          </td>
-                          <td className="px-6 py-4 text-right font-bold text-gray-900">
-                            Rp {order.total.toLocaleString('id-ID')}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => toggleExpand(order.id)}
-                              className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition-colors"
-                            >
-                              {expandedOrder === order.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                            </button>
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-gray-900">
+                          Rp {order.total.toLocaleString("id-ID")}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => toggleExpand(order.id)}
+                            className="text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors"
+                          >
+                            {expandedOrder === order.id ? (
+                              <ChevronUp />
+                            ) : (
+                              <ChevronDown />
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedOrder === order.id && (
+                        <tr className="bg-gray-50">
+                          <td
+                            colSpan={isSuperAdmin ? 7 : 6}
+                            className="px-6 py-4"
+                          >
+                            <div className="space-y-2">
+                              <p className="font-bold text-gray-700 text-xs uppercase mb-3">
+                                Detail Produk:
+                              </p>
+                              {order.items.map((item, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs">
+                                      {idx + 1}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-gray-900">
+                                        {item.productName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {item.quantity} x Rp{" "}
+                                        {item.price.toLocaleString("id-ID")}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <p className="font-bold text-blue-600">
+                                    Rp{" "}
+                                    {(
+                                      item.quantity * item.price
+                                    ).toLocaleString("id-ID")}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
                           </td>
                         </tr>
-                        {expandedOrder === order.id && (
-                          <tr className="bg-gray-50/50">
-                            <td colSpan={isSuperAdmin ? 7 : 6} className="px-6 py-4">
-                              <div className="space-y-2 max-w-2xl">
-                                <p className="font-bold text-gray-700 text-xs uppercase mb-3 tracking-wider">Detail Produk:</p>
-                                {order.items.map((item, idx) => (
-                                  <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm animate-in fade-in">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs">
-                                        {idx + 1}
-                                      </div>
-                                      <div>
-                                        <p className="font-bold text-gray-900 text-sm">{item.productName}</p>
-                                        <p className="text-xs text-gray-500 font-semibold">{item.quantity} x Rp {item.price.toLocaleString('id-ID')}</p>
-                                      </div>
-                                    </div>
-                                    <p className="font-bold text-blue-600 text-sm font-mono">
-                                      Rp {(item.quantity * item.price).toLocaleString('id-ID')}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </div>
   );
 }
