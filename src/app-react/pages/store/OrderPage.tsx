@@ -58,7 +58,7 @@ export default function OrderPage() {
   const [selectedStore, setSelectedStore] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [orderDate, setOrderDate] = useState(
-    new Date().toISOString().split("T")[0],
+    new Date().toLocaleDateString("en-CA"),
   );
   const [stores, setStores] = useState(
     isSuperAdmin ? getStoresByBranch(effectiveBranch) : getStores(),
@@ -231,7 +231,7 @@ export default function OrderPage() {
     clearCart();
     setShowCart(false);
     setInvoiceNumber("");
-    setOrderDate(new Date().toISOString().split("T")[0]);
+    setOrderDate(new Date().toLocaleDateString("en-CA"));
     toast.success("Pesanan Berhasil Dibuat!", {
       description: "Nomor Faktur: " + invoiceNumber,
       action: {

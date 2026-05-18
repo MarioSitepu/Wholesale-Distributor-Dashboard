@@ -215,7 +215,13 @@ export const applyScheduledPrices = () => {
 
       // 2. Retroactive: Update Past Orders from startDate onwards
       orders.forEach((order) => {
-        const orderDate = new Date(order.createdAt).toLocaleDateString("en-CA");
+        let orderDate = "";
+        if (order.createdAt.includes("T")) {
+          orderDate = order.createdAt.split("T")[0];
+        } else {
+          orderDate = new Date(order.createdAt).toLocaleDateString("en-CA");
+        }
+
         if (orderDate >= sp.startDate) {
           // Point 2: Skip if already paid
           const receivable = receivables.find((r) => r.orderId === order.id);
@@ -808,4 +814,47 @@ export const updateCart = (
 
 export const clearCart = () => {
   localStorage.setItem(getBranchKey(STORAGE_KEYS.CART), JSON.stringify([]));
+};
+
+export const getDatabaseSize = () => {
+  if (!isClient) return { usedBytes: 0, totalBytes: 5000000, percentage: 0 };
+
+  const usedBytes = JSON.stringify(localStorage).length;
+  const totalBytes = 5000000; // 5 MB
+
+  return {
+    usedBytes,
+    totalBytes,
+    percentage: (usedBytes / totalBytes) * 100,
+  };
+};
+
+export const deleteOrdersByMonth = (branch: string, monthYear: string) => {
+  if (!isClient) return;
+
+  const processBranch = (targetBranch: string) => {
+    const ordersKey = getBranchKey(STORAGE_KEYS.ORDERS, targetBranch);
+    const orders: Order[] = JSON.parse(safeGet(ordersKey) || "[]");
+
+    const filteredOrders = orders.filter((order) => {
+      let orderMonthYear = "";
+      if (order.createdAt.includes("T")) {
+        orderMonthYear = order.createdAt.slice(0, 7); // YYYY-MM
+      } else {
+        const orderDate = new Date(order.createdAt);
+        const year = orderDate.getFullYear();
+        const month = String(orderDate.getMonth() + 1).padStart(2, "0");
+        orderMonthYear = `${year}-${month}`;
+      }
+      return orderMonthYear !== monthYear;
+    });
+
+    safeSet(ordersKey, JSON.stringify(filteredOrders));
+  };
+
+  if (branch === "ALL") {
+    getBranches().forEach(processBranch);
+  } else {
+    processBranch(branch);
+  }
 };
