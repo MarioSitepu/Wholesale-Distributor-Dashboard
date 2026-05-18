@@ -809,3 +809,42 @@ export const updateCart = (
 export const clearCart = () => {
   localStorage.setItem(getBranchKey(STORAGE_KEYS.CART), JSON.stringify([]));
 };
+
+export const getDatabaseSize = () => {
+  if (!isClient) return { usedBytes: 0, totalBytes: 5000000, percentage: 0 };
+
+  const usedBytes = JSON.stringify(localStorage).length;
+  const totalBytes = 5000000; // 5 MB
+
+  return {
+    usedBytes,
+    totalBytes,
+    percentage: (usedBytes / totalBytes) * 100,
+  };
+};
+
+export const deleteOrdersByMonth = (branch: string, monthYear: string) => {
+  if (!isClient) return;
+
+  const processBranch = (targetBranch: string) => {
+    const ordersKey = getBranchKey(STORAGE_KEYS.ORDERS, targetBranch);
+    const orders: Order[] = JSON.parse(safeGet(ordersKey) || "[]");
+
+    const filteredOrders = orders.filter((order) => {
+      const orderDate = new Date(order.createdAt);
+      const year = orderDate.getFullYear();
+      const month = String(orderDate.getMonth() + 1).padStart(2, "0");
+      const orderMonthYear = `${year}-${month}`;
+
+      return orderMonthYear !== monthYear;
+    });
+
+    safeSet(ordersKey, JSON.stringify(filteredOrders));
+  };
+
+  if (branch === "ALL") {
+    getBranches().forEach(processBranch);
+  } else {
+    processBranch(branch);
+  }
+};
