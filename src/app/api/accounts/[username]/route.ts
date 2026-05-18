@@ -23,3 +23,28 @@ export async function DELETE(
     return handleError(error);
   }
 }
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ username: string }> }
+) {
+  const user = getAuthenticatedUser(request);
+  if (!user) return handleUnauthorized();
+  // Hanya superadmin (Pusat) yang dapat mengubah password via panel admin
+  if (user.branch !== 'Pusat') return handleForbidden();
+
+  try {
+    const { username } = await context.params;
+    const body = await request.json();
+    const newPassword = body.password;
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return NextResponse.json({ message: 'Password baru diperlukan' }, { status: 400 });
+    }
+
+    await accountService.changePassword(username, newPassword);
+    return NextResponse.json({ message: 'Password berhasil diubah' }, { status: 200 });
+  } catch (error) {
+    return handleError(error);
+  }
+}

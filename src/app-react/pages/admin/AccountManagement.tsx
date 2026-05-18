@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
-import { User, getUsers, addUser, deleteUser } from "../../utils/mockData";
 import { Shield, UserPlus, Trash2, Key, MapPin, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { api } from "../../utils/apiClient";
+
+export type User = {
+  username: string;
+  role: string;
+  branch: string;
+};
 
 export default function AccountManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -13,10 +19,15 @@ export default function AccountManagement() {
   const [newPassword, setNewPassword] = useState("");
   const [newBranch, setNewBranch] = useState("");
 
-  const loadUsers = () => {
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [targetUsername, setTargetUsername] = useState("");
+  const [updatePassword, setUpdatePassword] = useState("");
+
+  const loadUsers = async () => {
     setIsLoading(true);
     try {
-      setUsers(getUsers());
+      const data = await api.get<User[]>('/api/accounts');
+      setUsers(data);
     } catch (err: any) {
       toast.error(err.message || "Gagal memuat akun");
     } finally {
@@ -28,7 +39,7 @@ export default function AccountManagement() {
     loadUsers();
   }, []);
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword || !newBranch) {
       toast.error("Semua field harus diisi");
@@ -36,7 +47,7 @@ export default function AccountManagement() {
     }
 
     try {
-      addUser({
+      await api.post('/api/accounts', {
         username: newUsername.toLowerCase().trim(),
         password: newPassword.trim(),
         role: "admin",
@@ -53,15 +64,35 @@ export default function AccountManagement() {
     }
   };
 
-  const handleDelete = (username: string) => {
+  const handleDelete = async (username: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus akun ${username}?`)) {
       try {
-        deleteUser(username);
+        await api.delete(`/api/accounts/${username}`);
         toast.success("Akun berhasil dihapus");
         loadUsers();
       } catch (error: any) {
         toast.error(error.message || "Gagal menghapus akun");
       }
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!updatePassword) {
+      toast.error("Password baru harus diisi");
+      return;
+    }
+
+    try {
+      await api.patch(`/api/accounts/${targetUsername}`, {
+        password: updatePassword,
+      });
+      toast.success(`Password untuk ${targetUsername} berhasil diubah`);
+      setIsChangingPassword(false);
+      setTargetUsername("");
+      setUpdatePassword("");
+    } catch (error: any) {
+      toast.error(error.message || "Gagal mengubah password");
     }
   };
 
@@ -120,12 +151,25 @@ export default function AccountManagement() {
                   <Shield className="w-6 h-6" />
                 </div>
                 {user.username !== "superadmin" && (
-                  <button
-                    onClick={() => handleDelete(user.username)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={() => {
+                        setTargetUsername(user.username);
+                        setIsChangingPassword(true);
+                      }}
+                      title="Ganti Password"
+                      className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                    >
+                      <Key className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.username)}
+                      title="Hapus Akun"
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -230,6 +274,58 @@ export default function AccountManagement() {
                     className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
                   >
                     Simpan Akun
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {isChangingPassword && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Ganti Password
+              </h2>
+              <p className="text-gray-500 mb-6 text-sm">
+                Masukkan password baru untuk akun <span className="font-bold">{targetUsername}</span>.
+              </p>
+
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
+                    Password Baru
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Minimal 6 karakter"
+                    value={updatePassword}
+                    onChange={(e) => setUpdatePassword(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setTargetUsername("");
+                      setUpdatePassword("");
+                    }}
+                    className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 px-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg shadow-orange-100"
+                  >
+                    Ubah Password
                   </button>
                 </div>
               </form>

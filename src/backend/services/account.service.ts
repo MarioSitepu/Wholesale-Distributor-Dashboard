@@ -32,4 +32,16 @@ export class AccountService {
     if (!exists) throw Errors.notFound(`Akun '${username}' tidak ditemukan`);
     await this.userRepo.deleteByUsername(username);
   }
+
+  async changePassword(username: string, newPassword: string): Promise<void> {
+    const exists = await this.userRepo.existsByUsername(username);
+    if (!exists) throw Errors.notFound(`Akun '${username}' tidak ditemukan`);
+    
+    if (newPassword.length < 6) {
+      throw Errors.badRequest('Password baru minimal 6 karakter');
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.userRepo.updatePassword(username, hashed);
+  }
 }

@@ -23,6 +23,14 @@ export class UserRepository {
     return prisma.user.delete({ where: { username } });
   }
 
+  async updatePassword(username: string, passwordHash: string) {
+    return prisma.user.update({
+      where: { username },
+      data: { password: passwordHash },
+      select: { username: true, role: true, branch: true, createdAt: true },
+    });
+  }
+
   async existsByUsername(username: string): Promise<boolean> {
     const count = await prisma.user.count({ where: { username } });
     return count > 0;
