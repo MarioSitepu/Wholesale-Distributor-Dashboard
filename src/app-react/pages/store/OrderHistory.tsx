@@ -6,6 +6,7 @@ import {
   Download,
   MapPin,
   Database,
+  Trash2,
 } from "lucide-react";
 import {
   getOrders,
@@ -16,9 +17,21 @@ import {
   getBranches,
   getCategories,
   getDatabaseSize,
+  deleteOrdersByMonth,
 } from "../../utils/mockData";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "../../components/ui/dialog";
+import { toast } from "sonner";
 
 export default function OrderHistory() {
   const user = useAuthStore((state) => state.user);
@@ -29,10 +42,6 @@ export default function OrderHistory() {
   const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
   const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
   const categoryFilter = selectedCategory || "all";
-
-  const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
-  const stores = isSuperAdmin ? getGlobalStores() : getStores();
-  const products = getProducts();
 
   const today = new Date().toLocaleDateString("en-CA");
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -48,11 +57,23 @@ export default function OrderHistory() {
     totalBytes: 5000000,
     percentage: 0,
   });
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  const [deleteMonthYear, setDeleteMonthYear] = useState<string>(currentMonth);
+  const [deleteBranch, setDeleteBranch] = useState<string>(
+    isSuperAdmin ? "ALL" : user?.branch || "",
+  );
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     setCategories(getCategories());
     setDbSize(getDatabaseSize());
-  }, []);
+  }, [refreshCounter]);
+
+  // Re-fetch derived variables when refreshCounter changes
+  const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+  const stores = isSuperAdmin ? getGlobalStores() : getStores();
+  const products = getProducts();
 
   const filteredOrders = allOrders.filter((order) => {
     const matchesBranch =
@@ -138,6 +159,14 @@ export default function OrderHistory() {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
 
+  const executeDeleteHistory = () => {
+    if (!deleteMonthYear || !deleteBranch) return;
+    deleteOrdersByMonth(deleteBranch, deleteMonthYear);
+    setRefreshCounter((prev) => prev + 1);
+    setIsDeleteDialogOpen(false);
+    toast.success("Riwayat pesanan berhasil dihapus secara permanen.");
+  };
+
   return (
     <div className="space-y-6 pb-20 md:pb-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
@@ -149,14 +178,93 @@ export default function OrderHistory() {
             Lihat semua pesanan yang pernah dibuat
           </p>
         </div>
-        <button
-          onClick={handleExportCSV}
-          disabled={storeOrders.length === 0}
-          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:bg-gray-300 disabled:cursor-not-allowed font-bold text-sm"
-        >
-          <Download className="w-4 h-4" />
-          Export ke CSV
-        </button>
+        <div className="flex gap-2 items-center flex-wrap">
+          <button
+            onClick={handleExportCSV}
+            disabled={storeOrders.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:bg-gray-300 disabled:cursor-not-allowed font-bold text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Export ke CSV
+          </button>
+
+          <Dialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition-colors shadow-sm font-bold text-sm">
+                <Trash2 className="w-4 h-4" />
+                Hapus Riwayat Lama
+              </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-red-600 flex items-center gap-2">
+                  <Trash2 className="w-5 h-5" /> Hapus Riwayat Pesanan
+                </DialogTitle>
+                <DialogDescription>
+                  Pilih bulan dan cabang untuk menghapus riwayat pesanan secara
+                  permanen. Tindakan ini tidak dapat dibatalkan.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    Pilih Bulan
+                  </label>
+                  <input
+                    type="month"
+                    value={deleteMonthYear}
+                    onChange={(e) => setDeleteMonthYear(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    Pilih Cabang
+                  </label>
+                  <select
+                    value={deleteBranch}
+                    onChange={(e) => setDeleteBranch(e.target.value)}
+                    disabled={!isSuperAdmin}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 outline-none w-full disabled:bg-gray-100 disabled:text-gray-500"
+                  >
+                    {isSuperAdmin && (
+                      <option value="ALL">Semua Cabang (Global)</option>
+                    )}
+                    {isSuperAdmin ? (
+                      getBranches().map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))
+                    ) : (
+                      <option value={user?.branch}>{user?.branch}</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+              <DialogFooter className="sm:justify-end gap-2 p-0 mt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                  >
+                    Batal
+                  </button>
+                </DialogClose>
+                <button
+                  type="button"
+                  onClick={executeDeleteHistory}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
+                >
+                  Ya, Hapus Permanen
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Database Storage Widget */}
