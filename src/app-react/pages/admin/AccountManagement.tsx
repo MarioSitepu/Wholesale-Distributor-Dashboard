@@ -6,6 +6,8 @@ import { toast, Toaster } from "sonner";
 import { api } from "../../utils/apiClient";
 import { accountSchema, AccountFormValues } from "../../schemas/accountSchema";
 import { InputError } from "../../components/ui/ErrorMessage";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { useNavigate } from "../../router-compat";
 
 export type User = {
   username: string;
@@ -14,6 +16,16 @@ export type User = {
 };
 
 export default function AccountManagement() {
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+
+  useEffect(() => {
+    if (user && user.role !== "superadmin") {
+      toast.error("Anda tidak memiliki izin mengakses halaman ini.");
+      navigate("/admin");
+    }
+  }, [user, navigate]);
+
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -69,8 +81,12 @@ export default function AccountManagement() {
   };
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (user?.role === "superadmin") {
+      loadUsers();
+    }
+  }, [user]);
+
+  if (!user || user.role !== "superadmin") return null;
 
   const handleAdd = async (data: AccountFormValues) => {
     try {

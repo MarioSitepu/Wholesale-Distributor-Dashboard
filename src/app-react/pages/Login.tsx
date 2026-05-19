@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "../router-compat";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,13 @@ export default function Login() {
   const users = getUsers();
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+  const user = useAuthStore((state) => state.user);
+
+  useEffect(() => {
+    if (user) {
+      navigate("/admin");
+    }
+  }, [user, navigate]);
 
   const {
     register,
@@ -28,7 +35,7 @@ export default function Login() {
       password: "",
     },
   });
-
+  if (user) return null; // Mencegah kedipan UI jika sudah login
   const handleLogin = async (data: LoginFormValues) => {
     await new Promise((resolve) => setTimeout(resolve, 800));
     const user = users.find(

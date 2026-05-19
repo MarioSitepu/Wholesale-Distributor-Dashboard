@@ -89,6 +89,17 @@ export default function OrderHistory() {
     }
   }, [refreshCounter, isSuperAdmin]);
 
+  // Security Check: Mencegah manipulasi state oleh Admin biasa
+  if (!isSuperAdmin && activeBranch && activeBranch !== "all" && activeBranch !== user?.branch) {
+    console.warn("Security Alert: Branch manipulation detected!");
+    setActiveBranch(user?.branch || "");
+    return (
+      <div className="p-8 text-center text-red-600 font-bold">
+        Akses Ditolak: Anda tidak memiliki izin melihat data cabang lain.
+      </div>
+    );
+  }
+
   // Re-fetch derived variables when refreshCounter changes
   const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
   const stores = isSuperAdmin ? getGlobalStores() : getStores();

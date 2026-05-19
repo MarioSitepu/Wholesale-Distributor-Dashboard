@@ -72,6 +72,17 @@ export default function ProductLedger() {
   const [newSchedPrice, setNewSchedPrice] = useState("");
   const [newSchedDate, setNewSchedDate] = useState("");
 
+  // Security Check: Mencegah manipulasi state oleh Admin biasa
+  if (!isSuperAdmin && selectedBranch && selectedBranch !== user?.branch) {
+    console.warn("Security Alert: Branch manipulation detected!");
+    setSelectedBranch(user?.branch || "");
+    return (
+      <div className="p-8 text-center text-red-600 font-bold">
+        Akses Ditolak: Anda tidak memiliki izin melihat data cabang lain.
+      </div>
+    );
+  }
+
   useEffect(() => {
     applyScheduledPrices();
 
