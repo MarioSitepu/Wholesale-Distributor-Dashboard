@@ -66,11 +66,15 @@ export default function OrderHistory() {
 
   useEffect(() => {
     setCategories(getCategories());
-    
+
     if (isSuperAdmin) {
       const fetchDbSize = async () => {
         try {
-          const data = await api.get<{ usedBytes: number; maxBytes: number; remainingBytes: number }>('/api/database/storage');
+          const data = await api.get<{
+            usedBytes: number;
+            maxBytes: number;
+            remainingBytes: number;
+          }>("/api/database/storage");
           setDbSize({
             usedBytes: data.usedBytes,
             totalBytes: data.maxBytes,
@@ -183,19 +187,24 @@ export default function OrderHistory() {
 
   const executeDeleteHistory = async () => {
     if (!deleteMonthYear) return;
-    
+
     try {
       // Kita buat targetDate di akhir bulan yang dipilih
       const [year, month] = deleteMonthYear.split("-");
       const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
 
-      const res = await api.delete<{ message: string }>('/api/database/cleanup', {
-        body: JSON.stringify({ date: targetDate.toISOString() })
-      });
+      const res = await api.delete<{ message: string }>(
+        "/api/database/cleanup",
+        {
+          body: JSON.stringify({ date: targetDate.toISOString() }),
+        },
+      );
 
       setRefreshCounter((prev) => prev + 1);
       setIsDeleteDialogOpen(false);
-      toast.success(res.message || "Riwayat pesanan berhasil dihapus secara permanen.");
+      toast.success(
+        res.message || "Riwayat pesanan berhasil dihapus secara permanen.",
+      );
     } catch (error: any) {
       toast.error(error.message || "Gagal menghapus riwayat pesanan.");
     }
@@ -239,7 +248,9 @@ export default function OrderHistory() {
                     <Trash2 className="w-5 h-5" /> Hapus Riwayat Pesanan
                   </DialogTitle>
                   <DialogDescription>
-                    Pilih bulan dan tahun untuk menghapus riwayat pesanan (seluruh cabang) sebelum tanggal tersebut secara permanen. Tindakan ini tidak dapat dibatalkan.
+                    Pilih bulan dan tahun untuk menghapus riwayat pesanan
+                    (seluruh cabang) sebelum tanggal tersebut secara permanen.
+                    Tindakan ini tidak dapat dibatalkan.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-4 py-4">
@@ -508,7 +519,7 @@ export default function OrderHistory() {
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left hidden md:table">
             <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-xs font-bold">
               <tr>
                 <th className="px-6 py-4">Status</th>
@@ -622,6 +633,82 @@ export default function OrderHistory() {
               )}
             </tbody>
           </table>
+
+          {/* Card View untuk Mobile */}
+          <div className="block md:hidden p-4 space-y-4 bg-gray-50">
+            {storeOrders.length === 0 ? (
+              <div className="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-gray-200">
+                Belum ada riwayat pesanan.
+              </div>
+            ) : (
+              storeOrders.map((order) => {
+                const uniqueKeyLocal = `mob-${(order as any).branch || "General"}|${order.id}`;
+                return (
+                  <div
+                    key={uniqueKeyLocal}
+                    className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3 relative"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+                          Nomor Faktur
+                        </p>
+                        <p className="font-mono font-bold text-gray-900 text-sm">
+                          {order.id}
+                        </p>
+                      </div>
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
+                        Selesai
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between border-t border-gray-100 pt-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+                          Toko / Pelanggan
+                        </p>
+                        <p className="font-medium text-gray-800 text-sm">
+                          {order.storeName}
+                        </p>
+                      </div>
+                      {isSuperAdmin && (
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+                            Cabang
+                          </p>
+                          <p className="font-bold text-blue-700 text-sm">
+                            {(order as any).branch}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between items-end mt-1 pt-3 border-t border-dashed border-gray-200">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+                          Tanggal
+                        </p>
+                        <p className="text-sm font-semibold text-gray-700">
+                          {new Date(order.createdAt).toLocaleDateString(
+                            "id-ID",
+                            { day: "numeric", month: "short", year: "numeric" },
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+                          Total
+                        </p>
+                        <p className="font-black text-blue-600 text-base">
+                          Rp {order.total.toLocaleString("id-ID")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>
