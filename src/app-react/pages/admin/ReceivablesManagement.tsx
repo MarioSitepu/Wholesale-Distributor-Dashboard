@@ -427,7 +427,10 @@ export default function ReceivablesManagement() {
                   {selectedReceivable.amount.toLocaleString("id-ID")}
                 </p>
 
-                <form onSubmit={handleSubmit(handlePaymentSubmit)} className="space-y-4">
+                <form
+                  onSubmit={handleSubmit(handlePaymentSubmit)}
+                  className="space-y-4"
+                >
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
                       Nominal Bayar
