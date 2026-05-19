@@ -20,6 +20,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
+import { exportToExcel } from "../../utils/excelExport";
 
 export default function StockManagement() {
   const user = useAuthStore((state) => state.user);
@@ -119,7 +120,7 @@ export default function StockManagement() {
     toast.success(`Berhasil restock ${product.name}`);
   };
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (filteredProducts.length === 0) return;
 
     const headers = isSuperAdmin
@@ -155,23 +156,29 @@ export default function StockManagement() {
         : base;
     });
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
+    const alignments: ("left" | "center" | "right")[] = isSuperAdmin
+      ? ["center", "center", "left", "left", "center", "center", "center"]
+      : ["center", "left", "left", "center", "center", "center"];
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
+    const types: ("text" | "number" | "currency")[] = isSuperAdmin
+      ? ["text", "text", "text", "text", "number", "number", "number"]
+      : ["text", "text", "text", "number", "number", "number"];
+
     const filename =
       isSuperAdmin && branchFilter !== "all"
-        ? `Stok_${branchFilter}.csv`
-        : "Stok_Gudang_Semua.csv";
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        ? `Stok_${branchFilter}.xls`
+        : "Stok_Gudang_Semua.xls";
+
+    exportToExcel({
+      filename,
+      title: "LAPORAN STOK GUDANG",
+      subtitle: `Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : getCurrentBranch()}`,
+      headers,
+      rows,
+      alignments,
+      types,
+      showTotalRow: false,
+    });
   };
 
   const openRestockModal = (productKey: string) => {
@@ -236,12 +243,12 @@ export default function StockManagement() {
               )}
 
               <button
-                onClick={handleExportCSV}
+                onClick={handleExportExcel}
                 disabled={filteredProducts.length === 0}
                 className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-2xl hover:bg-emerald-700 transition-all shadow-sm hover:shadow-md active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed font-bold text-sm"
               >
                 <Download className="w-4 h-4" />
-                Export CSV
+                Export Excel
               </button>
             </div>
           </div>

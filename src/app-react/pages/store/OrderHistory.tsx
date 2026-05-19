@@ -31,6 +31,7 @@ import {
 } from "../../components/ui/dialog";
 import { toast } from "sonner";
 import { api } from "../../utils/apiClient";
+import { exportToExcel } from "../../utils/excelExport";
 
 export default function OrderHistory() {
   const user = useAuthStore((state) => state.user);
@@ -132,7 +133,7 @@ export default function OrderHistory() {
 
   const storeOrders = [...filteredOrders].reverse();
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (storeOrders.length === 0) return;
 
     const headers = isSuperAdmin
@@ -163,22 +164,26 @@ export default function OrderHistory() {
       }),
     );
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
+    const alignments: ("left" | "center" | "right")[] = isSuperAdmin
+      ? ["center", "center", "center", "left", "left", "center", "right", "right"]
+      : ["center", "center", "left", "left", "center", "right", "right"];
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `Riwayat_Pesanan_${filterType}_${filterType === "day" ? selectedDate : selectedMonth}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const types: ("text" | "number" | "currency")[] = isSuperAdmin
+      ? ["text", "text", "text", "text", "text", "number", "currency", "currency"]
+      : ["text", "text", "text", "text", "number", "currency", "currency"];
+
+    const subtitle = `Filter: ${filterType === "day" ? `Harian (${selectedDate})` : `Bulanan (${selectedMonth})`} | Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch}`;
+
+    exportToExcel({
+      filename: `Riwayat_Pesanan_${filterType}_${filterType === "day" ? selectedDate : selectedMonth}.xls`,
+      title: "LAPORAN RIWAYAT PESANAN",
+      subtitle,
+      headers,
+      rows,
+      alignments,
+      types,
+      showTotalRow: true,
+    });
   };
 
   const toggleExpand = (orderId: string) => {
@@ -223,12 +228,12 @@ export default function OrderHistory() {
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <button
-            onClick={handleExportCSV}
+            onClick={handleExportExcel}
             disabled={storeOrders.length === 0}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:bg-gray-300 disabled:cursor-not-allowed font-bold text-sm"
           >
             <Download className="w-4 h-4" />
-            Export ke CSV
+            Export ke Excel
           </button>
 
           {isSuperAdmin && (

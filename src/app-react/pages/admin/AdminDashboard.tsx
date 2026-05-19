@@ -37,6 +37,7 @@ import { useAppStore } from "../../../store/useAppStore";
 import SalesTrendChart from "../../components/charts/SalesTrendChart";
 import TopProductsChart from "../../components/charts/TopProductsChart";
 import { getSalesTrend, getTopSellingProducts } from "../../utils/chartData";
+import { exportToExcel } from "../../utils/excelExport";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
@@ -199,26 +200,36 @@ export default function AdminDashboard() {
           "Total Harga",
         ];
 
-    const csvContent = [
-      headers.join(","),
-      ...dailyReportData.map((row) => {
-        const baseData = `"${row.orderId}","${row.storeName}","${row.productName}",${row.quantity},${row.price},${row.total}`;
-        return isSuperAdmin ? `"${row.branch}",${baseData}` : baseData;
-      }),
-    ].join("\n");
+    const rows = dailyReportData.map((row) => {
+      const baseData = [
+        row.orderId,
+        row.storeName,
+        row.productName,
+        row.quantity,
+        row.price,
+        row.total,
+      ];
+      return isSuperAdmin ? [row.branch, ...baseData] : baseData;
+    });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `Laporan_Penjualan_${selectedReportDate}.csv`,
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const alignments: ("left" | "center" | "right")[] = isSuperAdmin
+      ? ["center", "center", "left", "left", "center", "right", "right"]
+      : ["center", "left", "left", "center", "right", "right"];
+
+    const types: ("text" | "number" | "currency")[] = isSuperAdmin
+      ? ["text", "text", "text", "text", "number", "currency", "currency"]
+      : ["text", "text", "text", "number", "currency", "currency"];
+
+    exportToExcel({
+      filename: `Laporan_Penjualan_${selectedReportDate}.xls`,
+      title: "LAPORAN PENJUALAN HARIAN",
+      subtitle: `Tanggal: ${selectedReportDate} | Cabang: ${isSuperAdmin ? (selectedBranch === "all" ? "Semua Cabang" : selectedBranch) : user?.branch}`,
+      headers,
+      rows,
+      alignments,
+      types,
+      showTotalRow: true,
+    });
   };
 
   const today = new Date();
