@@ -36,10 +36,7 @@ import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
 import SalesTrendChart from "../../components/charts/SalesTrendChart";
 import TopProductsChart from "../../components/charts/TopProductsChart";
-import {
-  getWeeklySalesTrend,
-  getTopSellingProducts,
-} from "../../utils/chartData";
+import { getSalesTrend, getTopSellingProducts } from "../../utils/chartData";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
@@ -51,6 +48,11 @@ export default function AdminDashboard() {
   // Set fallback activeBranch to "all" if not set initially for SuperAdmin
   const selectedBranch = activeBranch || "all";
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const [trendPeriod, setTrendPeriod] = useState<"minggu" | "bulan" | "tahun">(
+    "minggu",
+  );
+  const [trendValue, setTrendValue] = useState<number | undefined>(undefined);
 
   // Sync data dynamically by adding a refresh listener/interval
   useEffect(() => {
@@ -68,8 +70,8 @@ export default function AdminDashboard() {
     selectedBranch === "all" ? undefined : selectedBranch;
 
   const dataTrend = useMemo(
-    () => getWeeklySalesTrend(effectiveChartBranch),
-    [effectiveChartBranch, refreshKey],
+    () => getSalesTrend(trendPeriod, trendValue, effectiveChartBranch),
+    [trendPeriod, trendValue, effectiveChartBranch, refreshKey],
   );
 
   const topProducts = useMemo(
@@ -355,14 +357,80 @@ export default function AdminDashboard() {
         <div className="w-full lg:w-2/3 bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative">
           <button
             onClick={handleRefresh}
-            className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors z-10"
             title="Refresh Data"
           >
             <RefreshCw className="w-5 h-5" />
           </button>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
-            Trend Penjualan Mingguan
-          </h2>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pr-10">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 md:mb-0">
+              Tren Penjualan
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none"
+                value={trendPeriod}
+                onChange={(e) => {
+                  setTrendPeriod(e.target.value as any);
+                  setTrendValue(undefined);
+                }}
+              >
+                <option value="minggu">Minggu Ini</option>
+                <option value="bulan">Bulan</option>
+                <option value="tahun">Tahun</option>
+              </select>
+
+              {trendPeriod === "bulan" && (
+                <select
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none"
+                  value={
+                    trendValue !== undefined
+                      ? trendValue
+                      : new Date().getMonth()
+                  }
+                  onChange={(e) => setTrendValue(Number(e.target.value))}
+                >
+                  {[
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "Mei",
+                    "Jun",
+                    "Jul",
+                    "Ags",
+                    "Sep",
+                    "Okt",
+                    "Nov",
+                    "Des",
+                  ].map((m, i) => (
+                    <option key={i} value={i}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {trendPeriod === "tahun" && (
+                <select
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none"
+                  value={
+                    trendValue !== undefined
+                      ? trendValue
+                      : new Date().getFullYear()
+                  }
+                  onChange={(e) => setTrendValue(Number(e.target.value))}
+                >
+                  {[2024, 2025, 2026, 2027].map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
           <SalesTrendChart data={dataTrend} />
         </div>
 
