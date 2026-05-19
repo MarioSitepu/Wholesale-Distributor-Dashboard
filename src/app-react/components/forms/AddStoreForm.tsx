@@ -40,6 +40,7 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
         phone: data.phone,
         address: data.address,
         branch: branchToUse,
+        totalDebt: 0,
         receivables: 0,
         lastOrder: new Date().toLocaleDateString("en-CA"),
         isNew: true,

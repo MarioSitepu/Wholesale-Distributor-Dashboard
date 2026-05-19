@@ -48,6 +48,12 @@ export interface Store {
   name: string;
   branch: string;
   totalDebt: number;
+  owner?: string;
+  phone?: string;
+  address?: string;
+  receivables?: number;
+  lastOrder?: string;
+  isNew?: boolean;
 }
 
 export interface User {
