@@ -3,7 +3,7 @@ import { z } from "zod";
 export const productSchema = z.object({
   productName: z.string().min(3, "Nama terlalu pendek").max(100),
   category: z.enum(["Fiesta", "Shifudo"], {
-    required_error: "Pilih kategori brand",
+    message: "Pilih kategori brand",
   }),
   price: z
     .number()
@@ -14,7 +14,7 @@ export const productSchema = z.object({
     .int("Stok tidak bisa pecahan")
     .min(0, "Stok tidak boleh minus"),
   unit: z.enum(["Dus", "Pack", "Pcs"], {
-    required_error: "Pilih satuan jual",
+    message: "Pilih satuan jual",
   }),
 });
 

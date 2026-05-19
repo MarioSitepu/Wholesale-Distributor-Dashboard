@@ -3,7 +3,7 @@ import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 
 export interface AuthUser {
   username: string;
-  role: "admin";
+  role: "admin" | "superadmin";
   branch: string;
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, AlertCircle, MapPin } from "lucide-react";
+import { Check, AlertCircle, MapPin, Clock } from "lucide-react";
 import {
   getReceivables,
   applyReceivablePayment,
@@ -187,14 +187,16 @@ export default function ReceivablesManagement() {
                 </p>
                 <p className="text-2xl font-semibold text-gray-900">
                   Rp {totalUnpaid.toLocaleString("id-ID")}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
-                        errors.amount
-                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
-                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                </p>
+              </div>
             </div>
           </div>
 
-                    <InputError message={errors.amount?.message} />
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-4">
+              <div className="bg-red-50 p-3 rounded-lg">
+                <Clock className="w-6 h-6 text-red-600" />
+              </div>
               <div>
                 <p className="text-sm text-gray-600">Piutang Jatuh Tempo</p>
                 <p className="text-2xl font-semibold text-gray-900">
@@ -317,16 +319,18 @@ export default function ReceivablesManagement() {
                           <div className="flex items-center gap-2">
                             <span
                               className={
-                              className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
-                                errors.paymentMethod
-                                  ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
-                                  : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                                overdue
+                                  ? "text-red-600 font-medium"
                                   : "text-gray-900"
                               }
                             >
                               {new Date(receivable.dueDate).toLocaleDateString(
                                 "id-ID",
-                            <InputError message={errors.paymentMethod?.message} />
+                              )}
+                            </span>
+                            {overdue && (
+                              <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                                Jatuh Tempo
                               </span>
                             )}
                           </div>
@@ -423,27 +427,22 @@ export default function ReceivablesManagement() {
                   {selectedReceivable.amount.toLocaleString("id-ID")}
                 </p>
 
-                <form
+                <form onSubmit={handleSubmit(handlePaymentSubmit)} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
+                      Nominal Bayar
+                    </label>
+                    <input
+                      type="number"
+                      {...register("amount", { valueAsNumber: true })}
                       className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
-                        errors.date
+                        errors.amount
                           ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
                           : "border-gray-200 focus:ring-2 focus:ring-blue-500"
-                >
-                  <div>
-                    <InputError message={errors.date?.message} />
-                      {...register("amount", { valueAsNumber: true })}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
-                        errors.amount
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-200"
                       }`}
                       placeholder="Contoh: 500000"
                     />
-                    {errors.amount && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.amount.message}
-                      </p>
-                    )}
+                    <InputError message={errors.amount?.message} />
                   </div>
 
                   <div>
@@ -452,20 +451,16 @@ export default function ReceivablesManagement() {
                     </label>
                     <select
                       {...register("paymentMethod")}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
                         errors.paymentMethod
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-200"
+                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
+                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
                       }`}
                     >
                       <option value="Cash">Cash</option>
                       <option value="Transfer Bank">Transfer Bank</option>
                     </select>
-                    {errors.paymentMethod && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.paymentMethod.message}
-                      </p>
-                    )}
+                    <InputError message={errors.paymentMethod?.message} />
                   </div>
 
                   <div>
@@ -475,17 +470,13 @@ export default function ReceivablesManagement() {
                     <input
                       type="date"
                       {...register("date")}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
                         errors.date
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-200"
+                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
+                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
                       }`}
                     />
-                    {errors.date && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.date.message}
-                      </p>
-                    )}
+                    <InputError message={errors.date?.message} />
                   </div>
 
                   <div className="flex gap-3 pt-4">

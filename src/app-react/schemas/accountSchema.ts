@@ -8,7 +8,7 @@ export const accountSchema = z
       .regex(/^[a-zA-Z0-9_]+$/, "Hanya boleh huruf, angka, dan underscore"),
     password: z.string().min(8, "Password min. 8 karakter (keamanan sistem)"),
     role: z.enum(["admin", "superadmin"], {
-      required_error: "Role wajib dipilih",
+      message: "Role tidak valid",
     }),
     branch: z.string().optional(),
   })
