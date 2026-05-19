@@ -398,7 +398,7 @@ export default function OrderPage() {
 
           <motion.div
             layout
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
           >
             <AnimatePresence mode="popLayout">
               {products.map((product) => {
@@ -510,7 +510,7 @@ export default function OrderPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 50 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-white w-full md:max-w-2xl md:rounded-lg max-h-[90vh] flex flex-col"
+              className="bg-white w-full h-full md:h-auto md:max-w-2xl md:rounded-lg max-h-screen md:max-h-[90vh] flex flex-col"
             >
               <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-2xl font-semibold text-gray-900">
@@ -594,18 +594,18 @@ export default function OrderPage() {
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => decreaseQuantity(item.productId)}
-                              className="bg-white p-2 rounded-lg hover:bg-gray-100 border border-gray-200"
+                              className="bg-white p-3 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200"
                             >
-                              <Minus className="w-4 h-4" />
+                              <Minus className="w-4 h-4 md:w-4 md:h-4" />
                             </button>
-                            <span className="font-medium w-8 text-center">
+                            <span className="font-medium w-6 shrink-0 md:w-8 text-center text-lg md:text-base">
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => addToCart(item.productId)}
-                              className="bg-white p-2 rounded-lg hover:bg-gray-100 border border-gray-200"
+                              className="bg-white p-3 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200"
                             >
-                              <Plus className="w-4 h-4" />
+                              <Plus className="w-4 h-4 md:w-4 md:h-4" />
                             </button>
                           </div>
                           <div className="font-semibold text-gray-900 w-32 text-right">

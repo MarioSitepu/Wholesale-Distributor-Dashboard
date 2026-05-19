@@ -26,8 +26,8 @@ const formatRupiah = (value: number) => {
 
 export default function SalesTrendChart({ data }: SalesTrendChartProps) {
   return (
-    <div className="w-full h-[300px]">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full">
+      <ResponsiveContainer width="100%" height={300}>
         <AreaChart
           data={data}
           margin={{ top: 10, right: 30, left: 20, bottom: 0 }}

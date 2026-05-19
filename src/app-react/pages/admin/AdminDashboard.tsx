@@ -326,7 +326,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="Penjualan Hari Ini"
           value={`Rp ${(dailySales / 1000).toFixed(0)}K`}
@@ -351,8 +351,8 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative">
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="w-full lg:w-2/3 bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative">
           <button
             onClick={handleRefresh}
             className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -366,7 +366,7 @@ export default function AdminDashboard() {
           <SalesTrendChart data={dataTrend} />
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="w-full lg:w-1/3 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">
             Produk Terlaris
           </h2>
