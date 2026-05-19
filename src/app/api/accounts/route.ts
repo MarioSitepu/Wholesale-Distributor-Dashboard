@@ -8,8 +8,15 @@ const accountService = new AccountService();
 const createAccountSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(6),
-  role: z.literal('admin'),
-  branch: z.string().min(1),
+  role: z.enum(['admin', 'superadmin']),
+  branch: z.string().optional(),
+}).refine((data) => {
+  if (data.role === 'admin' && !data.branch) return false;
+  return true;
+}, {
+  message: 'Cabang wajib diisi untuk role Admin',
+  path: ['branch'],
+});
 });
 
 export async function GET(request: Request) {
@@ -32,7 +39,10 @@ export async function POST(request: Request) {
 
   try {
     const body = createAccountSchema.parse(await request.json());
-    const account = await accountService.createAccount(body);
+    const account = await accountService.createAccount({
+      ...body,
+      branch: body.branch || 'Pusat',
+    });
     return NextResponse.json(account, { status: 201 });
   } catch (error) {
     return handleError(error);
