@@ -45,7 +45,12 @@ export default function StockManagement() {
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
 
   // Security Check: Mencegah manipulasi state oleh Admin biasa
-  if (!isSuperAdmin && activeBranch && activeBranch !== "all" && activeBranch !== user?.branch) {
+  if (
+    !isSuperAdmin &&
+    activeBranch &&
+    activeBranch !== "all" &&
+    activeBranch !== user?.branch
+  ) {
     console.warn("Security Alert: Branch manipulation detected!");
     setActiveBranch(user?.branch || "");
     return (

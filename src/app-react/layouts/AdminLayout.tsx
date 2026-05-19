@@ -58,10 +58,13 @@ export default function AdminLayout() {
     const resetTimer = () => {
       clearTimeout(timeoutId);
       // Timeout 30 menit (30 * 60 * 1000)
-      timeoutId = setTimeout(() => {
-        handleLogout();
-        toast.info("Sesi Anda telah berakhir karena tidak ada aktivitas.");
-      }, 30 * 60 * 1000);
+      timeoutId = setTimeout(
+        () => {
+          handleLogout();
+          toast.info("Sesi Anda telah berakhir karena tidak ada aktivitas.");
+        },
+        30 * 60 * 1000,
+      );
     };
 
     window.addEventListener("mousemove", resetTimer);

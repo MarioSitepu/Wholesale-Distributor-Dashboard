@@ -90,7 +90,12 @@ export default function OrderHistory() {
   }, [refreshCounter, isSuperAdmin]);
 
   // Security Check: Mencegah manipulasi state oleh Admin biasa
-  if (!isSuperAdmin && activeBranch && activeBranch !== "all" && activeBranch !== user?.branch) {
+  if (
+    !isSuperAdmin &&
+    activeBranch &&
+    activeBranch !== "all" &&
+    activeBranch !== user?.branch
+  ) {
     console.warn("Security Alert: Branch manipulation detected!");
     setActiveBranch(user?.branch || "");
     return (
@@ -176,11 +181,29 @@ export default function OrderHistory() {
     );
 
     const alignments: ("left" | "center" | "right")[] = isSuperAdmin
-      ? ["center", "center", "center", "left", "left", "center", "right", "right"]
+      ? [
+          "center",
+          "center",
+          "center",
+          "left",
+          "left",
+          "center",
+          "right",
+          "right",
+        ]
       : ["center", "center", "left", "left", "center", "right", "right"];
 
     const types: ("text" | "number" | "currency")[] = isSuperAdmin
-      ? ["text", "text", "text", "text", "text", "number", "currency", "currency"]
+      ? [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "number",
+          "currency",
+          "currency",
+        ]
       : ["text", "text", "text", "text", "number", "currency", "currency"];
 
     const subtitle = `Filter: ${filterType === "day" ? `Harian (${selectedDate})` : `Bulanan (${selectedMonth})`} | Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch}`;
