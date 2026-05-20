@@ -378,7 +378,7 @@ export default function OrderPage() {
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative min-h-[400px] w-full rounded-2xl flex flex-col">
           {!selectedStore && (
             <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200">
               <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm mx-4">
@@ -396,10 +396,7 @@ export default function OrderPage() {
             </div>
           )}
 
-          <motion.div
-            layout
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-          >
+          <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <AnimatePresence mode="popLayout">
               {products.map((product) => {
                 const inCart = getCartQuantity(product.id);
