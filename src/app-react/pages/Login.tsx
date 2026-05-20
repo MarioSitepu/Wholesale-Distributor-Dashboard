@@ -47,7 +47,11 @@ export default function Login() {
       return;
     }
 
-    login(user);
+    login({
+      username: user.username,
+      role: user.role,
+      branch: user.branch,
+    });
     toast.success(`Selamat datang, Admin ${user.branch}!`);
 
     setTimeout(() => {
