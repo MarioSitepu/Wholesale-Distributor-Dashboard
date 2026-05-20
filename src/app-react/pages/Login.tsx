@@ -16,6 +16,7 @@ export default function Login() {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
   const user = useAuthStore((state) => state.user);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     if (user) {
@@ -161,10 +162,14 @@ export default function Login() {
 
               <button
                 type="submit"
-                disabled={!isValid || isSubmitting}
+                disabled={!isValid || isSubmitting || isOffline}
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed font-medium transition-colors"
               >
-                {isSubmitting ? "Memproses..." : "Sign In"}
+                {isOffline
+                  ? "Menunggu Koneksi Internet..."
+                  : isSubmitting
+                    ? "Memproses..."
+                    : "Sign In"}
               </button>
             </form>
           </div>
