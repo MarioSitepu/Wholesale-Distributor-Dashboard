@@ -1,11 +1,12 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { storeSchema, StoreFormValues } from "../../schema/storeSchema";
+import { storeSchema, StoreFormValues } from "../../schemas/storeSchema";
 import { toast } from "sonner";
 import { addStore } from "../../utils/mockData";
 import { useAppStore } from "../../../store/useAppStore";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { InputError } from "../ui/ErrorMessage";
 
 export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
   onSuccess,
@@ -17,13 +18,13 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
     register,
     handleSubmit,
     reset,
-    formState: { errors, isValid },
+    formState: { errors, isValid, isSubmitting },
   } = useForm<StoreFormValues>({
     resolver: zodResolver(storeSchema),
     mode: "onChange",
   });
 
-  const onSubmit = (data: StoreFormValues) => {
+  const onSubmit = async (data: StoreFormValues) => {
     console.log("Data Toko siap kirim:", data);
 
     // Tentukan cabang berdasarkan hak akses
@@ -39,6 +40,7 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
         owner: data.ownerName,
         phone: data.phone,
         address: data.address,
+        maxCredit: data.maxCredit,
         branch: branchToUse,
         totalDebt: 0,
         receivables: 0,
@@ -65,16 +67,14 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
         <input
           type="text"
           {...register("storeName")}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.storeName ? "border-red-500 bg-red-50" : "border-gray-300"
+          className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+            errors.storeName
+              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           }`}
           placeholder="Contoh: Toko Berkah"
         />
-        {errors.storeName && (
-          <p className="text-red-500 text-xs mt-1 font-medium">
-            {errors.storeName.message}
-          </p>
-        )}
+        <InputError message={errors.storeName?.message} />
       </div>
 
       <div>
@@ -84,16 +84,14 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
         <input
           type="text"
           {...register("ownerName")}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.ownerName ? "border-red-500 bg-red-50" : "border-gray-300"
+          className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+            errors.ownerName
+              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           }`}
           placeholder="Contoh: Budi Santoso"
         />
-        {errors.ownerName && (
-          <p className="text-red-500 text-xs mt-1 font-medium">
-            {errors.ownerName.message}
-          </p>
-        )}
+        <InputError message={errors.ownerName?.message} />
       </div>
 
       <div>
@@ -103,16 +101,14 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
         <input
           type="tel"
           {...register("phone")}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.phone ? "border-red-500 bg-red-50" : "border-gray-300"
+          className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+            errors.phone
+              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           }`}
           placeholder="Contoh: 081234567890"
         />
-        {errors.phone && (
-          <p className="text-red-500 text-xs mt-1 font-medium">
-            {errors.phone.message}
-          </p>
-        )}
+        <InputError message={errors.phone?.message} />
       </div>
 
       <div>
@@ -122,24 +118,39 @@ export const AddStoreForm: React.FC<{ onSuccess?: () => void }> = ({
         <textarea
           {...register("address")}
           rows={3}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.address ? "border-red-500 bg-red-50" : "border-gray-300"
+          className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+            errors.address
+              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           }`}
           placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
         />
-        {errors.address && (
-          <p className="text-red-500 text-xs mt-1 font-medium">
-            {errors.address.message}
-          </p>
-        )}
+        <InputError message={errors.address?.message} />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">
+          Limit Piutang
+        </label>
+        <input
+          type="number"
+          {...register("maxCredit", { valueAsNumber: true })}
+          className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+            errors.maxCredit
+              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          }`}
+          placeholder="Contoh: 5000000"
+        />
+        <InputError message={errors.maxCredit?.message} />
       </div>
 
       <button
         type="submit"
-        disabled={!isValid}
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+        disabled={!isValid || isSubmitting}
+        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-blue-700 transition disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed"
       >
-        Simpan Toko Baru
+        {isSubmitting ? "Menyimpan..." : "Simpan Toko Baru"}
       </button>
     </form>
   );

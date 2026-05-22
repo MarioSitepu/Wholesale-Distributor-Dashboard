@@ -17,7 +17,10 @@ import {
 import { useEffect, useState } from "react";
 import { initializeMockData } from "../utils/mockData";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useCartStore } from "../../store/useCartStore";
+import { useAppStore } from "../../store/useAppStore";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -25,6 +28,9 @@ export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const clearCartStore = useCartStore((state) => state.clearCart);
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch);
+  const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
 
   useEffect(() => {
     initializeMockData();
@@ -40,8 +46,42 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     logout();
+    clearCartStore();
+    setActiveBranch("");
+    setSelectedCategory("Semua Kategori");
     navigate("/");
   };
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // Timeout 30 menit (30 * 60 * 1000)
+      timeoutId = setTimeout(
+        () => {
+          handleLogout();
+          toast.info("Sesi Anda telah berakhir karena tidak ada aktivitas.");
+        },
+        30 * 60 * 1000,
+      );
+    };
+
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+    window.addEventListener("scroll", resetTimer);
+    window.addEventListener("click", resetTimer);
+
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+      window.removeEventListener("scroll", resetTimer);
+      window.removeEventListener("click", resetTimer);
+    };
+  }, []);
 
   const toggleSidebar = () => {
     setIsSidebarExpanded(!isSidebarExpanded);
@@ -50,6 +90,8 @@ export default function AdminLayout() {
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
+
+  if (!user) return null; // Guest Guard
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">

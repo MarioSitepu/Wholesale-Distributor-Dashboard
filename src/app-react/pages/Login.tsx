@@ -1,44 +1,63 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "../router-compat";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { getUsers, User } from "../utils/mockData";
 import { useAuthStore } from "../../store/useAuthStore";
+import { loginSchema, LoginFormValues } from "../schemas/authSchema";
+import { InputError } from "../components/ui/ErrorMessage";
 
 export default function Login() {
   const users = getUsers();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+  const user = useAuthStore((state) => state.user);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  useEffect(() => {
+    if (user) {
+      navigate("/admin");
+    }
+  }, [user, navigate]);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    mode: "onChange",
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+  if (user) return null; // Mencegah kedipan UI jika sudah login
+  const handleLogin = async (data: LoginFormValues) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const user = users.find(
+      (u) => u.username === data.username && u.password === data.password,
+    );
+
+    if (!user) {
+      toast.error("Username atau password salah");
+      return;
+    }
+
+    login({
+      username: user.username,
+      role: user.role,
+      branch: user.branch,
+    });
+    toast.success(`Selamat datang, Admin ${user.branch}!`);
 
     setTimeout(() => {
-      const user = users.find(
-        (u) => u.username === username.toLowerCase() && u.password === password,
-      );
-
-      if (!user) {
-        toast.error("Username atau password salah");
-        setIsLoading(false);
-        return;
-      }
-
-      login(user);
-      toast.success(`Selamat datang, Admin ${user.branch}!`);
-
-      setTimeout(() => {
-        navigate("/admin");
-      }, 500);
-
-      setIsLoading(false);
-    }, 800);
+      navigate("/admin");
+    }, 500);
   };
 
   return (
@@ -96,7 +115,7 @@ export default function Login() {
               Admin Sign In
             </h2>
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleSubmit(handleLogin)} className="space-y-5">
               <div>
                 <label
                   htmlFor="username"
@@ -107,13 +126,16 @@ export default function Login() {
                 <input
                   id="username"
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  {...register("username")}
+                  className={`w-full px-4 py-3 border rounded-lg outline-none transition-colors ${
+                    errors.username
+                      ? "border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50"
+                      : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  }`}
                   placeholder="Masukkan username"
-                  required
                   autoComplete="username"
                 />
+                <InputError message={errors.username?.message} />
               </div>
 
               <div>
@@ -126,21 +148,28 @@ export default function Login() {
                 <input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  {...register("password")}
+                  className={`w-full px-4 py-3 border rounded-lg outline-none transition-colors ${
+                    errors.password
+                      ? "border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-red-50"
+                      : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  }`}
                   placeholder="Masukkan password"
-                  required
                   autoComplete="current-password"
                 />
+                <InputError message={errors.password?.message} />
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors"
+                disabled={!isValid || isSubmitting || isOffline}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed font-medium transition-colors"
               >
-                {isLoading ? "Memproses..." : "Sign In"}
+                {isOffline
+                  ? "Menunggu Koneksi Internet..."
+                  : isSubmitting
+                    ? "Memproses..."
+                    : "Sign In"}
               </button>
             </form>
           </div>

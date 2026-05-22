@@ -3,7 +3,7 @@ import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 
 export interface AuthUser {
   username: string;
-  role: "admin";
+  role: "admin" | "superadmin";
   branch: string;
 }
 
@@ -48,3 +48,32 @@ export const useAuthStore = create<AuthStore>()(
     },
   ),
 );
+
+// Post-hydration fix: correct stale role for superadmin in persisted storage
+if (typeof window !== "undefined") {
+  try {
+    const raw = localStorage.getItem("wholesale_auth_session");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const storedUser = parsed?.state?.user;
+      if (
+        storedUser &&
+        storedUser.username === "superadmin" &&
+        storedUser.role !== "superadmin"
+      ) {
+        const corrected = { ...storedUser, role: "superadmin" };
+        // update persisted storage
+        parsed.state = { ...parsed.state, user: corrected };
+        localStorage.setItem("wholesale_auth_session", JSON.stringify(parsed));
+        // update runtime store if already hydrated
+        if (useAuthStore.getState().user?.username === corrected.username) {
+          useAuthStore.setState({ user: corrected });
+        }
+      }
+    }
+  } catch (e) {
+    // non-fatal
+    // eslint-disable-next-line no-console
+    console.warn("Auth rehydrate fix failed:", e);
+  }
+}

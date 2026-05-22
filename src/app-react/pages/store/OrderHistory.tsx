@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { api } from "../../utils/apiClient";
 import { exportToExcel } from "../../utils/excelExport";
+import { getDatabaseSize } from "../../utils/mockData";
 
 export default function OrderHistory() {
   const user = useAuthStore((state) => state.user);
@@ -64,30 +65,38 @@ export default function OrderHistory() {
     isSuperAdmin ? "ALL" : user?.branch || "",
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [storageInfo, setStorageInfo] = useState({
+    usedBytes: 0,
+    totalBytes: 5000000,
+    percentage: 0,
+  });
 
   useEffect(() => {
-    setCategories(getCategories());
-
-    if (isSuperAdmin) {
-      const fetchDbSize = async () => {
-        try {
-          const data = await api.get<{
-            usedBytes: number;
-            maxBytes: number;
-            remainingBytes: number;
-          }>("/api/database/storage");
-          setDbSize({
-            usedBytes: data.usedBytes,
-            totalBytes: data.maxBytes,
-            percentage: (data.usedBytes / data.maxBytes) * 100,
-          });
-        } catch (error: any) {
-          console.error("Gagal mengambil info storage:", error.message);
-        }
-      };
-      fetchDbSize();
+    // KITA BUANG KODE FETCH API DARI COPILOT
+    // Dan kembalikan ke pembacaan Local Storage yang murni Frontend
+    try {
+      const data = getDatabaseSize();
+      setStorageInfo(data);
+    } catch (error) {
+      console.error("Gagal menghitung storage lokal:", error);
     }
-  }, [refreshCounter, isSuperAdmin]);
+  }, []);
+
+  // Security Check: Mencegah manipulasi state oleh Admin biasa
+  if (
+    !isSuperAdmin &&
+    activeBranch &&
+    activeBranch !== "all" &&
+    activeBranch !== user?.branch
+  ) {
+    console.warn("Security Alert: Branch manipulation detected!");
+    setActiveBranch(user?.branch || "");
+    return (
+      <div className="p-8 text-center text-red-600 font-bold">
+        Akses Ditolak: Anda tidak memiliki izin melihat data cabang lain.
+      </div>
+    );
+  }
 
   // Re-fetch derived variables when refreshCounter changes
   const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
@@ -165,11 +174,29 @@ export default function OrderHistory() {
     );
 
     const alignments: ("left" | "center" | "right")[] = isSuperAdmin
-      ? ["center", "center", "center", "left", "left", "center", "right", "right"]
+      ? [
+          "center",
+          "center",
+          "center",
+          "left",
+          "left",
+          "center",
+          "right",
+          "right",
+        ]
       : ["center", "center", "left", "left", "center", "right", "right"];
 
     const types: ("text" | "number" | "currency")[] = isSuperAdmin
-      ? ["text", "text", "text", "text", "text", "number", "currency", "currency"]
+      ? [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "number",
+          "currency",
+          "currency",
+        ]
       : ["text", "text", "text", "text", "number", "currency", "currency"];
 
     const subtitle = `Filter: ${filterType === "day" ? `Harian (${selectedDate})` : `Bulanan (${selectedMonth})`} | Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch}`;

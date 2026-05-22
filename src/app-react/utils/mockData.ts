@@ -8,6 +8,7 @@ export interface Product {
   price: number;
   totalIn: number;
   totalOut: number;
+  unit?: "Dus" | "Pack" | "Pcs";
 }
 
 export interface ScheduledPrice {
@@ -48,6 +49,7 @@ export interface Store {
   name: string;
   branch: string;
   totalDebt: number;
+  maxCredit?: number;
   owner?: string;
   phone?: string;
   address?: string;
@@ -59,7 +61,7 @@ export interface Store {
 export interface User {
   username: string;
   password: string;
-  role: "admin";
+  role: "admin" | "superadmin";
   branch: string;
 }
 
@@ -94,7 +96,7 @@ export const getUsers = (): User[] => {
       {
         username: "superadmin",
         password: "password123",
-        role: "admin",
+        role: "superadmin",
         branch: "Pusat",
       },
       {
@@ -768,6 +770,51 @@ export const updateReceivable = (
       }
     }
   }
+};
+
+export const applyReceivablePayment = (
+  id: string,
+  paymentAmount: number,
+  branch?: string,
+) => {
+  const branchKey = getBranchKey(STORAGE_KEYS.RECEIVABLES, branch);
+  const receivables: Receivable[] = JSON.parse(safeGet(branchKey) || "[]");
+  const index = receivables.findIndex((r) => r.id === id);
+
+  if (index === -1) return null;
+
+  const receivable = receivables[index];
+  const currentAmount = Number(receivable.amount) || 0;
+  const appliedAmount = Math.min(
+    Math.max(0, Number(paymentAmount) || 0),
+    currentAmount,
+  );
+  const remainingAmount = Math.max(0, currentAmount - appliedAmount);
+
+  receivable.amount = remainingAmount;
+  if (remainingAmount === 0) {
+    receivable.isPaid = true;
+  }
+
+  safeSet(branchKey, JSON.stringify(receivables));
+
+  const storesKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+  const stores: Store[] = JSON.parse(safeGet(storesKey) || "[]");
+  const storeIndex = stores.findIndex((s) => s.id === receivable.storeId);
+
+  if (storeIndex !== -1) {
+    stores[storeIndex].totalDebt = Math.max(
+      0,
+      (Number(stores[storeIndex].totalDebt) || 0) - appliedAmount,
+    );
+    safeSet(storesKey, JSON.stringify(stores));
+  }
+
+  return {
+    receivable,
+    appliedAmount,
+    remainingAmount,
+  };
 };
 
 export const getStores = (): Store[] => {

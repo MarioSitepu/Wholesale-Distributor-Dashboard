@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react";
-import { Check, AlertCircle, MapPin } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, AlertCircle, MapPin, Clock } from "lucide-react";
 import {
   getReceivables,
-  updateReceivable,
+  applyReceivablePayment,
   getGlobalReceivables,
   getBranches,
 } from "../../utils/mockData";
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
+import { paymentSchema, PaymentFormValues } from "../../schemas/paymentSchema";
+import { InputError } from "../../components/ui/ErrorMessage";
 
 export default function ReceivablesManagement() {
   const user = useAuthStore((state) => state.user);
@@ -20,6 +24,41 @@ export default function ReceivablesManagement() {
   const [receivables, setReceivables] = useState(
     isSuperAdmin ? getGlobalReceivables() : getReceivables(),
   );
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [selectedReceivable, setSelectedReceivable] = useState<
+    (typeof receivables)[number] | null
+  >(null);
+
+  // Security Check: Mencegah manipulasi state oleh Admin biasa
+  if (
+    !isSuperAdmin &&
+    activeBranch &&
+    activeBranch !== "all" &&
+    activeBranch !== user?.branch
+  ) {
+    console.warn("Security Alert: Branch manipulation detected!");
+    setActiveBranch(user?.branch || "");
+    return (
+      <div className="p-8 text-center text-red-600 font-bold">
+        Akses Ditolak: Anda tidak memiliki izin melihat data cabang lain.
+      </div>
+    );
+  }
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<PaymentFormValues>({
+    resolver: zodResolver(paymentSchema),
+    mode: "onChange",
+    defaultValues: {
+      amount: 0,
+      paymentMethod: "Cash",
+      date: new Date().toISOString().slice(0, 10),
+    },
+  });
 
   useEffect(() => {
     let allReceivables = isSuperAdmin
@@ -33,14 +72,20 @@ export default function ReceivablesManagement() {
     setReceivables(allReceivables);
   }, [isSuperAdmin, branchFilter]);
 
-  const handleMarkAsPaid = (id: string) => {
+  const handleOpenPayment = (id: string) => {
     const receivable = receivables.find((r) => r.id === id);
     if (!receivable) return;
 
-    const branchToUse = (receivable as any).branch || user?.branch;
-    updateReceivable(id, true, branchToUse);
+    setSelectedReceivable(receivable);
+    reset({
+      amount: receivable.amount,
+      paymentMethod: "Cash",
+      date: new Date().toISOString().slice(0, 10),
+    });
+    setIsPaymentOpen(true);
+  };
 
-    // Refresh data
+  const refreshReceivables = () => {
     let allReceivables = isSuperAdmin
       ? getGlobalReceivables()
       : getReceivables();
@@ -50,8 +95,40 @@ export default function ReceivablesManagement() {
       );
     }
     setReceivables(allReceivables);
+  };
 
-    toast.success("Piutang ditandai sebagai lunas");
+  const handlePaymentSubmit = async (data: PaymentFormValues) => {
+    if (!selectedReceivable) return;
+
+    const currentDebt = selectedReceivable.amount;
+    if (data.amount > currentDebt) {
+      toast.error("Nominal bayar melebihi sisa piutang!");
+      return;
+    }
+
+    const branchToUse = (selectedReceivable as any).branch || user?.branch;
+    const result = applyReceivablePayment(
+      selectedReceivable.id,
+      data.amount,
+      branchToUse,
+    );
+
+    if (!result) {
+      toast.error("Data piutang tidak ditemukan");
+      return;
+    }
+
+    refreshReceivables();
+    setIsPaymentOpen(false);
+    setSelectedReceivable(null);
+
+    if (result.remainingAmount === 0) {
+      toast.success("Piutang berhasil dilunasi");
+    } else {
+      toast.success(
+        `Pembayaran dicatat. Sisa piutang: Rp ${result.remainingAmount.toLocaleString("id-ID")}`,
+      );
+    }
   };
 
   const unpaidReceivables = receivables.filter((r) => !r.isPaid);
@@ -134,7 +211,7 @@ export default function ReceivablesManagement() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center gap-4">
               <div className="bg-red-50 p-3 rounded-lg">
-                <AlertCircle className="w-6 h-6 text-red-600" />
+                <Clock className="w-6 h-6 text-red-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-600">Piutang Jatuh Tempo</p>
@@ -276,11 +353,11 @@ export default function ReceivablesManagement() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
-                            onClick={() => handleMarkAsPaid(receivable.id)}
+                            onClick={() => handleOpenPayment(receivable.id)}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
                           >
                             <Check className="w-4 h-4" />
-                            Tandai Lunas
+                            Bayar
                           </button>
                         </td>
                       </tr>
@@ -350,6 +427,98 @@ export default function ReceivablesManagement() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {isPaymentOpen && selectedReceivable && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="p-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Pembayaran Piutang
+                </h2>
+                <p className="text-gray-500 mb-4 text-sm">
+                  {selectedReceivable.storeName} • Sisa piutang Rp{" "}
+                  {selectedReceivable.amount.toLocaleString("id-ID")}
+                </p>
+
+                <form
+                  onSubmit={handleSubmit(handlePaymentSubmit)}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
+                      Nominal Bayar
+                    </label>
+                    <input
+                      type="number"
+                      {...register("amount", { valueAsNumber: true })}
+                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
+                        errors.amount
+                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
+                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                      }`}
+                      placeholder="Contoh: 500000"
+                    />
+                    <InputError message={errors.amount?.message} />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
+                      Metode Pembayaran
+                    </label>
+                    <select
+                      {...register("paymentMethod")}
+                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
+                        errors.paymentMethod
+                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
+                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                      }`}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Transfer Bank">Transfer Bank</option>
+                    </select>
+                    <InputError message={errors.paymentMethod?.message} />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
+                      Tanggal Bayar
+                    </label>
+                    <input
+                      type="date"
+                      {...register("date")}
+                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
+                        errors.date
+                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
+                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                      }`}
+                    />
+                    <InputError message={errors.date?.message} />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPaymentOpen(false);
+                        setSelectedReceivable(null);
+                      }}
+                      className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!isValid || isSubmitting}
+                      className="flex-1 py-3 px-4 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700 transition-colors shadow-lg shadow-green-100 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? "Menyimpan..." : "Simpan Pembayaran"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}

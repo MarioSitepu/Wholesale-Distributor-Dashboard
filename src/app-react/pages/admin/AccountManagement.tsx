@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Shield, UserPlus, Trash2, Key, MapPin, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { api } from "../../utils/apiClient";
+import { accountSchema, AccountFormValues } from "../../schemas/accountSchema";
+import { InputError } from "../../components/ui/ErrorMessage";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { useNavigate } from "../../router-compat";
 
 export type User = {
   username: string;
@@ -10,23 +16,62 @@ export type User = {
 };
 
 export default function AccountManagement() {
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+
+  useEffect(() => {
+    if (user && user.role !== "superadmin") {
+      toast.error("Anda tidak memiliki izin mengakses halaman ini.");
+      navigate("/admin");
+    }
+  }, [user, navigate]);
+
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newBranch, setNewBranch] = useState("");
-
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [targetUsername, setTargetUsername] = useState("");
   const [updatePassword, setUpdatePassword] = useState("");
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<AccountFormValues>({
+    resolver: zodResolver(accountSchema),
+    mode: "onChange",
+    defaultValues: {
+      username: "",
+      password: "",
+      role: "admin",
+      branch: "",
+    },
+  });
+  const selectedRole = watch("role");
+  const selectedBranch = watch("branch");
+
+  useEffect(() => {
+    if (selectedRole === "superadmin") {
+      if (selectedBranch !== "Pusat") {
+        setValue("branch", "Pusat", { shouldValidate: true });
+      }
+      return;
+    }
+
+    if (selectedRole === "admin" && selectedBranch === "Pusat") {
+      setValue("branch", "", { shouldValidate: true });
+    }
+  }, [selectedBranch, selectedRole, setValue]);
+
   const loadUsers = async () => {
     setIsLoading(true);
     try {
-      const data = await api.get<User[]>('/api/accounts');
+      const data = await api.get<User[]>("/api/accounts");
       setUsers(data);
     } catch (err: any) {
       toast.error(err.message || "Gagal memuat akun");
@@ -36,28 +81,24 @@ export default function AccountManagement() {
   };
 
   useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUsername || !newPassword || !newBranch) {
-      toast.error("Semua field harus diisi");
-      return;
+    if (user?.role === "superadmin") {
+      loadUsers();
     }
+  }, [user]);
 
+  if (!user || user.role !== "superadmin") return null;
+
+  const handleAdd = async (data: AccountFormValues) => {
     try {
-      await api.post('/api/accounts', {
-        username: newUsername.toLowerCase().trim(),
-        password: newPassword.trim(),
-        role: "admin",
-        branch: newBranch.trim(),
+      await api.post("/api/accounts", {
+        username: data.username,
+        password: data.password,
+        role: data.role,
+        branch: data.branch || "Pusat",
       });
       toast.success("Akun baru berhasil ditambahkan");
       setIsAdding(false);
-      setNewUsername("");
-      setNewPassword("");
-      setNewBranch("");
+      reset();
       loadUsers();
     } catch (error: any) {
       toast.error(error.message || "Gagal menambahkan akun");
@@ -116,7 +157,15 @@ export default function AccountManagement() {
           </p>
         </div>
         <button
-          onClick={() => setIsAdding(true)}
+          onClick={() => {
+            reset({
+              username: "",
+              password: "",
+              role: "admin",
+              branch: "",
+            });
+            setIsAdding(true);
+          }}
           className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
         >
           <UserPlus className="w-5 h-5" />
@@ -220,19 +269,43 @@ export default function AccountManagement() {
                 Buat kredensial login baru untuk admin cabang baru.
               </p>
 
-              <form onSubmit={handleAdd} className="space-y-4">
+              <form onSubmit={handleSubmit(handleAdd)} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
+                    Role
+                  </label>
+                  <select
+                    {...register("role")}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="superadmin">Superadmin</option>
+                  </select>
+                  <InputError message={errors.role?.message} />
+                </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
                     Nama Cabang
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Lampung"
-                    value={newBranch}
-                    onChange={(e) => setNewBranch(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  />
+                  {selectedRole === "superadmin" ? (
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                      Cabang dikunci ke Pusat untuk role Superadmin.
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Lampung"
+                        {...register("branch")}
+                        className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
+                          errors.branch
+                            ? "border-red-500 focus:ring-2 focus:ring-red-500"
+                            : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                        }`}
+                      />
+                      <InputError message={errors.branch?.message} />
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
@@ -240,12 +313,15 @@ export default function AccountManagement() {
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="Contoh: adminlampung"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    {...register("username")}
+                    className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
+                      errors.username
+                        ? "border-red-500 focus:ring-2 focus:ring-red-500"
+                        : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                    }`}
                   />
+                  <InputError message={errors.username?.message} />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
@@ -253,27 +329,39 @@ export default function AccountManagement() {
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="Password login (min 6 karakter)"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Password login (min 8 karakter)"
+                    {...register("password")}
+                    className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
+                      errors.password
+                        ? "border-red-500 focus:ring-2 focus:ring-red-500"
+                        : "border-gray-200 focus:ring-2 focus:ring-blue-500"
+                    }`}
                   />
+                  <InputError message={errors.password?.message} />
                 </div>
 
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setIsAdding(false)}
+                    onClick={() => {
+                      reset({
+                        username: "",
+                        password: "",
+                        role: "admin",
+                        branch: "",
+                      });
+                      setIsAdding(false);
+                    }}
                     className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+                    disabled={!isValid || isSubmitting}
+                    className="flex-1 py-3 px-4 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed"
                   >
-                    Simpan Akun
+                    {isSubmitting ? "Menyimpan..." : "Simpan Akun"}
                   </button>
                 </div>
               </form>
@@ -291,7 +379,8 @@ export default function AccountManagement() {
                 Ganti Password
               </h2>
               <p className="text-gray-500 mb-6 text-sm">
-                Masukkan password baru untuk akun <span className="font-bold">{targetUsername}</span>.
+                Masukkan password baru untuk akun{" "}
+                <span className="font-bold">{targetUsername}</span>.
               </p>
 
               <form onSubmit={handleChangePassword} className="space-y-4">

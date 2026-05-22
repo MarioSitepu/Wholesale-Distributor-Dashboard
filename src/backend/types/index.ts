@@ -2,7 +2,7 @@
 
 export interface JwtPayload {
   username: string;
-  role: 'admin';
+  role: "admin" | "superadmin";
   branch: string;
 }
 
@@ -10,7 +10,7 @@ export interface JwtPayload {
 
 export interface User {
   username: string;
-  role: 'admin';
+  role: "admin" | "superadmin";
   branch: string;
   // password TIDAK pernah dikembalikan ke FE
 }
