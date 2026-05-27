@@ -21,7 +21,7 @@ export function getAuthenticatedUser(request: Request): JwtPayload | null {
   const token = authHeader.split(" ")[1];
   try {
     return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-  } catch {
+  } catch (error: any) {
     if (env.NODE_ENV === "development") {
       return {
         id: "dev-admin",
@@ -30,7 +30,8 @@ export function getAuthenticatedUser(request: Request): JwtPayload | null {
         username: "superadmin",
       } as JwtPayload;
     }
-    return null;
+    // Temporarily throw an error with the jwt message for debugging
+    throw new HttpError(401, `Token tidak valid: ${error.message} (token: ${token.substring(0, 10)}...)`);
   }
 }
 

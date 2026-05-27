@@ -18,30 +18,42 @@ export default function Login() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const user = users.find(
-        (u) => u.username === username.toLowerCase() && u.password === password,
-      );
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.toLowerCase(), password }),
+      });
 
-      if (!user) {
-        toast.error("Username atau password salah");
-        setIsLoading(false);
-        return;
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Username atau password salah');
       }
 
-      login(user);
-      toast.success(`Selamat datang, Admin ${user.branch}!`);
+      const result = await response.json();
+      
+      localStorage.setItem('token', result.token);
+
+      login({
+        username: result.user.username,
+        role: result.user.role as any,
+        branch: result.user.branch,
+      });
+      
+      toast.success(`Selamat datang, Admin ${result.user.branch}!`);
 
       setTimeout(() => {
         router.push("/admin");
       }, 500);
-
+    } catch (error: any) {
+      toast.error(error.message || "Username atau password salah");
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   return (

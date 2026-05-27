@@ -49,6 +49,7 @@ export default function AdminLayout({
   const isActive = (path: string) => pathname === path;
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
     logout();
     router.replace("/");
   };
