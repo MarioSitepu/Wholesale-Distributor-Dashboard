@@ -45,6 +45,7 @@ export default function AdminLayout() {
   const isActive = (path: string) => location.pathname === path;
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
     logout();
     clearCartStore();
     setActiveBranch("");

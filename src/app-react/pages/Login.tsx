@@ -10,6 +10,7 @@ import { getUsers, User } from "../utils/mockData";
 import { useAuthStore } from "../../store/useAuthStore";
 import { loginSchema, LoginFormValues } from "../schemas/authSchema";
 import { InputError } from "../components/ui/ErrorMessage";
+import { api } from "../utils/apiClient";
 
 export default function Login() {
   const users = getUsers();
@@ -24,6 +25,8 @@ export default function Login() {
     }
   }, [user, navigate]);
 
+  if (user) return null; // Mencegah kedipan UI jika sudah login
+
   const {
     register,
     handleSubmit,
@@ -36,28 +39,28 @@ export default function Login() {
       password: "",
     },
   });
-  if (user) return null; // Mencegah kedipan UI jika sudah login
   const handleLogin = async (data: LoginFormValues) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    const user = users.find(
-      (u) => u.username === data.username && u.password === data.password,
-    );
+    try {
+      // Panggil API backend untuk login dan mendapatkan token
+      const result = await api.post<{ token: string, user: { username: string, role: string, branch: string } }>('/api/auth/login', data);
+      
+      // Simpan token di localStorage agar apiClient dapat menggunakannya
+      localStorage.setItem('token', result.token);
+      
+      // Simpan state user di store
+      login({
+        username: result.user.username,
+        role: result.user.role as any,
+        branch: result.user.branch,
+      });
+      toast.success(`Selamat datang, Admin ${result.user.branch}!`);
 
-    if (!user) {
-      toast.error("Username atau password salah");
-      return;
+      setTimeout(() => {
+        navigate("/admin");
+      }, 500);
+    } catch (error: any) {
+      toast.error(error.message || "Username atau password salah");
     }
-
-    login({
-      username: user.username,
-      role: user.role,
-      branch: user.branch,
-    });
-    toast.success(`Selamat datang, Admin ${user.branch}!`);
-
-    setTimeout(() => {
-      navigate("/admin");
-    }, 500);
   };
 
   return (
