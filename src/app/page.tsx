@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
+import { Eye, EyeOff, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 
@@ -13,6 +13,7 @@ export default function Login() {
   const users = getUsers();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
@@ -61,7 +62,7 @@ export default function Login() {
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+            {/*<div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
               <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
                 Daftar Akun Cabang:
@@ -92,7 +93,7 @@ export default function Login() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">
               Admin Sign In
@@ -125,16 +126,34 @@ export default function Login() {
                 >
                   Password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                  placeholder="Masukkan password"
-                  required
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    placeholder="Masukkan password"
+                    required
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={
+                      showPassword
+                        ? "Sembunyikan password"
+                        : "Tampilkan password"
+                    }
+                    className="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button
