@@ -16,6 +16,7 @@ import {
   Users,
   Menu,
   X,
+  HelpCircle,
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
@@ -221,6 +222,18 @@ export default function AdminLayout({
               </span>
             </Link>
           )}
+          <Link
+            href="/admin/help-center"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isActive("/admin/help-center") ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            title={!isSidebarExpanded && !isMobileMenuOpen ? "Help Center" : ""}
+          >
+            <HelpCircle className="w-5 h-5 flex-shrink-0" />
+            <span
+              className={`${isSidebarExpanded || isMobileMenuOpen ? "block" : "hidden"} md:${isSidebarExpanded ? "block" : "hidden"}`}
+            >
+              Help Center
+            </span>
+          </Link>
         </nav>
         <div className="p-4 border-t border-gray-200">
           <button
