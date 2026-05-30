@@ -40,3 +40,12 @@ export default function HelpCenter() {
     </div>
   );
 }
+
+/*
+Pengembangan lanjutan:
+1. Kolom Pencarian (Search Bar)
+2. FAQ
+3. Tiket Dukungan (Support Ticket): Formulir online bagi pelanggan untuk mengirimkan laporan masalah teknis atau keluhan spesifik yang akan diproses dan dilacak oleh tim.
+4. Kontak Resmi (Contact Us): Nomor telepon - alamat email - jam operasional layanan
+5. Portal Komunitas (Forum): Ruang diskusi antar pengguna atau dengan staf ahli di mana Anda dapat mengajukan pertanyaan dan melihat solusi dari masalah yang pernah dialami orang lain.
+*/
