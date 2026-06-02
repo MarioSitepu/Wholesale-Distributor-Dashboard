@@ -44,12 +44,12 @@ graph TD
 
 Aplikasi memiliki kredensial default yang langsung dapat diuji pada halaman login:
 
-| Cabang (Branch) | Username | Password | Level Akses | Fitur Utama |
-| :--- | :--- | :--- | :--- | :--- |
-| **Pusat** | `superadmin` | `password123` | **Super Admin** | Konsolidasi seluruh cabang, manajemen akun cabang, master kategori, perubahan harga global. |
-| **Palembang** | `palembang` | `password123` | **Branch Admin** | Kasir lokal, kelola stok gudang, piutang & buku toko wilayah Palembang. |
-| **Baturaja** | `baturaja` | `password123` | **Branch Admin** | Kasir lokal, kelola stok gudang, piutang & buku toko wilayah Baturaja. |
-| **Jambi** | `jambi` | `password123` | **Branch Admin** | Kasir lokal, kelola stok gudang, piutang & buku toko wilayah Jambi. |
+| Cabang (Branch) | Username | Level Akses | Fitur Utama |
+| :--- | :--- | :--- | :--- |
+| **Pusat** | `superadmin` | **Super Admin** | Konsolidasi seluruh cabang, manajemen akun cabang, master kategori, perubahan harga global. |
+| **Palembang** | `palembang` | **Branch Admin** | Kasir lokal, kelola stok gudang, piutang & buku toko wilayah Palembang. |
+| **Baturaja** | `baturaja` | **Branch Admin** | Kasir lokal, kelola stok gudang, piutang & buku toko wilayah Baturaja. |
+| **Jambi** | `jambi` | **Branch Admin** | Kasir lokal, kelola stok gudang, piutang & buku toko wilayah Jambi. |
 
 ---
 
