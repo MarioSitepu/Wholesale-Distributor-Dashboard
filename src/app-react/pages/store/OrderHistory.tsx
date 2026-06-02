@@ -17,6 +17,7 @@ import {
   getGlobalProducts,
   getBranches,
   getCategories,
+  deleteHistoryBefore,
 } from "../../utils/mockData";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
@@ -237,17 +238,12 @@ export default function OrderHistory() {
       const [year, month] = deleteMonthYear.split("-");
       const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
 
-      const res = await api.delete<{ message: string }>(
-        "/api/database/cleanup",
-        {
-          body: JSON.stringify({ date: targetDate.toISOString() }),
-        },
-      );
+      const deletedCount = deleteHistoryBefore(targetDate);
 
       setRefreshCounter((prev) => prev + 1);
       setIsDeleteDialogOpen(false);
       toast.success(
-        res.message || "Riwayat pesanan berhasil dihapus secara permanen.",
+        `Sebanyak ${deletedCount} riwayat pesanan berhasil dihapus secara permanen.`,
       );
     } catch (error: any) {
       toast.error(error.message || "Gagal menghapus riwayat pesanan.");

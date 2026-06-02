@@ -678,6 +678,39 @@ export const getOrders = (): Order[] => {
   return JSON.parse(safeGet(getBranchKey(STORAGE_KEYS.ORDERS)) || "[]");
 };
 
+export const deleteHistoryBefore = (targetDate: Date) => {
+  if (!isClient) return 0;
+  let deletedCount = 0;
+  
+  getBranches().forEach((branch) => {
+    const ordersKey = getBranchKey(STORAGE_KEYS.ORDERS, branch);
+    const receivablesKey = getBranchKey(STORAGE_KEYS.RECEIVABLES, branch);
+    
+    const orders: Order[] = JSON.parse(safeGet(ordersKey) || "[]");
+    const receivables: Receivable[] = JSON.parse(safeGet(receivablesKey) || "[]");
+    
+    const initialOrdersLength = orders.length;
+    
+    // Filter out orders that are on or before the targetDate
+    const filteredOrders = orders.filter((o) => new Date(o.createdAt) > targetDate);
+    
+    // Find the deleted order IDs
+    const deletedOrderIds = new Set(
+      orders.filter((o) => new Date(o.createdAt) <= targetDate).map(o => o.id)
+    );
+    
+    deletedCount += initialOrdersLength - filteredOrders.length;
+    
+    // Delete associated receivables
+    const filteredReceivables = receivables.filter(r => !deletedOrderIds.has(r.orderId));
+    
+    safeSet(ordersKey, JSON.stringify(filteredOrders));
+    safeSet(receivablesKey, JSON.stringify(filteredReceivables));
+  });
+  
+  return deletedCount;
+};
+
 export const addOrder = (order: Order, branch?: string) => {
   // 1. Save the order
   const orders = branch ? getOrdersByBranch(branch) : getOrders();
