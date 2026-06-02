@@ -1,5 +1,11 @@
 "use client";
-import HelpCenter from "../../../app-react/pages/admin/HelpCenter";
+import dynamic from "next/dynamic";
+
+const HelpCenter = dynamic(() => import("../../../app-react/pages/admin/HelpCenter"), {
+  ssr: false,
+});
+
 export default function Page() {
   return <HelpCenter />;
 }
+
