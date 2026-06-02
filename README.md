@@ -12,19 +12,19 @@ Aplikasi ini menggunakan Next.js (App Router) dengan arsitektur frontend modular
 
 ```mermaid
 graph TD
-    subgraph Klien / UI (React)
+    subgraph klien ["Klien / UI (React)"]
         UA[Admin Pusat / Super Admin] -->|Akses Global| DB[Dashboard Analisis]
         UB[Admin Cabang] -->|Akses Terbatas| DB
     end
 
-    subgraph Mesin Data (mockData.ts)
+    subgraph mesin_data ["Mesin Data (mockData.ts)"]
         DB --> FE[Dynamic Pricing Engine]
         DB --> CO[Cashier & Checkout]
         DB --> SM[Warehouse Stock Management]
         DB --> RM[Receivables Management]
     end
 
-    subgraph Layer Penyimpanan (LocalStorage)
+    subgraph layer_penyimpanan ["Layer Penyimpanan (LocalStorage)"]
         FE -->|Prefix Scoping| LS1[(Data Palembang)]
         FE -->|Prefix Scoping| LS2[(Data Baturaja)]
         FE -->|Prefix Scoping| LS3[(Data Jambi)]
