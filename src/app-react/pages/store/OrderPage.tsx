@@ -88,6 +88,7 @@ export default function OrderPage() {
       );
       setStores(branchStores);
       setSelectedStore("");
+      clearCart();
     } else {
       const currentProducts = getProducts();
       setProducts(
@@ -161,6 +162,10 @@ export default function OrderPage() {
   const handleCheckout = () => {
     if (cart.length === 0) {
       toast.error("Keranjang kosong");
+      return;
+    }
+    if (!selectedStore) {
+      toast.error("Silakan pilih toko terlebih dahulu");
       return;
     }
     if (!invoiceNumber.trim()) {
