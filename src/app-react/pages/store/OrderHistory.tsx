@@ -14,6 +14,7 @@ import {
   getProducts,
   getGlobalOrders,
   getGlobalStores,
+  getGlobalProducts,
   getBranches,
   getCategories,
 } from "../../utils/mockData";
@@ -45,7 +46,7 @@ export default function OrderHistory() {
   const categoryFilter = selectedCategory || "all";
 
   const today = new Date().toLocaleDateString("en-CA");
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = today.slice(0, 7);
 
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
@@ -80,6 +81,7 @@ export default function OrderHistory() {
     } catch (error) {
       console.error("Gagal menghitung storage lokal:", error);
     }
+    setCategories(getCategories());
   }, []);
 
   // Security Check: Mencegah manipulasi state oleh Admin biasa
@@ -101,7 +103,7 @@ export default function OrderHistory() {
   // Re-fetch derived variables when refreshCounter changes
   const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
   const stores = isSuperAdmin ? getGlobalStores() : getStores();
-  const products = getProducts();
+  const products = isSuperAdmin ? getGlobalProducts() : getProducts();
 
   const filteredOrders = allOrders.filter((order) => {
     const matchesBranch =
