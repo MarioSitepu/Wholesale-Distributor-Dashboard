@@ -20,7 +20,7 @@ export default function AccountManagement() {
   const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
-    if (user && user.role !== "superadmin") {
+    if (user && user.role !== "superadmin" && user.username !== "superadmin") {
       toast.error("Anda tidak memiliki izin mengakses halaman ini.");
       navigate("/admin");
     }
@@ -81,12 +81,12 @@ export default function AccountManagement() {
   };
 
   useEffect(() => {
-    if (user?.role === "superadmin") {
+    if (user?.role === "superadmin" || user?.username === "superadmin") {
       loadUsers();
     }
   }, [user]);
 
-  if (!user || user.role !== "superadmin") return null;
+  if (!user || (user.role !== "superadmin" && user.username !== "superadmin")) return null;
 
   const handleAdd = async (data: AccountFormValues) => {
     try {
