@@ -703,6 +703,28 @@ export const deleteHistoryBefore = (targetDate: Date) => {
     
     // Delete associated receivables
     const filteredReceivables = receivables.filter(r => !deletedOrderIds.has(r.orderId));
+    const deletedReceivables = receivables.filter(r => deletedOrderIds.has(r.orderId));
+    
+    // Adjust store totalDebt for deleted unpaid receivables
+    if (deletedReceivables.some(r => !r.isPaid)) {
+      const storesKey = getBranchKey(STORAGE_KEYS.STORES, branch);
+      const stores: Store[] = JSON.parse(safeGet(storesKey) || "[]");
+      let storesUpdated = false;
+      
+      deletedReceivables.forEach(r => {
+        if (!r.isPaid) {
+          const storeIndex = stores.findIndex(s => s.id === r.storeId);
+          if (storeIndex !== -1) {
+            stores[storeIndex].totalDebt = Math.max(0, (Number(stores[storeIndex].totalDebt) || 0) - Number(r.amount));
+            storesUpdated = true;
+          }
+        }
+      });
+      
+      if (storesUpdated) {
+        safeSet(storesKey, JSON.stringify(stores));
+      }
+    }
     
     safeSet(ordersKey, JSON.stringify(filteredOrders));
     safeSet(receivablesKey, JSON.stringify(filteredReceivables));
