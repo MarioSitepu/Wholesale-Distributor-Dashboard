@@ -16,6 +16,7 @@ interface CartStore {
   decreaseQuantity: (productId: string) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
+  clearAllCarts: () => void;
 }
 
 const noopStorage: StateStorage = {
@@ -117,6 +118,11 @@ export const useCartStore = create<CartStore>()(
             cartsByBranch: { ...state.cartsByBranch, [branch]: [] },
           };
         }),
+      clearAllCarts: () =>
+        set(() => ({
+          cart: [],
+          cartsByBranch: {},
+        })),
     }),
     {
       name: "wholesale_cart_session",

@@ -28,7 +28,7 @@ export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const clearCartStore = useCartStore((state) => state.clearCart);
+  const clearAllCarts = useCartStore((state) => state.clearAllCarts);
   const setActiveBranch = useAppStore((state) => state.setActiveBranch);
   const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
 
@@ -47,7 +47,7 @@ export default function AdminLayout() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     logout();
-    clearCartStore();
+    clearAllCarts();
     setActiveBranch("");
     setSelectedCategory("Semua Kategori");
     navigate("/");
