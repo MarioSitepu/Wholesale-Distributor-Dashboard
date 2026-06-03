@@ -27,6 +27,7 @@ export default function AdminLayout() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const logout = useAuthStore((state) => state.logout);
   const clearAllCarts = useCartStore((state) => state.clearAllCarts);
   const setActiveBranch = useAppStore((state) => state.setActiveBranch);
@@ -35,11 +36,11 @@ export default function AdminLayout() {
   useEffect(() => {
     initializeMockData();
 
-    // Security check: if user is null, redirect to login
-    if (!user) {
+    // Security check: if user is null after hydration, redirect to login
+    if (hasHydrated && !user) {
       navigate("/");
     }
-  }, [user, navigate]);
+  }, [user, navigate, hasHydrated]);
 
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -92,7 +93,13 @@ export default function AdminLayout() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  if (!user) return null; // Guest Guard
+  if (!hasHydrated || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">

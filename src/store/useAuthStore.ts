@@ -9,6 +9,8 @@ export interface AuthUser {
 
 interface AuthStore {
   user: AuthUser | null;
+  hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   login: (user: AuthUser) => void;
   logout: () => void;
 }
@@ -28,6 +30,8 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       user: null,
+      hasHydrated: false,
+      setHasHydrated: (state: boolean) => set({ hasHydrated: state }),
       login: (user: AuthUser) => {
         removeLegacyCurrentUser();
         set({ user });
@@ -44,6 +48,11 @@ export const useAuthStore = create<AuthStore>()(
       ),
       onRehydrateStorage: () => {
         removeLegacyCurrentUser();
+        return (state, error) => {
+          if (state) {
+            state.setHasHydrated(true);
+          }
+        };
       },
     },
   ),

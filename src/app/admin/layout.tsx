@@ -32,15 +32,16 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
     initializeMockData();
-    if (!user) {
+    if (hasHydrated && !user) {
       router.replace("/");
     }
-  }, [router, user]);
+  }, [router, user, hasHydrated]);
 
   // Tutup menu mobile ketika navigasi berpindah
   useEffect(() => {
@@ -59,7 +60,7 @@ export default function AdminLayout({
     setIsSidebarExpanded(!isSidebarExpanded);
   };
 
-  if (!user) {
+  if (!hasHydrated || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
