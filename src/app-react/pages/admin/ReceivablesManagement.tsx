@@ -1,18 +1,11 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+
 import { Check, AlertCircle, MapPin, Clock } from "lucide-react";
-import {
-  getReceivables,
-  applyReceivablePayment,
-  getGlobalReceivables,
-  getBranches,
-} from "../../utils/mockData";
+import { api } from "../../utils/apiClient";
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
-import { paymentSchema, PaymentFormValues } from "../../schemas/paymentSchema";
-import { InputError } from "../../components/ui/ErrorMessage";
+
 
 export default function ReceivablesManagement() {
   const user = useAuthStore((state) => state.user);
@@ -21,9 +14,9 @@ export default function ReceivablesManagement() {
   const setActiveBranch = useAppStore((state) => state.setActiveBranch);
   const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
 
-  const [receivables, setReceivables] = useState(
-    isSuperAdmin ? getGlobalReceivables() : getReceivables(),
-  );
+  const [receivables, setReceivables] = useState<any[]>([]);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [selectedReceivable, setSelectedReceivable] = useState<
     (typeof receivables)[number] | null
@@ -45,31 +38,37 @@ export default function ReceivablesManagement() {
     );
   }
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isValid, isSubmitting },
-  } = useForm<PaymentFormValues>({
-    resolver: zodResolver(paymentSchema),
-    mode: "onChange",
-    defaultValues: {
-      amount: 0,
-      paymentMethod: "Cash",
-      date: new Date().toISOString().slice(0, 10),
-    },
-  });
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  const fetchReceivables = async () => {
+    try {
+      setIsLoading(true);
+      const effectiveBranch = isSuperAdmin ? (branchFilter === "all" ? "Pusat" : branchFilter) : user?.branch;
+      const res = await api.get<any[]>(`/api/receivables?branch=${effectiveBranch || ''}`);
+      setReceivables(res);
+    } catch (error: any) {
+      toast.error(error.message || "Gagal memuat data piutang");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      if (!isSuperAdmin) return;
+      const res = await api.get<any>('/api/branches');
+      setBranches(res.branches ? res.branches.map((b: any) => b.name || b) : []);
+    } catch (error) {
+      console.error("Failed to load branches");
+    }
+  };
 
   useEffect(() => {
-    let allReceivables = isSuperAdmin
-      ? getGlobalReceivables()
-      : getReceivables();
-    if (isSuperAdmin && branchFilter !== "all") {
-      allReceivables = allReceivables.filter(
-        (r) => (r as any).branch === branchFilter,
-      );
-    }
-    setReceivables(allReceivables);
+    fetchBranches();
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    fetchReceivables();
   }, [isSuperAdmin, branchFilter]);
 
   const handleOpenPayment = (id: string) => {
@@ -77,57 +76,27 @@ export default function ReceivablesManagement() {
     if (!receivable) return;
 
     setSelectedReceivable(receivable);
-    reset({
-      amount: receivable.amount,
-      paymentMethod: "Cash",
-      date: new Date().toISOString().slice(0, 10),
-    });
     setIsPaymentOpen(true);
   };
 
   const refreshReceivables = () => {
-    let allReceivables = isSuperAdmin
-      ? getGlobalReceivables()
-      : getReceivables();
-    if (isSuperAdmin && branchFilter !== "all") {
-      allReceivables = allReceivables.filter(
-        (r) => (r as any).branch === branchFilter,
-      );
-    }
-    setReceivables(allReceivables);
+    fetchReceivables();
   };
 
-  const handlePaymentSubmit = async (data: PaymentFormValues) => {
+  const handlePaymentSubmit = async () => {
     if (!selectedReceivable) return;
 
-    const currentDebt = selectedReceivable.amount;
-    if (data.amount > currentDebt) {
-      toast.error("Nominal bayar melebihi sisa piutang!");
-      return;
-    }
-
-    const branchToUse = (selectedReceivable as any).branch || user?.branch;
-    const result = applyReceivablePayment(
-      selectedReceivable.id,
-      data.amount,
-      branchToUse,
-    );
-
-    if (!result) {
-      toast.error("Data piutang tidak ditemukan");
-      return;
-    }
-
-    refreshReceivables();
-    setIsPaymentOpen(false);
-    setSelectedReceivable(null);
-
-    if (result.remainingAmount === 0) {
+    setIsSubmittingPayment(true);
+    try {
+      await api.patch(`/api/receivables/${selectedReceivable.id}/pay`, {});
       toast.success("Piutang berhasil dilunasi");
-    } else {
-      toast.success(
-        `Pembayaran dicatat. Sisa piutang: Rp ${result.remainingAmount.toLocaleString("id-ID")}`,
-      );
+      refreshReceivables();
+      setIsPaymentOpen(false);
+      setSelectedReceivable(null);
+    } catch (error: any) {
+      toast.error(error.message || "Gagal melunasi piutang");
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -181,7 +150,7 @@ export default function ReceivablesManagement() {
                 className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
               >
                 <option value="all">Semua Cabang</option>
-                {getBranches().map((branch) => (
+                {branches.map((branch) => (
                   <option key={branch} value={branch}>
                     {branch}
                   </option>
@@ -298,10 +267,19 @@ export default function ReceivablesManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {unpaidReceivables.length === 0 ? (
+                {isLoading ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
+                      className="px-6 py-8 text-center text-blue-500 font-semibold animate-pulse"
+                    >
+                      Memuat data dari database...
+                    </td>
+                  </tr>
+                ) : unpaidReceivables.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
                       className="px-6 py-8 text-center text-gray-500"
                     >
                       Tidak ada piutang belum lunas
@@ -443,61 +421,10 @@ export default function ReceivablesManagement() {
                   {selectedReceivable.amount.toLocaleString("id-ID")}
                 </p>
 
-                <form
-                  onSubmit={handleSubmit(handlePaymentSubmit)}
-                  className="space-y-4"
-                >
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
-                      Nominal Bayar
-                    </label>
-                    <input
-                      type="number"
-                      {...register("amount", { valueAsNumber: true })}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
-                        errors.amount
-                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
-                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
-                      }`}
-                      placeholder="Contoh: 500000"
-                    />
-                    <InputError message={errors.amount?.message} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
-                      Metode Pembayaran
-                    </label>
-                    <select
-                      {...register("paymentMethod")}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
-                        errors.paymentMethod
-                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
-                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
-                      }`}
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Transfer Bank">Transfer Bank</option>
-                    </select>
-                    <InputError message={errors.paymentMethod?.message} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1">
-                      Tanggal Bayar
-                    </label>
-                    <input
-                      type="date"
-                      {...register("date")}
-                      className={`w-full bg-gray-50 border rounded-xl py-3 px-4 outline-none transition-all ${
-                        errors.date
-                          ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-500"
-                          : "border-gray-200 focus:ring-2 focus:ring-blue-500"
-                      }`}
-                    />
-                    <InputError message={errors.date?.message} />
-                  </div>
-
+                <div className="space-y-4">
+                  <p className="text-gray-700">
+                    Apakah Anda yakin ingin menandai piutang ini sebagai lunas?
+                  </p>
                   <div className="flex gap-3 pt-4">
                     <button
                       type="button"
@@ -510,14 +437,15 @@ export default function ReceivablesManagement() {
                       Batal
                     </button>
                     <button
-                      type="submit"
-                      disabled={!isValid || isSubmitting}
+                      type="button"
+                      onClick={handlePaymentSubmit}
+                      disabled={isSubmittingPayment}
                       className="flex-1 py-3 px-4 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700 transition-colors shadow-lg shadow-green-100 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed"
                     >
-                      {isSubmitting ? "Menyimpan..." : "Simpan Pembayaran"}
+                      {isSubmittingPayment ? "Memproses..." : "Ya, Lunas"}
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
             </div>
           </div>

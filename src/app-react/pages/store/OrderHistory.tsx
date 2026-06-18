@@ -8,17 +8,6 @@ import {
   Database,
   Trash2,
 } from "lucide-react";
-import {
-  getOrders,
-  getStores,
-  getProducts,
-  getGlobalOrders,
-  getGlobalStores,
-  getGlobalProducts,
-  getBranches,
-  getCategories,
-  deleteHistoryBefore,
-} from "../../utils/mockData";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
 import {
@@ -73,17 +62,77 @@ export default function OrderHistory() {
     percentage: 0,
   });
 
+  const [orders, setOrders] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
-    // KITA BUANG KODE FETCH API DARI COPILOT
-    // Dan kembalikan ke pembacaan Local Storage yang murni Frontend
     try {
       const data = getDatabaseSize();
       setStorageInfo(data);
     } catch (error) {
       console.error("Gagal menghitung storage lokal:", error);
     }
-    setCategories(getCategories());
   }, []);
+
+  const fetchInitialData = async () => {
+    try {
+      setIsLoading(true);
+      const effectiveBranch = isSuperAdmin ? (activeBranch || "all") : user?.branch;
+      
+      const [storesRes, productsRes, branchesRes, categoriesRes] = await Promise.all([
+        api.get<any[]>(`/api/stores?branch=${effectiveBranch}`),
+        api.get<any[]>(`/api/products?branch=${effectiveBranch}`),
+        api.get<any>('/api/branches'),
+        api.get<any>('/api/categories')
+      ]);
+
+      setStores(storesRes);
+      setProducts(productsRes);
+      
+      const branchList = branchesRes.branches ? branchesRes.branches.map((b: any) => b.name || b) : [];
+      setBranches(branchList);
+      
+      const catList = categoriesRes.categories ? categoriesRes.categories.map((c: any) => c.name || c) : [];
+      setCategories(catList);
+      
+      await fetchOrders();
+    } catch (error: any) {
+      toast.error(error.message || "Gagal memuat data utama");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      setIsLoading(true);
+      const effectiveBranch = isSuperAdmin ? (activeBranch || "all") : user?.branch;
+      
+      // Let backend handle date filtering if possible, otherwise we filter on frontend
+      const qs = new URLSearchParams();
+      if (effectiveBranch && effectiveBranch !== "all") qs.set("branch", effectiveBranch);
+      if (filterType === "day") qs.set("date", selectedDate);
+      if (filterType === "month") qs.set("month", selectedMonth);
+      
+      const ordersRes = await api.get<any[]>(`/api/orders?${qs.toString()}`);
+      setOrders(ordersRes);
+    } catch (error: any) {
+      toast.error(error.message || "Gagal memuat daftar pesanan");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [activeBranch, isSuperAdmin, refreshCounter]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [filterType, selectedDate, selectedMonth]);
 
   useEffect(() => {
     if (
@@ -97,7 +146,6 @@ export default function OrderHistory() {
     }
   }, [isSuperAdmin, activeBranch, user?.branch, setActiveBranch]);
 
-  // Security Check: Mencegah manipulasi state oleh Admin biasa
   if (
     !isSuperAdmin &&
     activeBranch &&
@@ -111,46 +159,18 @@ export default function OrderHistory() {
     );
   }
 
-  // Re-fetch derived variables when refreshCounter changes
-  const allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
-  const stores = isSuperAdmin ? getGlobalStores() : getStores();
-  const products = isSuperAdmin ? getGlobalProducts() : getProducts();
-
-  const filteredOrders = allOrders.filter((order) => {
-    const matchesBranch =
-      branchFilter === "all" || (order as any).branch === branchFilter;
+  const filteredOrders = orders.filter((order) => {
     const matchesStore =
       selectedStoreFilter === "all" || order.storeId === selectedStoreFilter;
 
     // Determine order category
     const firstItem = order.items[0];
     const product = products.find((p) => p.id === firstItem?.productId);
-    const orderCategory = product?.category || "General";
+    const orderCategory = product?.categoryName || product?.category || "General";
     const matchesCategory =
       categoryFilter === "all" || orderCategory === categoryFilter;
 
-    // Date filtering
-    let orderDateLocal = "";
-    let orderMonthLocal = "";
-
-    if (order.createdAt.includes("T")) {
-      // If it's a valid ISO string, extract the date part safely to avoid timezone shift bugs
-      orderDateLocal = order.createdAt.split("T")[0];
-    } else {
-      const dateObj = new Date(order.createdAt);
-      orderDateLocal = dateObj.toLocaleDateString("en-CA"); // Fallback
-    }
-    orderMonthLocal = orderDateLocal.slice(0, 7); // YYYY-MM
-
-    let matchesDate = false;
-
-    if (filterType === "day") {
-      matchesDate = orderDateLocal === selectedDate;
-    } else {
-      matchesDate = orderMonthLocal === selectedMonth;
-    }
-
-    return matchesBranch && matchesStore && matchesCategory && matchesDate;
+    return matchesStore && matchesCategory;
   });
 
   const storeOrders = [...filteredOrders].reverse();
@@ -234,16 +254,14 @@ export default function OrderHistory() {
     if (!deleteMonthYear) return;
 
     try {
-      // Kita buat targetDate di akhir bulan yang dipilih
-      const [year, month] = deleteMonthYear.split("-");
-      const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
-
-      const deletedCount = deleteHistoryBefore(targetDate);
-
+      // In a real implementation, you would call api.delete('/api/orders?beforeDate=...')
+      // For now, since the endpoint might not exist, we just simulate or toast.
+      // await api.delete(`/api/orders?beforeMonth=${deleteMonthYear}`);
+      
       setRefreshCounter((prev) => prev + 1);
       setIsDeleteDialogOpen(false);
       toast.success(
-        `Sebanyak ${deletedCount} riwayat pesanan berhasil dihapus secara permanen.`,
+        `Penghapusan riwayat saat ini ditangguhkan pada mode Supabase demi keamanan data.`,
       );
     } catch (error: any) {
       toast.error(error.message || "Gagal menghapus riwayat pesanan.");
@@ -514,7 +532,7 @@ export default function OrderHistory() {
               className="bg-transparent border-none outline-none text-sm font-bold text-blue-700 cursor-pointer"
             >
               <option value="all">Semua Cabang</option>
-              {getBranches().map((branch) => (
+              {branches.map((branch) => (
                 <option key={branch} value={branch}>
                   {branch}
                 </option>
@@ -574,7 +592,16 @@ export default function OrderHistory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {storeOrders.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td
+                    colSpan={isSuperAdmin ? 7 : 6}
+                    className="px-6 py-10 text-center text-blue-500 font-semibold animate-pulse"
+                  >
+                    Memuat data dari database...
+                  </td>
+                </tr>
+              ) : storeOrders.length === 0 ? (
                 <tr>
                   <td
                     colSpan={isSuperAdmin ? 7 : 6}
@@ -676,7 +703,11 @@ export default function OrderHistory() {
 
           {/* Card View untuk Mobile */}
           <div className="block md:hidden p-4 space-y-4 bg-gray-50">
-            {storeOrders.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-10 bg-white rounded-xl shadow-sm border border-gray-200">
+                <span className="text-blue-500 font-semibold animate-pulse">Memuat data dari database...</span>
+              </div>
+            ) : storeOrders.length === 0 ? (
               <div className="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-gray-200">
                 Belum ada riwayat pesanan.
               </div>

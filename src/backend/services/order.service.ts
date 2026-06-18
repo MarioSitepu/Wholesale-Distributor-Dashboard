@@ -26,7 +26,7 @@ export class OrderService {
       branch: o.branch,
       items: o.items.map((i) => ({
         productId: i.productId,
-        productName: i.productName,
+        productName: i.productName.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
         quantity: i.quantity,
         price: Number(i.price),
       })),
@@ -105,7 +105,7 @@ export class OrderService {
         calculatedTotal += dbPrice * item.quantity;
         verifiedItems.push({
           productId: item.productId,
-          productName: product.name,
+          productName: product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
           quantity: item.quantity,
           price: dbPrice
         });
@@ -166,7 +166,7 @@ export class OrderService {
         branch: order.branch,
         items: order.items.map((i) => ({
           productId: i.productId,
-          productName: i.productName,
+          productName: i.productName.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
           quantity: i.quantity,
           price: Number(i.price),
         })),
@@ -193,7 +193,7 @@ export class OrderService {
           orderId: o.id,
           storeName: o.store.name,
           branch: o.branch,
-          productName: item.productName,
+          productName: item.productName.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
           quantity: item.quantity,
           price: Number(item.price),
           total: item.quantity * Number(item.price),

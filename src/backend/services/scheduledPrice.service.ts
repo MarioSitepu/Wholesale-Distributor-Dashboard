@@ -12,7 +12,7 @@ export class ScheduledPriceService {
     return rows.map((r) => ({
       id: r.id,
       productId: r.productId,
-      productName: r.product.name,
+      productName: r.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       newPrice: Number(r.newPrice),
       startDate: r.startDate.toISOString().split('T')[0],
     }));
@@ -35,7 +35,7 @@ export class ScheduledPriceService {
     return {
       id: row.id,
       productId: row.productId,
-      productName: row.product.name,
+      productName: row.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       newPrice: Number(row.newPrice),
       startDate: row.startDate.toISOString().split('T')[0],
     };

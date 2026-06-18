@@ -13,7 +13,7 @@ export class StockService {
 
     return rows.map((s) => ({
       id: s.id,
-      name: s.product.name,
+      name: s.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: s.product.categoryName,
       totalIn: s.totalIn,
       totalOut: s.totalOut,
@@ -38,7 +38,7 @@ export class StockService {
 
     return {
       id: updated.id,
-      name: product.name,
+      name: product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: product.categoryName,
       totalIn: updated.totalIn,
       totalOut: updated.totalOut,

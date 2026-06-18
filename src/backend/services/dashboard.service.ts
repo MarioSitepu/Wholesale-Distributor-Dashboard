@@ -71,7 +71,7 @@ export class DashboardService {
     const items = await this.stockRepo.findLowStock(branch);
     return items.map((s) => ({
       id: s.product.id,
-      name: s.product.name,
+      name: s.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: s.product.categoryName,
       stock: s.totalIn - s.totalOut,
       branch: s.branch,

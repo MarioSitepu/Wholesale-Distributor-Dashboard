@@ -9,22 +9,7 @@ import {
   MapPin,
   Calendar,
 } from "lucide-react";
-import {
-  getProducts,
-  addOrder,
-  getCurrentStore,
-  getStores,
-  getOrders,
-  addReceivable,
-  setCurrentStore,
-  updateProduct,
-  getCurrentBranch,
-  getBranches,
-  getProductsByBranch,
-  getStoresByBranch,
-  generateId,
-  getCategories,
-} from "../../utils/mockData";
+import { api } from "../../utils/apiClient";
 import { toast, Toaster } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useCartStore } from "../../../store/useCartStore";
@@ -39,72 +24,89 @@ export default function OrderPage() {
   const selectedCategory = useAppStore((state) => state.selectedCategory);
   const setActiveBranch = useAppStore((state) => state.setActiveBranch);
   const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
+  
   const effectiveBranch = isSuperAdmin
     ? activeBranch || "Palembang"
-    : getCurrentBranch();
+    : user?.branch || "Palembang";
 
-  const [allProducts, setAllProducts] = useState(
-    isSuperAdmin ? getProductsByBranch(effectiveBranch) : getProducts(),
-  );
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [products, setProducts] = useState(allProducts);
+  const [products, setProducts] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const cart = useCartStore((state) => state.cart);
   const setCurrentBranch = useCartStore((state) => state.setCurrentBranch);
   const addItem = useCartStore((state) => state.addItem);
   const decreaseCartQuantity = useCartStore((state) => state.decreaseQuantity);
   const removeCartItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
+  
   const [showCart, setShowCart] = useState(false);
   const [selectedStore, setSelectedStore] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [orderDate, setOrderDate] = useState(
     new Date().toLocaleDateString("en-CA"),
   );
-  const [stores, setStores] = useState(
-    isSuperAdmin ? getStoresByBranch(effectiveBranch) : getStores(),
-  );
 
   useEffect(() => {
-    setCurrentBranch(
-      isSuperAdmin ? effectiveBranch : user?.branch || getCurrentBranch(),
-    );
-  }, [effectiveBranch, isSuperAdmin, setCurrentBranch, user?.branch]);
+    setCurrentBranch(effectiveBranch);
+  }, [effectiveBranch, setCurrentBranch]);
 
-  useEffect(() => {
-    const cats = getCategories();
-    setCategories(cats);
-    if (!selectedCategory && cats.length > 0) {
-      setSelectedCategory(cats[0]);
+  const fetchInitialData = async () => {
+    try {
+      setIsLoading(true);
+      // Constructing branch query parameters safely
+      const [productsRes, storesRes, branchesRes, categoriesRes] = await Promise.all([
+        api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}`),
+        api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}`),
+        api.get<any>('/api/branches'),
+        api.get<any>('/api/categories'),
+      ]);
+      
+      const mappedProducts = productsRes.map(p => ({
+        ...p,
+        categoryName: p.categoryName || p.category,
+        stock: p.stock !== undefined ? p.stock : (p.stockItems?.[0] ? (p.stockItems[0].totalIn - p.stockItems[0].totalOut) : 0)
+      }));
+
+      setAllProducts(mappedProducts);
+      setStores(storesRes);
+      
+      // Ensure branches and categories format aligns with backend response
+      const branchList = branchesRes.branches ? branchesRes.branches.map((b: any) => b.name || b).filter((b: string) => b !== 'Pusat') : [];
+      setBranches(branchList);
+      
+      const catList = categoriesRes.categories ? categoriesRes.categories.map((c: any) => c.name || c) : [];
+      setCategories(catList);
+      
+      if (!selectedCategory && catList.length > 0) {
+        setSelectedCategory(catList[0]);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Gagal memuat data dari server");
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    if (isSuperAdmin) {
-      const branchProducts = getProductsByBranch(effectiveBranch);
-      const branchStores = getStoresByBranch(effectiveBranch);
-      setAllProducts(branchProducts);
-      setProducts(
-        branchProducts.filter((p) => p.category === selectedCategory),
-      );
-      setStores(branchStores);
-      setSelectedStore("");
-      clearCart();
-    } else {
-      const currentProducts = getProducts();
-      setProducts(
-        currentProducts.filter((p) => p.category === selectedCategory),
-      );
-    }
-  }, [selectedCategory, effectiveBranch, isSuperAdmin]);
+    fetchInitialData();
+    clearCart();
+    setSelectedStore("");
+  }, [effectiveBranch]);
+
+  useEffect(() => {
+    setProducts(allProducts.filter((p) => p.categoryName === selectedCategory));
+  }, [selectedCategory, allProducts]);
 
   const handleStoreChange = (storeId: string) => {
     if (!storeId) {
       setSelectedStore("");
-      setCurrentStore("");
       return;
     }
     setSelectedStore(storeId);
-    setCurrentStore(storeId);
     clearCart();
     toast.success("Toko berhasil dipilih");
   };
@@ -120,7 +122,7 @@ export default function OrderPage() {
     // Check if cart already has items from a different category
     if (cart.length > 0) {
       const firstItem = allProducts.find((p) => p.id === cart[0].productId);
-      if (firstItem && firstItem.category !== product.category) {
+      if (firstItem && firstItem.categoryName !== product.categoryName) {
         toast.warning("Keranjang Terkunci", {
           description: "Tidak bisa menggabung kategori dalam satu bon.",
           duration: 5000,
@@ -159,7 +161,7 @@ export default function OrderPage() {
     return sum + (product?.price || 0) * item.quantity;
   }, 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error("Keranjang kosong");
       return;
@@ -174,24 +176,11 @@ export default function OrderPage() {
     }
 
     const store = stores.find((s) => s.id === selectedStore);
-
     const orderId = invoiceNumber.trim();
-    const existingOrders = getOrders();
-    if (existingOrders.some((o) => o.id === orderId)) {
-      toast.error("Nomor faktur sudah digunakan, silakan gunakan nomor lain");
-      return;
-    }
+    const orderBranch = effectiveBranch;
 
     const orderItems = cart.map((item) => {
       const product = allProducts.find((p) => p.id === item.productId);
-      if (product) {
-        const updatedProduct = {
-          ...product,
-          stock: product.stock - item.quantity,
-          totalOut: product.totalOut + item.quantity,
-        };
-        updateProduct(updatedProduct);
-      }
       return {
         productId: item.productId,
         productName: product?.name || "",
@@ -199,11 +188,6 @@ export default function OrderPage() {
         price: product?.price || 0,
       };
     });
-
-    const currentProducts = getProducts();
-    setProducts(currentProducts.filter((p) => p.category === selectedCategory));
-
-    const orderBranch = isSuperAdmin ? effectiveBranch : getCurrentBranch();
 
     const newOrder = {
       id: orderId,
@@ -215,40 +199,33 @@ export default function OrderPage() {
       createdAt: new Date(orderDate).toISOString(),
     };
 
-    addOrder(newOrder, orderBranch);
+    try {
+      const toastId = toast.loading("Sedang memproses pesanan...");
+      await api.post('/api/orders', newOrder);
+      toast.success("Pesanan Berhasil Dibuat!", {
+        id: toastId,
+        description: "Nomor Faktur: " + invoiceNumber,
+        action: {
+          label: "Lihat Riwayat",
+          onClick: () => navigate("/admin/history"),
+        },
+      });
 
-    const dueDate = new Date(orderDate);
-    dueDate.setDate(dueDate.getDate() + 30);
-
-    addReceivable(
-      {
-        id: generateId("REC", orderBranch),
-        storeId: selectedStore,
-        storeName: store?.name || "",
-        orderId: orderId,
-        amount: cartTotal,
-        dueDate: dueDate.toISOString(),
-        isPaid: false,
-      },
-      orderBranch,
-    );
-
-    clearCart();
-    setShowCart(false);
-    setInvoiceNumber("");
-    setOrderDate(new Date().toLocaleDateString("en-CA"));
-    toast.success("Pesanan Berhasil Dibuat!", {
-      description: "Nomor Faktur: " + invoiceNumber,
-      action: {
-        label: "Lihat Riwayat",
-        onClick: () => navigate("/admin/history"),
-      },
-    });
+      clearCart();
+      setShowCart(false);
+      setInvoiceNumber("");
+      setOrderDate(new Date().toLocaleDateString("en-CA"));
+      
+      // Refresh produk agar sisa stok terbaru tampil
+      fetchInitialData();
+    } catch (error: any) {
+      toast.error(error.message || "Gagal menyimpan pesanan. Silakan coba lagi.");
+    }
   };
 
   const cartCategory =
     cart.length > 0
-      ? allProducts.find((p) => p.id === cart[0].productId)?.category
+      ? allProducts.find((p) => p.id === cart[0].productId)?.categoryName
       : null;
 
   return (
@@ -268,7 +245,7 @@ export default function OrderPage() {
           {/* Mode Pusat: Pilih Cabang */}
           {isSuperAdmin && (
             <div className="flex-1 max-w-md bg-blue-50 border border-blue-100 p-1 rounded-xl flex">
-              {getBranches().map((branch) => (
+              {branches.map((branch) => (
                 <button
                   key={branch}
                   onClick={() => {
@@ -406,7 +383,7 @@ export default function OrderPage() {
               {products.map((product) => {
                 const inCart = getCartQuantity(product.id);
                 const isRestricted = !!(
-                  cartCategory && cartCategory !== product.category
+                  cartCategory && cartCategory !== product.categoryName
                 );
 
                 return (
@@ -427,7 +404,7 @@ export default function OrderPage() {
                       <div className="mb-4 flex justify-between items-start">
                         <div>
                           <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">
-                            {product.category}
+                            {product.categoryName}
                           </p>
                           <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">
                             {product.name}

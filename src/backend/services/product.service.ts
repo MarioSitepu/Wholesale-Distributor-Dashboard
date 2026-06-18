@@ -15,7 +15,7 @@ export class ProductService {
       const totalOut = s?.totalOut ?? 0;
       return {
         id: p.id,
-        name: p.name,
+        name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
         category: p.categoryName,
         price: Number(p.price),
         stock: totalIn - totalOut,
@@ -45,7 +45,7 @@ export class ProductService {
     const s = p.stockItems[0];
     return {
       id: p.id,
-      name: p.name,
+      name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: p.categoryName,
       price: Number(p.price),
       stock: 0,
@@ -72,7 +72,7 @@ export class ProductService {
     const totalOut = s?.totalOut ?? 0;
     return {
       id: p.id,
-      name: p.name,
+      name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: p.categoryName,
       price: Number(p.price),
       stock: totalIn - totalOut,

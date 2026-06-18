@@ -20,6 +20,11 @@ export default function HelpCenter() {
   const [scale, setScale] = useState<number>(0.8);
 
   useEffect(() => {
+    // Sesuaikan zoom awal untuk layar mobile
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setScale(0.45);
+    }
+
     // Script pembunuh Service Worker yang nyangkut di memori browser
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -71,7 +76,7 @@ export default function HelpCenter() {
       </div>
       
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
-        <div className="flex items-center gap-4 mb-4 bg-gray-50 px-4 py-2 rounded-lg w-full justify-between">
+        <div className="flex flex-wrap items-center gap-4 mb-4 bg-gray-50 px-4 py-2 rounded-lg w-full justify-center sm:justify-between">
           <div className="flex items-center gap-2">
             <button
               disabled={pageNumber <= 1}
