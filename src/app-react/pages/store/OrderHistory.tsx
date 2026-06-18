@@ -248,6 +248,8 @@ export default function OrderHistory() {
       alignments,
       types,
       showTotalRow: true,
+      totalRowSumColumns: [headers.length - 1],
+      totalRowLabelColumn: 0,
     });
   };
 
