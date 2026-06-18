@@ -8,8 +8,8 @@ export async function GET(request: Request) {
   const user = getAuthenticatedUser(request);
   if (!user) return handleUnauthorized();
 
-  // Hanya admin yang diizinkan melihat storage
-  if (user.role !== 'admin') {
+  // Hanya admin/superadmin yang diizinkan melihat storage
+  if (user.role !== 'admin' && user.role !== 'superadmin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

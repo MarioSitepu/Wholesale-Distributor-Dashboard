@@ -5,6 +5,6 @@ export class BranchService {
 
   async getBranches(): Promise<string[]> {
     const branches = await this.branchRepo.findAll();
-    return branches.map((b) => b.name);
+    return branches.filter((b) => b.name !== 'Pusat').map((b) => b.name);
   }
 }

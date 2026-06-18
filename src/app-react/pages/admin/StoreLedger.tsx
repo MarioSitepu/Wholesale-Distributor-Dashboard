@@ -2,17 +2,10 @@ import { useState, useEffect } from "react";
 import {
   Store,
   Order,
-  getStores,
-  getOrders,
-  updateStore,
-  addStore,
-  deleteStore,
-  getCurrentBranch,
-  getGlobalStores,
-  getGlobalOrders,
-  getBranches,
-  generateId,
+  Store,
+  Order,
 } from "../../utils/mockData";
+import { api } from "../../utils/apiClient";
 import {
   Search,
   Store as StoreIcon,
@@ -35,7 +28,8 @@ export default function StoreLedger() {
   const isSuperAdmin = user?.branch === "Pusat";
   const activeBranch = useAppStore((state) => state.activeBranch);
   const setActiveBranch = useAppStore((state) => state.setActiveBranch);
-  const branchFilter = isSuperAdmin ? activeBranch || "all" : "all";
+  const branchFilter = isSuperAdmin ? activeBranch || "all" : user?.branch || "Palembang";
+  const [branches, setBranches] = useState<string[]>([]);
 
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -63,19 +57,26 @@ export default function StoreLedger() {
   }
 
   useEffect(() => {
-    let allStores = isSuperAdmin ? getGlobalStores() : getStores();
-    let allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+    const fetchData = async () => {
+      try {
+        const [storesRes, ordersRes, branchesRes] = await Promise.all([
+          api.get<Store[]>(`/api/stores?branch=${branchFilter}`),
+          api.get<Order[]>(`/api/orders?branch=${branchFilter}`),
+          api.get<{ branches: string[] }>('/api/branches'),
+        ]);
+        setStores(storesRes);
+        setOrders(ordersRes);
+        if (branchesRes && branchesRes.branches) {
+          setBranches(branchesRes.branches.map((b: any) => b.name || b));
+        }
+      } catch (error: any) {
+        toast.error("Gagal memuat data: " + error.message);
+      }
+    };
+    fetchData();
+  }, [branchFilter]);
 
-    if (isSuperAdmin && branchFilter !== "all") {
-      allStores = allStores.filter((s) => s.branch === branchFilter);
-      allOrders = allOrders.filter((o) => (o as any).branch === branchFilter);
-    }
-
-    setStores(allStores);
-    setOrders(allOrders);
-  }, [isSuperAdmin, branchFilter]);
-
-  const handleAddStore = () => {
+  const handleAddStore = async () => {
     if (!newStoreName.trim()) {
       toast.error("Nama toko harus diisi");
       return;
@@ -84,61 +85,50 @@ export default function StoreLedger() {
       ? branchFilter === "all"
         ? "Palembang"
         : branchFilter
-      : getCurrentBranch();
+      : user?.branch || "Palembang";
 
-    const newStore: Store = {
-      id: generateId("STR", branchToUse),
-      name: newStoreName.trim(),
-      branch: branchToUse,
-      totalDebt: 0,
-    };
-    addStore(newStore, branchToUse);
-    toast.success("Toko berhasil ditambahkan");
+    try {
+      const newStore = await api.post<Store>('/api/stores', {
+        name: newStoreName.trim(),
+        branch: branchToUse,
+      });
 
-    // Refresh data
-    const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
-    setStores(
-      branchFilter === "all"
-        ? updatedStores
-        : updatedStores.filter((s) => s.branch === branchFilter),
-    );
+      setStores([...stores, newStore]);
+      toast.success("Toko berhasil ditambahkan");
 
-    setNewStoreName("");
-    setIsAddingStore(false);
-  };
-
-  const handleDeleteStore = (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus toko ini?")) {
-      const storeToDelete = stores.find((s) => s.id === id);
-      const branchToUse = storeToDelete?.branch || getCurrentBranch();
-      deleteStore(id, branchToUse);
-
-      const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
-      setStores(
-        branchFilter === "all"
-          ? updatedStores
-          : updatedStores.filter((s) => s.branch === branchFilter),
-      );
-
-      if (selectedStoreId === id) setSelectedStoreId("");
+      setNewStoreName("");
+      setIsAddingStore(false);
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
-  const handleSaveStore = () => {
+  const handleDeleteStore = async (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus toko ini?")) {
+      try {
+        await api.delete(`/api/stores/${id}`);
+        setStores(stores.filter(s => s.id !== id));
+        if (selectedStoreId === id) setSelectedStoreId("");
+        toast.success("Toko berhasil dihapus");
+      } catch (error: any) {
+        toast.error(error.message);
+      }
+    }
+  };
+
+  const handleSaveStore = async () => {
     if (!selectedStoreId || !editStoreName.trim()) return;
 
-    const storeToUpdate = stores.find((s) => s.id === selectedStoreId);
-    if (storeToUpdate) {
-      const updatedStore = { ...storeToUpdate, name: editStoreName.trim() };
-      updateStore(updatedStore, storeToUpdate.branch);
+    try {
+      const updatedStore = await api.put<Store>(`/api/stores/${selectedStoreId}`, {
+        name: editStoreName.trim()
+      });
 
-      const updatedStores = isSuperAdmin ? getGlobalStores() : getStores();
-      setStores(
-        branchFilter === "all"
-          ? updatedStores
-          : updatedStores.filter((s) => s.branch === branchFilter),
-      );
+      setStores(stores.map(s => s.id === selectedStoreId ? updatedStore : s));
       setIsEditingStore(false);
+      toast.success("Toko berhasil diperbarui");
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -215,7 +205,7 @@ export default function StoreLedger() {
                   className="bg-transparent border-none outline-none text-xs font-bold text-blue-700 cursor-pointer w-full"
                 >
                   <option value="all">Semua Cabang</option>
-                  {getBranches().map((b) => (
+                  {branches.map((b) => (
                     <option key={b} value={b}>
                       {b}
                     </option>

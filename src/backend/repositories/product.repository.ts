@@ -2,7 +2,7 @@ import { prisma } from '../config/prisma';
 
 export class ProductRepository {
   async findByBranch(branch: string) {
-    const where = branch === 'all' ? {} : { branch };
+    const where = branch === 'all' ? {} : { OR: [{ branch }, { branch: 'all' }] };
     return prisma.product.findMany({
       where,
       include: { stockItems: true },

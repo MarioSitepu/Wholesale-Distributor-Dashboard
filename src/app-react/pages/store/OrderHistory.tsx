@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { api } from "../../utils/apiClient";
 import { exportToExcel } from "../../utils/excelExport";
-import { getDatabaseSize } from "../../utils/mockData";
+
 
 export default function OrderHistory() {
   const user = useAuthStore((state) => state.user);
@@ -56,11 +56,7 @@ export default function OrderHistory() {
     isSuperAdmin ? "ALL" : user?.branch || "",
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [storageInfo, setStorageInfo] = useState({
-    usedBytes: 0,
-    totalBytes: 5000000,
-    percentage: 0,
-  });
+
 
   const [orders, setOrders] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
@@ -69,13 +65,22 @@ export default function OrderHistory() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const data = getDatabaseSize();
-      setStorageInfo(data);
-    } catch (error) {
-      console.error("Gagal menghitung storage lokal:", error);
-    }
-  }, []);
+    const fetchStorageInfo = async () => {
+      try {
+        if (!isSuperAdmin) return;
+        const data = await api.get<any>('/api/database/storage');
+        const percentage = (data.usedBytes / data.maxBytes) * 100;
+        setDbSize({
+          usedBytes: data.usedBytes,
+          totalBytes: data.maxBytes,
+          percentage: percentage,
+        });
+      } catch (error) {
+        console.error("Gagal memuat status database:", error);
+      }
+    };
+    fetchStorageInfo();
+  }, [isSuperAdmin]);
 
   const fetchInitialData = async () => {
     try {
@@ -173,7 +178,7 @@ export default function OrderHistory() {
     return matchesStore && matchesCategory;
   });
 
-  const storeOrders = [...filteredOrders].reverse();
+  const storeOrders = [...filteredOrders];
 
   const handleExportExcel = () => {
     if (storeOrders.length === 0) return;

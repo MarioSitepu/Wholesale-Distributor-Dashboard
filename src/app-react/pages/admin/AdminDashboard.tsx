@@ -8,17 +8,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import KPICard from "../../components/KPICard";
-import {
-  getOrders,
-  getProducts,
-  getReceivables,
-  getStores,
-  getGlobalOrders,
-  getGlobalProducts,
-  getGlobalReceivables,
-  getGlobalStores,
-  getBranches,
-} from "../../utils/mockData";
+import { api } from "../../utils/apiClient";
+import { toast } from "sonner";
 import { useMemo, useState, useEffect } from "react";
 import {
   BarChart,
@@ -55,79 +46,67 @@ export default function AdminDashboard() {
   );
   const [trendValue, setTrendValue] = useState<number | undefined>(undefined);
 
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [allReceivables, setAllReceivables] = useState<any[]>([]);
+  const [allStores, setAllStores] = useState<any[]>([]);
+  const [branches, setBranches] = useState<string[]>([
+    "Palembang", "Lubuk Linggau", "Prabumulih", "Tugu Mulyo", "Batu Raja"
+  ]);
+
   // Sync data dynamically by adding a refresh listener/interval
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const branchParam = selectedBranch === "all" ? "" : selectedBranch;
+        const [ordersRes, productsRes, receivablesRes, storesRes, branchesRes] = await Promise.all([
+          api.get<any[]>(`/api/orders?branch=${branchParam}`),
+          api.get<any[]>(`/api/products?branch=${branchParam}`),
+          api.get<any[]>(`/api/receivables?branch=${branchParam}`),
+          api.get<any[]>(`/api/stores?branch=${branchParam}`),
+          api.get<any>('/api/branches'),
+        ]);
+        
+        setAllOrders(ordersRes);
+        setAllProducts(productsRes);
+        setAllReceivables(receivablesRes);
+        setAllStores(storesRes);
+        if (branchesRes && branchesRes.branches) {
+          setBranches(branchesRes.branches.map((b: any) => b.name || b));
+        }
+      } catch (error: any) {
+        toast.error("Gagal memuat data dashboard: " + error.message);
+      }
+    };
+    
+    fetchData();
+
     const interval = setInterval(() => {
       setRefreshKey((prev) => prev + 1);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshKey, selectedBranch]);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
   };
 
-  const effectiveChartBranch =
-    selectedBranch === "all" ? undefined : selectedBranch;
+  const effectiveChartBranch = undefined; // We already filtered by branch in the API call
 
   const dataTrend = useMemo(
-    () => getSalesTrend(trendPeriod, trendValue, effectiveChartBranch),
-    [trendPeriod, trendValue, effectiveChartBranch, refreshKey],
+    () => getSalesTrend(allOrders, trendPeriod, trendValue, effectiveChartBranch),
+    [allOrders, trendPeriod, trendValue, effectiveChartBranch],
   );
 
   const topProducts = useMemo(
-    () => getTopSellingProducts(effectiveChartBranch),
-    [effectiveChartBranch, refreshKey],
+    () => getTopSellingProducts(allOrders, effectiveChartBranch),
+    [allOrders, effectiveChartBranch],
   );
 
-  const allOrders = useMemo(
-    () => (isSuperAdmin ? getGlobalOrders() : getOrders()),
-    [isSuperAdmin, refreshKey],
-  );
-  const allProducts = useMemo(
-    () => (isSuperAdmin ? getGlobalProducts() : getProducts()),
-    [isSuperAdmin, refreshKey],
-  );
-  const allReceivables = useMemo(
-    () => (isSuperAdmin ? getGlobalReceivables() : getReceivables()),
-    [isSuperAdmin, refreshKey],
-  );
-  const allStores = useMemo(
-    () => (isSuperAdmin ? getGlobalStores() : getStores()),
-    [isSuperAdmin, refreshKey],
-  );
-
-  const orders = useMemo(
-    () =>
-      selectedBranch === "all"
-        ? allOrders
-        : allOrders.filter((o) => o.branch === selectedBranch),
-    [allOrders, selectedBranch],
-  );
-
-  const products = useMemo(
-    () =>
-      selectedBranch === "all"
-        ? allProducts
-        : allProducts.filter((p) => (p as any).branch === selectedBranch),
-    [allProducts, selectedBranch],
-  );
-
-  const receivables = useMemo(
-    () =>
-      selectedBranch === "all"
-        ? allReceivables
-        : allReceivables.filter((r) => (r as any).branch === selectedBranch),
-    [allReceivables, selectedBranch],
-  );
-
-  const stores = useMemo(
-    () =>
-      selectedBranch === "all"
-        ? allStores
-        : allStores.filter((s) => s.branch === selectedBranch),
-    [allStores, selectedBranch],
-  );
+  const orders = allOrders;
+  const products = allProducts;
+  const receivables = allReceivables;
+  const stores = allStores;
 
   const [selectedReportStore, setSelectedReportStore] = useState<string>("all");
   const [selectedReportDate, setSelectedReportDate] = useState<string>(
@@ -325,7 +304,7 @@ export default function AdminDashboard() {
                 className="bg-transparent border-none outline-none font-bold text-gray-700 cursor-pointer"
               >
                 <option value="all">Semua Cabang</option>
-                {getBranches().map((branch) => (
+                {branches.map((branch) => (
                   <option key={branch} value={branch}>
                     {branch}
                   </option>
@@ -556,8 +535,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-3">
               {orders
-                .slice(-5)
-                .reverse()
+                .slice(0, 5)
                 .map((order) => (
                   <div
                     key={order.id}

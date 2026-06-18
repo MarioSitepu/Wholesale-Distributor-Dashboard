@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { ScheduledPriceService } from '../../../../../backend/services/scheduledPrice.service';
+import { CategoryService } from '../../../../../backend/services/category.service';
 import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../../backend/utils/authHelper';
 
-const scheduledPriceService = new ScheduledPriceService();
+const categoryService = new CategoryService();
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = getAuthenticatedUser(request);
@@ -14,7 +14,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   try {
     const { id } = await params;
-    await scheduledPriceService.deleteScheduledPrice(id);
+    // URL-decoded name
+    const categoryName = decodeURIComponent(id);
+    await categoryService.deleteCategory(categoryName);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     return handleError(error);

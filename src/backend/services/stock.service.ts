@@ -12,7 +12,7 @@ export class StockService {
     const rows = await this.stockRepo.findByBranch(targetBranch);
 
     return rows.map((s) => ({
-      id: s.id,
+      id: s.productId,
       name: s.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: s.product.categoryName,
       totalIn: s.totalIn,
@@ -23,7 +23,7 @@ export class StockService {
   }
 
   async restock(
-    data: { productId: string; branch: string; amount: number },
+    data: { productId: string; branch: string; amount: number; action?: 'add' | 'reduce' },
     user: JwtPayload,
   ): Promise<StockItem> {
     // Non-superadmin hanya bisa restock di branch sendiri
@@ -34,10 +34,19 @@ export class StockService {
     const product = await this.productRepo.findById(data.productId);
     if (!product) throw Errors.notFound(`Produk '${data.productId}' tidak ditemukan`);
 
-    const updated = await this.stockRepo.addStock(data.productId, data.branch, data.amount);
+    let updated;
+    if (data.action === 'reduce') {
+      const currentStock = await this.stockRepo.getCurrentStock(data.productId, data.branch);
+      if (currentStock < data.amount) {
+        throw Errors.badRequest('Stok tidak mencukupi untuk dikurangi');
+      }
+      updated = await this.stockRepo.deductStock(data.productId, data.branch, data.amount);
+    } else {
+      updated = await this.stockRepo.addStock(data.productId, data.branch, data.amount);
+    }
 
     return {
-      id: updated.id,
+      id: updated.productId,
       name: product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: product.categoryName,
       totalIn: updated.totalIn,

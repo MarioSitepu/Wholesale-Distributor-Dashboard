@@ -1,11 +1,9 @@
-import { getOrders } from "./mockData";
-
 export const getSalesTrend = (
+  orders: any[],
   type: "minggu" | "bulan" | "tahun",
   value?: number,
   branch?: string,
 ) => {
-  const orders = getOrders();
   const filteredOrders = branch
     ? orders.filter((o) => o.branch === branch)
     : orders;
@@ -149,12 +147,11 @@ export const getSalesTrend = (
 };
 
 // Kept for backward compatibility if used elsewhere, but ideally replace its usage
-export const getWeeklySalesTrend = (branch?: string) => {
-  return getSalesTrend("minggu", undefined, branch);
+export const getWeeklySalesTrend = (orders: any[], branch?: string) => {
+  return getSalesTrend(orders, "minggu", undefined, branch);
 };
 
-export const getTopSellingProducts = (branch?: string) => {
-  const orders = getOrders();
+export const getTopSellingProducts = (orders: any[], branch?: string) => {
   const filteredOrders = branch
     ? orders.filter((o) => o.branch === branch)
     : orders;

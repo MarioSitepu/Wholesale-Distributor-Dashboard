@@ -2,25 +2,11 @@ import { useState, useEffect } from "react";
 import {
   Product,
   Order,
-  getProducts,
-  getOrders,
-  updateProduct,
-  addProduct,
-  deleteProduct,
+  Product,
+  Order,
   ScheduledPrice,
-  getScheduledPrices,
-  addScheduledPrice,
-  deleteScheduledPrice,
-  applyScheduledPrices,
-  getGlobalProducts,
-  getGlobalOrders,
-  getBranches,
-  getCurrentBranch,
-  generateId,
-  getCategories,
-  addCategory,
-  deleteCategory,
 } from "../../utils/mockData";
+import { api } from "../../utils/apiClient";
 import {
   Search,
   Package,
@@ -46,8 +32,9 @@ export default function ProductLedger() {
   const isSuperAdmin = user?.branch === "Pusat";
 
   const [selectedBranch, setSelectedBranch] = useState<string>(
-    isSuperAdmin ? getBranches()[0] : getCurrentBranch(),
+    user?.branch || "Palembang",
   );
+  const [branches, setBranches] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -84,31 +71,38 @@ export default function ProductLedger() {
   }
 
   useEffect(() => {
-    applyScheduledPrices();
+    const fetchData = async () => {
+      try {
+        const [productsRes, ordersRes, pricesRes, categoriesRes, branchesRes] = await Promise.all([
+          api.get<Product[]>(`/api/products?branch=${selectedBranch}`),
+          api.get<Order[]>(`/api/orders?branch=${selectedBranch}`),
+          api.get<ScheduledPrice[]>(`/api/scheduled-prices?branch=${selectedBranch}`),
+          api.get<{ categories: string[] }>('/api/categories'),
+          api.get<{ branches: string[] }>('/api/branches'),
+        ]);
+        setProducts(productsRes);
+        setOrders(ordersRes);
+        setScheduledPrices(pricesRes);
+        setCategories(categoriesRes.categories);
+        if (branchesRes && branchesRes.branches) {
+          setBranches(branchesRes.branches.map((b: any) => b.name || b));
+        }
+        if (!newProductCategory && categoriesRes.categories.length > 0) {
+          setNewProductCategory(categoriesRes.categories[0]);
+        }
+      } catch (error: any) {
+        toast.error("Gagal memuat data: " + error.message);
+      }
+    };
 
-    let allProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
-    let allOrders = isSuperAdmin ? getGlobalOrders() : getOrders();
+    fetchData();
+  }, [selectedBranch]);
 
-    if (isSuperAdmin) {
-      allProducts = allProducts.filter(
-        (p) => (p as any).branch === selectedBranch,
-      );
-      allOrders = allOrders.filter((o) => (o as any).branch === selectedBranch);
-    }
-
-    setProducts(allProducts);
-    setOrders(allOrders);
-    setScheduledPrices(getScheduledPrices());
-    const cats = getCategories();
-    setCategories(cats);
-    if (!newProductCategory && cats.length > 0) setNewProductCategory(cats[0]);
-  }, [isSuperAdmin, selectedBranch]);
-
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
     try {
-      addCategory(newCategoryName.trim());
-      setCategories(getCategories());
+      const res = await api.post<string[]>('/api/categories', { name: newCategoryName.trim() });
+      setCategories(res);
       setNewCategoryName("");
       toast.success("Kategori berhasil ditambahkan");
     } catch (e: any) {
@@ -116,106 +110,107 @@ export default function ProductLedger() {
     }
   };
 
-  const handleDeleteCategory = (cat: string) => {
+  const handleDeleteCategory = async (cat: string) => {
     if (
       confirm(
         `Hapus kategori ${cat}? Produk dengan kategori ini tidak akan terhapus tapi filter kategori akan hilang.`,
       )
     ) {
-      deleteCategory(cat);
-      setCategories(getCategories());
-      toast.success("Kategori berhasil dihapus");
+      try {
+        await api.delete(`/api/categories/${encodeURIComponent(cat)}`);
+        setCategories(categories.filter((c) => c !== cat));
+        toast.success("Kategori berhasil dihapus");
+      } catch (e: any) {
+        toast.error(e.message);
+      }
     }
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!newProductId.trim() || !newProductName.trim() || !newProductPrice) {
       toast.error("Semua field harus diisi");
       return;
     }
 
-    // Check if ID already exists
-    const allProducts = getGlobalProducts();
-    if (
-      allProducts.some(
-        (p) => p.id.toLowerCase() === newProductId.trim().toLowerCase(),
-      )
-    ) {
-      toast.error("ID Produk sudah digunakan");
-      return;
+    try {
+      const newProduct = await api.post<Product>('/api/products', {
+        id: newProductId.trim().toUpperCase(),
+        name: newProductName.trim(),
+        category: newProductCategory,
+        price: Number(newProductPrice),
+        branch: selectedBranch,
+      });
+
+      setProducts([...products, newProduct]);
+      toast.success("Produk berhasil ditambahkan");
+
+      setNewProductId("");
+      setNewProductName("");
+      setNewProductPrice("");
+      setIsAddingProduct(false);
+    } catch (error: any) {
+      toast.error(error.message || "Gagal menambahkan produk");
     }
-
-    const branchToUse = isSuperAdmin ? selectedBranch : getCurrentBranch();
-
-    const newProduct: Product = {
-      id: newProductId.trim().toUpperCase(),
-      name: newProductName.trim(),
-      category: newProductCategory,
-      price: Number(newProductPrice),
-      stock: 0,
-      totalIn: 0,
-      totalOut: 0,
-    };
-
-    addProduct(newProduct);
-    toast.success("Produk berhasil ditambahkan");
-
-    // Refresh
-    const updatedProducts = isSuperAdmin ? getGlobalProducts() : getProducts();
-    setProducts(
-      updatedProducts.filter((p) => (p as any).branch === selectedBranch),
-    );
-
-    setNewProductId("");
-    setNewProductName("");
-    setNewProductPrice("");
-    setIsAddingProduct(false);
   };
 
-  const handleAddScheduledPrice = () => {
+  const handleAddScheduledPrice = async () => {
     if (!selectedProductId || !newSchedPrice || !newSchedDate) return;
-    const selectedProduct = products.find((p) => p.id === selectedProductId);
-    if (!selectedProduct) return;
+    
+    try {
+      const newSchedule = await api.post<ScheduledPrice>('/api/scheduled-prices', {
+        productId: selectedProductId,
+        newPrice: Number(newSchedPrice),
+        startDate: newSchedDate,
+      });
 
-    const newSchedule: ScheduledPrice = {
-      id: `SP-${Date.now()}`,
-      productId: selectedProductId,
-      productName: selectedProduct.name,
-      newPrice: Number(newSchedPrice),
-      startDate: newSchedDate,
-    };
-
-    addScheduledPrice(newSchedule);
-    setScheduledPrices(getScheduledPrices());
-    setIsSchedulingPrice(false);
-    setNewSchedPrice("");
-    setNewSchedDate("");
+      setScheduledPrices([...scheduledPrices, newSchedule]);
+      setIsSchedulingPrice(false);
+      setNewSchedPrice("");
+      setNewSchedDate("");
+      toast.success("Jadwal harga berhasil ditambahkan");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
-  const handleRemoveScheduledPrice = (id: string) => {
-    deleteScheduledPrice(id);
-    setScheduledPrices(getScheduledPrices());
+  const handleRemoveScheduledPrice = async (id: string) => {
+    try {
+      await api.delete(`/api/scheduled-prices/${id}`);
+      setScheduledPrices(scheduledPrices.filter(sp => sp.id !== id));
+      toast.success("Jadwal harga berhasil dihapus");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!selectedProductId || !editProductName.trim()) return;
-    const prodToUpdate = products.find((p) => p.id === selectedProductId);
-    if (prodToUpdate) {
-      updateProduct({
-        ...prodToUpdate,
+    
+    try {
+      const updatedProduct = await api.put<Product>(`/api/products/${selectedProductId}`, {
         name: editProductName.trim(),
         price: Number(editProductPrice) || 0,
+        category: products.find((p) => p.id === selectedProductId)?.category || "",
       });
-      setProducts(getProducts());
+
+      setProducts(products.map(p => p.id === selectedProductId ? updatedProduct : p));
       setIsEditingProduct(false);
+      toast.success("Produk berhasil diperbarui");
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
-      deleteProduct(id);
-      setProducts(getProducts());
-      if (selectedProductId === id) setSelectedProductId("");
+      try {
+        await api.delete(`/api/products/${id}`);
+        setProducts(products.filter(p => p.id !== id));
+        if (selectedProductId === id) setSelectedProductId("");
+        toast.success("Produk berhasil dihapus");
+      } catch (error: any) {
+        toast.error(error.message);
+      }
     }
   };
 
@@ -424,7 +419,7 @@ export default function ProductLedger() {
                   onChange={(e) => setSelectedBranch(e.target.value)}
                   className="bg-transparent border-none outline-none text-xs font-bold text-blue-700 cursor-pointer w-full"
                 >
-                  {getBranches().map((b) => (
+                  {branches.map((b) => (
                     <option key={b} value={b}>
                       {b}
                     </option>
