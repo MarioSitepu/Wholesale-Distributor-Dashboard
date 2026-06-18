@@ -39,6 +39,7 @@ export default function OrderPage() {
   const cart = useCartStore((state) => state.cart);
   const setCurrentBranch = useCartStore((state) => state.setCurrentBranch);
   const addItem = useCartStore((state) => state.addItem);
+  const setCartQuantity = useCartStore((state) => state.setQuantity);
   const decreaseCartQuantity = useCartStore((state) => state.decreaseQuantity);
   const removeCartItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -49,6 +50,7 @@ export default function OrderPage() {
   const [orderDate, setOrderDate] = useState(
     new Date().toLocaleDateString("en-CA"),
   );
+  const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setCurrentBranch(effectiveBranch);
@@ -95,6 +97,7 @@ export default function OrderPage() {
     fetchInitialData();
     clearCart();
     setSelectedStore("");
+    setDraftQuantities({});
   }, [effectiveBranch]);
 
   useEffect(() => {
@@ -148,8 +151,85 @@ export default function OrderPage() {
     decreaseCartQuantity(productId);
   };
 
+  const commitQuantity = (
+    productId: string,
+    rawValue: string,
+    stock: number,
+  ) => {
+    const trimmedValue = rawValue.trim();
+
+    if (trimmedValue === "") {
+      setDraftQuantities((current) => {
+        const next = { ...current };
+        delete next[productId];
+        return next;
+      });
+      removeCartItem(productId);
+      return;
+    }
+
+    const parsedQuantity = Number(trimmedValue);
+    if (Number.isNaN(parsedQuantity)) return;
+
+    if (parsedQuantity <= 0) {
+      setDraftQuantities((current) => {
+        const next = { ...current };
+        delete next[productId];
+        return next;
+      });
+      removeCartItem(productId);
+      return;
+    }
+
+    const safeQuantity = Math.min(stock, Math.floor(parsedQuantity));
+    setDraftQuantities((current) => {
+      const next = { ...current };
+      delete next[productId];
+      return next;
+    });
+    setCartQuantity(productId, safeQuantity);
+  };
+
+  const handleQuantityFocus = (productId: string, value: number) =>
+    (event: React.FocusEvent<HTMLInputElement>) => {
+      setDraftQuantities((current) => ({
+        ...current,
+        [productId]: current[productId] ?? String(value),
+      }));
+      event.currentTarget.select();
+    };
+
+  const handleQuantityChange = (productId: string) =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const rawValue = event.target.value;
+      if (rawValue === "") {
+        setDraftQuantities((current) => ({
+          ...current,
+          [productId]: "",
+        }));
+        return;
+      }
+
+      if (!/^\d+$/.test(rawValue)) return;
+
+      setDraftQuantities((current) => ({
+        ...current,
+        [productId]: rawValue,
+      }));
+    };
+
+  const handleQuantityBlur = (productId: string, stock: number) =>
+    (event: React.FocusEvent<HTMLInputElement>) => {
+      commitQuantity(productId, event.target.value, stock);
+    };
+
   const removeFromCart = (productId: string) => {
     removeCartItem(productId);
+    setDraftQuantities((current) => {
+      const next = { ...current };
+      delete next[productId];
+      return next;
+    });
   };
 
   const getCartQuantity = (productId: string) => {
@@ -215,6 +295,7 @@ export default function OrderPage() {
       setShowCart(false);
       setInvoiceNumber("");
       setOrderDate(new Date().toLocaleDateString("en-CA"));
+      setDraftQuantities({});
       
       // Refresh produk agar sisa stok terbaru tampil
       fetchInitialData();
@@ -227,6 +308,9 @@ export default function OrderPage() {
     cart.length > 0
       ? allProducts.find((p) => p.id === cart[0].productId)?.categoryName
       : null;
+
+  const getDisplayQuantity = (productId: string, fallbackQuantity: number) =>
+    draftQuantities[productId] ?? String(fallbackQuantity);
 
   return (
     <>
@@ -440,9 +524,17 @@ export default function OrderPage() {
                               >
                                 <Minus className="w-4 h-4" />
                               </motion.button>
-                              <span className="font-bold text-blue-700 flex-1 text-center text-lg">
-                                {inCart}
-                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={product.stock}
+                                value={getDisplayQuantity(product.id, inCart)}
+                                onFocus={handleQuantityFocus(product.id, inCart)}
+                                onChange={handleQuantityChange(product.id)}
+                                onBlur={handleQuantityBlur(product.id, product.stock)}
+                                className="font-bold text-blue-700 flex-1 text-center text-lg bg-transparent border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                aria-label={`Jumlah ${product.name}`}
+                              />
                               <motion.button
                                 whileTap={{ scale: 0.9 }}
                                 onClick={() => addToCart(product.id)}
@@ -577,9 +669,17 @@ export default function OrderPage() {
                             >
                               <Minus className="w-4 h-4 md:w-4 md:h-4" />
                             </button>
-                            <span className="font-medium w-6 shrink-0 md:w-8 text-center text-lg md:text-base">
-                              {item.quantity}
-                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={product.stock}
+                              value={getDisplayQuantity(item.productId, item.quantity)}
+                              onFocus={handleQuantityFocus(item.productId, item.quantity)}
+                              onChange={handleQuantityChange(item.productId)}
+                              onBlur={handleQuantityBlur(item.productId, product.stock)}
+                              className="font-medium w-16 shrink-0 text-center text-lg md:text-base bg-transparent border border-gray-300 rounded-lg px-2 py-1 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              aria-label={`Jumlah ${product.name}`}
+                            />
                             <button
                               onClick={() => addToCart(item.productId)}
                               className="bg-white p-3 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200"

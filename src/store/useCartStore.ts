@@ -13,6 +13,7 @@ interface CartStore {
   cart: CartItem[];
   setCurrentBranch: (branch: string) => void;
   addItem: (productId: string) => void;
+  setQuantity: (productId: string, quantity: number) => void;
   decreaseQuantity: (productId: string) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
@@ -64,6 +65,38 @@ export const useCartStore = create<CartStore>()(
           }
 
           const updatedCart = [...currentCart, { productId, quantity: 1 }];
+          return {
+            cart: updatedCart,
+            cartsByBranch: { ...state.cartsByBranch, [branch]: updatedCart },
+          };
+        }),
+      setQuantity: (productId: string, quantity: number) =>
+        set((state) => {
+          const branch = state.currentBranch;
+          const currentCart = getBranchCart(state.cartsByBranch, branch);
+          const existingItem = currentCart.find(
+            (item) => item.productId === productId,
+          );
+
+          if (quantity <= 0) {
+            const updatedCart = currentCart.filter(
+              (item) => item.productId !== productId,
+            );
+            return {
+              cart: updatedCart,
+              cartsByBranch: { ...state.cartsByBranch, [branch]: updatedCart },
+            };
+          }
+
+          let updatedCart: CartItem[];
+          if (existingItem) {
+            updatedCart = currentCart.map((item) =>
+              item.productId === productId ? { ...item, quantity } : item,
+            );
+          } else {
+            updatedCart = [...currentCart, { productId, quantity }];
+          }
+
           return {
             cart: updatedCart,
             cartsByBranch: { ...state.cartsByBranch, [branch]: updatedCart },
