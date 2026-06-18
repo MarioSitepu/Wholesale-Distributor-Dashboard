@@ -30,8 +30,18 @@ export default function Login() {
       });
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Username atau password salah');
+        const contentType = response.headers.get('content-type') || '';
+        const rawError = await response.text();
+        if (contentType.includes('application/json')) {
+          try {
+            const err = JSON.parse(rawError);
+            throw new Error(err.message || 'Username atau password salah');
+          } catch {
+            throw new Error(rawError || 'Username atau password salah');
+          }
+        }
+
+        throw new Error(rawError || 'Username atau password salah');
       }
 
       const result = await response.json();
