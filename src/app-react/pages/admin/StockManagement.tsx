@@ -28,6 +28,7 @@ export default function StockManagement() {
   const branchFilter = isSuperAdmin
     ? activeBranch || "all"
     : user?.branch || "Palembang";
+  const [selectedStockStatus, setSelectedStockStatus] = useState("all");
   const isAllCategoriesSelected = (value?: string | null) => {
     const normalizedValue = value?.trim();
     return (
@@ -35,6 +36,10 @@ export default function StockManagement() {
       normalizedValue === "all" ||
       normalizedValue === "Semua Kategori"
     );
+  };
+  const isAllStockStatusSelected = (value?: string | null) => {
+    const normalizedValue = value?.trim();
+    return !normalizedValue || normalizedValue === "all" || normalizedValue === "Semua Status";
   };
   const effectiveSelectedCategory = isAllCategoriesSelected(selectedCategory)
     ? "all"
@@ -81,12 +86,7 @@ export default function StockManagement() {
           api.get<{ branches: string[] }>('/api/branches'),
         ]);
         
-        const filteredByCategory =
-          isAllCategoriesSelected(selectedCategory)
-            ? stockRes
-            : stockRes.filter((p) => p.category === selectedCategory);
-            
-        setProducts(filteredByCategory);
+        setProducts(stockRes);
         setCategoriesList(catRes.categories);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
@@ -103,13 +103,31 @@ export default function StockManagement() {
   }, [categoriesList]);
 
   const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
     return products.filter((p) => {
       const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.id.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
+        !normalizedSearch ||
+        p.name.toLowerCase().includes(normalizedSearch) ||
+        p.id.toLowerCase().includes(normalizedSearch);
+
+      const stock = Number(p.stock) || 0;
+      const matchesStockStatus = isAllStockStatusSelected(selectedStockStatus)
+        ? true
+        : selectedStockStatus === "normal"
+          ? stock > 49
+          : selectedStockStatus === "low"
+            ? stock > 0 && stock < 50
+            : selectedStockStatus === "empty"
+              ? stock === 0
+              : true;
+
+      const matchesCategory = isAllCategoriesSelected(selectedCategory)
+        ? true
+        : p.category === selectedCategory;
+
+      return matchesSearch && matchesStockStatus && matchesCategory;
     });
-  }, [products, searchQuery]);
+  }, [products, searchQuery, selectedStockStatus, selectedCategory]);
 
   const handleStockAction = async () => {
     if (!selectedProductKey || !stockAmount) return;
@@ -233,6 +251,12 @@ export default function StockManagement() {
     if (stock === 0) return "text-rose-600 bg-rose-50 ring-rose-600/20";
     if (stock < 50) return "text-amber-600 bg-amber-50 ring-amber-600/20";
     return "text-emerald-600 bg-emerald-50 ring-emerald-600/20";
+  };
+
+  const getStockStatusLabel = (stock: number) => {
+    if (stock === 0) return "Stok Habis";
+    if (stock < 50) return "Stok Menipis";
+    return "Normal";
   };
 
   const selectedProductData = useMemo(() => {
@@ -359,8 +383,8 @@ export default function StockManagement() {
           </div>
 
           {/* Search and Filters */}
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1 group">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-[1.1] min-w-0 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
               <input
                 type="text"
@@ -370,7 +394,20 @@ export default function StockManagement() {
                 className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
               />
             </div>
-            <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-2xl shadow-sm lg:min-w-[220px]">
+              <Filter className="w-5 h-5 text-gray-400" />
+              <select
+                value={selectedStockStatus}
+                onChange={(e) => setSelectedStockStatus(e.target.value)}
+                className="bg-transparent border-none outline-none font-medium text-gray-700 cursor-pointer text-sm w-full"
+              >
+                <option value="all">Semua Status</option>
+                <option value="normal">Normal</option>
+                <option value="low">Stok Menipis</option>
+                <option value="empty">Stok Habis</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-2xl shadow-sm lg:min-w-[220px] lg:ml-auto">
               <Filter className="w-5 h-5 text-gray-400" />
               <select
                 value={effectiveSelectedCategory}
@@ -380,7 +417,7 @@ export default function StockManagement() {
                     nextValue === "all" ? "" : nextValue,
                   );
                 }}
-                className="bg-transparent border-none outline-none font-medium text-gray-700 cursor-pointer text-sm"
+                className="bg-transparent border-none outline-none font-medium text-gray-700 cursor-pointer text-sm w-full"
               >
                 <option value="all">Semua Kategori</option>
                 {categories
