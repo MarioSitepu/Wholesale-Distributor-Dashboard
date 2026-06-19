@@ -28,6 +28,17 @@ export default function StockManagement() {
   const branchFilter = isSuperAdmin
     ? activeBranch || "all"
     : user?.branch || "Palembang";
+  const isAllCategoriesSelected = (value?: string | null) => {
+    const normalizedValue = value?.trim();
+    return (
+      !normalizedValue ||
+      normalizedValue === "all" ||
+      normalizedValue === "Semua Kategori"
+    );
+  };
+  const effectiveSelectedCategory = isAllCategoriesSelected(selectedCategory)
+    ? "all"
+    : selectedCategory;
 
   const [branches, setBranches] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,7 +82,7 @@ export default function StockManagement() {
         ]);
         
         const filteredByCategory =
-          selectedCategory === "all"
+          isAllCategoriesSelected(selectedCategory)
             ? stockRes
             : stockRes.filter((p) => p.category === selectedCategory);
             
@@ -362,12 +373,13 @@ export default function StockManagement() {
             <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-2xl shadow-sm">
               <Filter className="w-5 h-5 text-gray-400" />
               <select
-                value={selectedCategory || "all"}
-                onChange={(e) =>
+                value={effectiveSelectedCategory}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
                   setSelectedCategory(
-                    e.target.value === "all" ? "" : e.target.value,
-                  )
-                }
+                    nextValue === "all" ? "" : nextValue,
+                  );
+                }}
                 className="bg-transparent border-none outline-none font-medium text-gray-700 cursor-pointer text-sm"
               >
                 <option value="all">Semua Kategori</option>
