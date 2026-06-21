@@ -7,6 +7,7 @@ import {
   MapPin,
   Database,
   Trash2,
+  Search,
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useAppStore } from "../../../store/useAppStore";
@@ -50,6 +51,8 @@ export default function OrderHistory() {
     percentage: 0,
   });
   const [refreshCounter, setRefreshCounter] = useState(0);
+
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const [deleteMonthYear, setDeleteMonthYear] = useState<string>(currentMonth);
   const [deleteBranch, setDeleteBranch] = useState<string>(
@@ -175,7 +178,18 @@ export default function OrderHistory() {
     const matchesCategory =
       categoryFilter === "all" || orderCategory === categoryFilter;
 
-    return matchesStore && matchesCategory;
+    // Global search: match No. Faktur, Nama Produk, atau ID Produk (OR, case-insensitive)
+    const keyword = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      keyword === "" ||
+      order.id?.toLowerCase().includes(keyword) ||
+      order.items.some(
+        (item: any) =>
+          item.productName?.toLowerCase().includes(keyword) ||
+          item.productId?.toString().toLowerCase().includes(keyword),
+      );
+
+    return matchesStore && matchesCategory && matchesSearch;
   });
 
   const storeOrders = [...filteredOrders];
@@ -582,6 +596,26 @@ export default function OrderHistory() {
         </select>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Cari faktur, nama produk, atau ID produk..."
+          className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white shadow-sm transition-all"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-xs font-bold"
+            aria-label="Hapus pencarian"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left hidden md:table">
@@ -614,7 +648,9 @@ export default function OrderHistory() {
                     colSpan={isSuperAdmin ? 7 : 6}
                     className="px-6 py-10 text-center text-gray-500"
                   >
-                    Belum ada riwayat pesanan.
+                    {searchQuery.trim()
+                      ? `Tidak ada hasil untuk "${searchQuery}".`
+                      : "Belum ada riwayat pesanan."}
                   </td>
                 </tr>
               ) : (
@@ -716,7 +752,9 @@ export default function OrderHistory() {
               </div>
             ) : storeOrders.length === 0 ? (
               <div className="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-gray-200">
-                Belum ada riwayat pesanan.
+                {searchQuery.trim()
+                  ? `Tidak ada hasil untuk "${searchQuery}".`
+                  : "Belum ada riwayat pesanan."}
               </div>
             ) : (
               storeOrders.map((order) => {
