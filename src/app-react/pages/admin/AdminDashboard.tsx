@@ -6,6 +6,7 @@ import {
   Download,
   MapPin,
   RefreshCw,
+  Banknote,
 } from "lucide-react";
 import KPICard from "../../components/KPICard";
 import { api } from "../../utils/apiClient";
@@ -340,7 +341,7 @@ export default function AdminDashboard() {
         <KPICard
           title="Total Piutang"
           value={`Rp ${(totalReceivables / 1000).toFixed(0)}K`}
-          icon={DollarSign}
+          icon={Banknote}
           className={totalReceivables > 0 ? "border-yellow-200" : ""}
         />
         <KPICard
