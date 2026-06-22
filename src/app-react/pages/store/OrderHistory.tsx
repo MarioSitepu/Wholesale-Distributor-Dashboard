@@ -204,11 +204,12 @@ export default function OrderHistory() {
           "Tanggal",
           "Toko",
           "Produk",
+          "ID Produk",
           "Qty",
           "Harga",
           "Subtotal",
         ]
-      : ["Faktur", "Tanggal", "Toko", "Produk", "Qty", "Harga", "Subtotal"];
+      : ["Faktur", "Tanggal", "Toko", "Produk", "ID Produk", "Qty", "Harga", "Subtotal"];
 
     const rows = storeOrders.flatMap((order) =>
       order.items.map((item) => {
@@ -217,6 +218,7 @@ export default function OrderHistory() {
           new Date(order.createdAt).toLocaleDateString("id-ID"),
           order.storeName,
           item.productName,
+          item.productId,
           item.quantity,
           item.price,
           item.quantity * item.price,
@@ -233,13 +235,15 @@ export default function OrderHistory() {
           "left",
           "left",
           "center",
+          "center",
           "right",
           "right",
         ]
-      : ["center", "center", "left", "left", "center", "right", "right"];
+      : ["center", "center", "left", "left", "center", "center", "right", "right"];
 
     const types: ("text" | "number" | "currency")[] = isSuperAdmin
       ? [
+          "text",
           "text",
           "text",
           "text",
@@ -249,7 +253,7 @@ export default function OrderHistory() {
           "currency",
           "currency",
         ]
-      : ["text", "text", "text", "text", "number", "currency", "currency"];
+      : ["text", "text", "text", "text", "text", "number", "currency", "currency"];
 
     const subtitle = `Filter: ${filterType === "day" ? `Harian (${selectedDate})` : `Bulanan (${selectedMonth})`} | Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch}`;
 
