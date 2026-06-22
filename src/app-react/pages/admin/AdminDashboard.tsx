@@ -50,6 +50,7 @@ export default function AdminDashboard() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [allReceivables, setAllReceivables] = useState<any[]>([]);
   const [allStores, setAllStores] = useState<any[]>([]);
+  const [allStockItems, setAllStockItems] = useState<any[]>([]);
   const [branches, setBranches] = useState<string[]>([
     "Palembang", "Lubuk Linggau", "Prabumulih", "Tugu Mulyo", "Batu Raja"
   ]);
@@ -59,18 +60,20 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       try {
         const branchParam = selectedBranch === "all" ? "" : selectedBranch;
-        const [ordersRes, productsRes, receivablesRes, storesRes, branchesRes] = await Promise.all([
+        const [ordersRes, productsRes, receivablesRes, storesRes, branchesRes, stockRes] = await Promise.all([
           api.get<any[]>(`/api/orders?branch=${branchParam}`),
           api.get<any[]>(`/api/products?branch=${branchParam}`),
           api.get<any[]>(`/api/receivables?branch=${branchParam}`),
           api.get<any[]>(`/api/stores?branch=${branchParam}`),
           api.get<any>('/api/branches'),
+          api.get<any[]>(`/api/stock?branch=${branchParam}`),
         ]);
-        
+
         setAllOrders(ordersRes);
         setAllProducts(productsRes);
         setAllReceivables(receivablesRes);
         setAllStores(storesRes);
+        setAllStockItems(Array.isArray(stockRes) ? stockRes : []);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
         }
@@ -242,7 +245,12 @@ export default function AdminDashboard() {
     .filter((r) => !r.isPaid)
     .reduce((sum, r) => sum + r.amount, 0);
 
-  const lowStockProducts = products.filter((p) => p.stock < 50);
+  // Sama persis dengan rumus di StockManagement: stock > 0 && stock < 50
+  // Data dari /api/stock yang menghitung totalIn - totalOut, identik dengan Kelola Stok
+  const lowStockCount = allStockItems.filter((p) => {
+    const stock = Number(p.stock) || 0;
+    return stock > 0 && stock < 50;
+  }).length;
 
   const weeklyData = useMemo(() => {
     const data = [];
@@ -337,9 +345,9 @@ export default function AdminDashboard() {
         />
         <KPICard
           title="Stok Menipis"
-          value={lowStockProducts.length}
+          value={lowStockCount}
           icon={AlertTriangle}
-          className={lowStockProducts.length > 0 ? "border-red-200" : ""}
+          className={lowStockCount > 0 ? "border-red-200" : ""}
         />
       </div>
 
@@ -486,47 +494,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Produk Stok Menipis
-          </h2>
-          {lowStockProducts.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
-              Semua produk stok aman
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {lowStockProducts.slice(0, 5).map((product) => (
-                <div
-                  key={`${product.id}-${(product as any).branch}`}
-                  className="flex justify-between items-center p-3 bg-white rounded-lg border border-red-200"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900">
-                        {product.name}
-                      </p>
-                      {isSuperAdmin && (
-                        <span className="text-[9px] px-1 bg-white text-red-600 rounded border border-red-200 font-bold uppercase">
-                          {(product as any).branch || "Unknown"}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500">{product.category}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-red-600">
-                      Stok: {product.stock}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
             Pesanan Terbaru
           </h2>
@@ -534,9 +502,7 @@ export default function AdminDashboard() {
             <p className="text-gray-500 text-center py-8">Belum ada pesanan</p>
           ) : (
             <div className="space-y-3">
-              {orders
-                .slice(0, 5)
-                .map((order) => (
+              {orders.slice(0, 15).map((order) => (
                   <div
                     key={order.id}
                     className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
@@ -558,13 +524,19 @@ export default function AdminDashboard() {
                       <p className="font-semibold text-gray-900">
                         Rp {(order.total / 1000).toFixed(0)}K
                       </p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
                     </div>
                   </div>
                 ))}
             </div>
           )}
         </div>
-      </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
