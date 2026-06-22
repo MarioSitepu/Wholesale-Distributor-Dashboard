@@ -444,25 +444,15 @@ export default function OrderPage() {
           )}
         </div>
 
-        <div className="relative min-h-[400px] w-full rounded-2xl flex flex-col">
-          {!selectedStore && (
-            <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200">
-              <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm mx-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Store className="w-8 h-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Pilih Toko Dahulu
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  Silakan pilih toko pada menu di atas untuk mulai melihat stok
-                  dan melakukan pemesanan.
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Wrapper relative: katalog + overlay "Pilih Toko" ditumpuk di sini */}
+        <div className={`relative w-full rounded-2xl ${!selectedStore ? "h-[450px] overflow-hidden" : "min-h-[400px]"}`}>
 
-          <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* Katalog produk — blur & non-interaktif saat belum pilih toko */}
+          <motion.div
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-all duration-300 ${
+              !selectedStore ? "blur-[2.8px] pointer-events-none select-none" : ""
+            }`}
+          >
             <AnimatePresence mode="popLayout">
               {products.map((product) => {
                 const inCart = getCartQuantity(product.id);
@@ -570,6 +560,24 @@ export default function OrderPage() {
               })}
             </AnimatePresence>
           </motion.div>
+
+          {/* Overlay "Pilih Toko Dahulu" — tetap tampil selama belum memilih toko */}
+          {!selectedStore && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl">
+              <div className="bg-white p-6 rounded-2xl shadow-2xl border border-blue-100 flex flex-col items-center text-center max-w-sm mx-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <Store className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Pilih Toko Dahulu
+                </h3>
+                <p className="text-gray-500 text-sm">
+                  Silakan pilih toko pada menu di atas untuk mulai melihat stok
+                  dan melakukan pemesanan.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
