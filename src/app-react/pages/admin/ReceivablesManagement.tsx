@@ -109,8 +109,8 @@ export default function ReceivablesManagement() {
     return new Date(dueDate) < new Date();
   };
 
-  const receivablesByStore = unpaidReceivables.reduce(
-    (acc, r) => {
+  const receivablesByStore: Record<string, { storeName: string; total: number; count: number }> = unpaidReceivables.reduce(
+    (acc: Record<string, { storeName: string; total: number; count: number }>, r: any) => {
       if (!acc[r.storeId]) {
         acc[r.storeId] = {
           storeName: r.storeName,

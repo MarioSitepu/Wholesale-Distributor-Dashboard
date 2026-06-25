@@ -1,11 +1,11 @@
-import { JwtPayload, Receivable } from '../types/index';
+import { JwtPayload, Receivable, ReceivableWithBranch } from '../types/index';
 import { ReceivableRepository } from '../repositories/receivable.repository';
 import { Errors } from '../utils/errors';
 
 export class ReceivableService {
   private receivableRepo = new ReceivableRepository();
 
-  async getReceivables(branch: string, user: JwtPayload): Promise<Receivable[]> {
+  async getReceivables(branch: string, user: JwtPayload): Promise<ReceivableWithBranch[]> {
     const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
     const rows = await this.receivableRepo.findByBranch(targetBranch);
 
@@ -35,7 +35,7 @@ export class ReceivableService {
     return { total, unpaid, paid };
   }
 
-  async markAsPaid(id: string, user: JwtPayload): Promise<Receivable> {
+  async markAsPaid(id: string, user: JwtPayload): Promise<ReceivableWithBranch> {
     const existing = await this.receivableRepo.findById(id);
     if (!existing) throw Errors.notFound(`Piutang '${id}' tidak ditemukan`);
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { ProductService } from '../../../../../backend/services/product.service';
-import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../../backend/utils/authHelper';
+import { ProductService } from '../../../../backend/services/product.service';
+import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../backend/utils/authHelper';
 
 const productService = new ProductService();
 

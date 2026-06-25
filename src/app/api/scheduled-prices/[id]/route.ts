@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ScheduledPriceService } from '../../../../../backend/services/scheduledPrice.service';
-import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../../backend/utils/authHelper';
+import { ScheduledPriceService } from '../../../../backend/services/scheduledPrice.service';
+import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../backend/utils/authHelper';
 
 const scheduledPriceService = new ScheduledPriceService();
 

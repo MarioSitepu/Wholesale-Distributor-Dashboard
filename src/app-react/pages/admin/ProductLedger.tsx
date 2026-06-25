@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import {
   Product,
   Order,
-  Product,
-  Order,
   ScheduledPrice,
 } from "../../utils/mockData";
 import { api } from "../../utils/apiClient";
