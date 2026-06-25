@@ -7,6 +7,8 @@ export interface ExcelExportOptions {
   alignments?: ("left" | "center" | "right")[];
   types?: ("text" | "number" | "currency")[];
   showTotalRow?: boolean;
+  totalRowSumColumns?: number[];
+  totalRowLabelColumn?: number;
 }
 
 export function exportToExcel(options: ExcelExportOptions) {
@@ -19,6 +21,8 @@ export function exportToExcel(options: ExcelExportOptions) {
     alignments = [],
     types = [],
     showTotalRow = false,
+    totalRowSumColumns,
+    totalRowLabelColumn = 0,
   } = options;
 
   // Generate Excel-compatible HTML content
@@ -145,13 +149,18 @@ export function exportToExcel(options: ExcelExportOptions) {
 
   // Optional Total Row
   if (showTotalRow && rows.length > 0) {
+    const sumColumns =
+      totalRowSumColumns && totalRowSumColumns.length > 0
+        ? new Set(totalRowSumColumns)
+        : null;
+
     html += '<tr class="total-row">';
     headers.forEach((_, idx) => {
       const type = types[idx] || "text";
 
-      if (idx === 0) {
+      if (idx === totalRowLabelColumn) {
         html += '<td class="text-left">TOTAL</td>';
-      } else if (type === "currency" || type === "number") {
+      } else if (!sumColumns || sumColumns.has(idx)) {
         // Calculate sum
         const sum = rows.reduce((acc, row) => {
           const val = Number(row[idx]);

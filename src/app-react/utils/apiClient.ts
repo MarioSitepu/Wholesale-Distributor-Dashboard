@@ -22,11 +22,27 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers,
   });
 
+  const parseErrorMessage = async () => {
+    const contentType = response.headers.get('Content-Type') || '';
+    const text = await response.text();
+
+    if (contentType.includes('application/json')) {
+      try {
+        const parsed = JSON.parse(text);
+        return parsed.message || parsed.error || text;
+      } catch {
+        return text;
+      }
+    }
+
+    return text;
+  };
+
   if (!response.ok) {
     let message = 'Terjadi kesalahan pada server';
     try {
-      const errorData = await response.json();
-      message = errorData.message || message;
+      const errorMessage = await parseErrorMessage();
+      message = errorMessage || message;
     } catch {
       // Ignored
     }

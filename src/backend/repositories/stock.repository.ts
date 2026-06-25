@@ -39,16 +39,20 @@ export class StockRepository {
     return item.totalIn - item.totalOut;
   }
 
-  async findLowStock(branch: string, threshold = 10) {
+  async findLowStock(branch: string, threshold = 3) {
     const where = branch === 'all' ? {} : { branch };
     const items = await prisma.stockItem.findMany({
       where,
       include: { product: true },
     });
-    return items.filter((i) => i.totalIn - i.totalOut <= threshold);
+    // Hanya produk yang stoknya > 0 tapi <= threshold (menipis, bukan habis)
+    return items.filter((i) => {
+      const stock = i.totalIn - i.totalOut;
+      return stock > 0 && stock <= threshold;
+    });
   }
 
-  async countLowStock(branch: string, threshold = 10): Promise<number> {
+  async countLowStock(branch: string, threshold = 3): Promise<number> {
     const items = await this.findLowStock(branch, threshold);
     return items.length;
   }
