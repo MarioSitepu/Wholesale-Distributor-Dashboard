@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/backend/prisma';
+import { prisma } from '../../../../backend/prisma';
+
+export const dynamic = 'force-dynamic';
 
 // Endpoint ini dapat dipanggil oleh layanan cron (seperti Vercel Cron, cron-job.org, dll)
 // secara berkala (misal setiap 5 menit atau 1 hari sekali) untuk menjaga agar 
