@@ -87,7 +87,7 @@ export default function AdminDashboard() {
 
     const interval = setInterval(() => {
       setRefreshKey((prev) => prev + 1);
-    }, 5000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [refreshKey, selectedBranch]);
 
