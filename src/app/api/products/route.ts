@@ -5,6 +5,9 @@ import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../
 
 const productService = new ProductService();
 
+export const dynamic = 'force-dynamic';
+
+
 const createProductSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
