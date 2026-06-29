@@ -61,10 +61,10 @@ export default function OrderPage() {
       setIsLoading(true);
       // Constructing branch query parameters safely
       const [productsRes, storesRes, branchesRes, categoriesRes] = await Promise.all([
-        api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}`),
-        api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}`),
-        api.get<any>('/api/branches'),
-        api.get<any>('/api/categories'),
+        api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`),
+        api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`),
+        api.get<any>(`/api/branches?t=${Date.now()}`),
+        api.get<any>(`/api/categories?t=${Date.now()}`),
       ]);
       
       const mappedProducts = productsRes.map(p => ({
