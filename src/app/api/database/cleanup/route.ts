@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { DatabaseService } from '../../../../backend/services/database.service';
@@ -32,3 +33,4 @@ export async function DELETE(request: Request) {
     return handleError(error);
   }
 }
+

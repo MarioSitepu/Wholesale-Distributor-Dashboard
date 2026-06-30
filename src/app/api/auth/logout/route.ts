@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, handleUnauthorized } from '../../../../backend/utils/authHelper';
 
@@ -7,3 +8,4 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true, message: 'Logout berhasil' }, { status: 200 });
 }
+

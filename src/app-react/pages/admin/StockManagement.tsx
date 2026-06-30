@@ -87,7 +87,7 @@ export default function StockManagement() {
         ]);
         
         setProducts(stockRes);
-        setCategoriesList(catRes.categories);
+        setCategoriesList(catRes.categories ? catRes.categories.map((c: any) => c.name || c) : []);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
         }

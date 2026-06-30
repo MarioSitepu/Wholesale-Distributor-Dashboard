@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { StoreService } from '../../../backend/services/store.service';
@@ -34,3 +35,4 @@ export async function POST(request: Request) {
     return handleError(error);
   }
 }
+

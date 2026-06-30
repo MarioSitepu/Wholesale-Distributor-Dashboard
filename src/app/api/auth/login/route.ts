@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { AuthService } from '../../../../backend/services/auth.service';
 import { handleError } from '../../../../backend/utils/authHelper';
@@ -13,3 +14,4 @@ export async function POST(request: Request) {
     return handleError(error);
   }
 }
+

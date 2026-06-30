@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { OrderService } from '../../../../backend/services/order.service';
 import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../backend/utils/authHelper';
@@ -23,3 +24,4 @@ export async function GET(request: Request) {
     return handleError(error);
   }
 }
+
