@@ -29,7 +29,6 @@ export async function GET(request: Request) {
     const where = targetBranch === 'all' ? {} : { branch: { in: [targetBranch, 'all'] } };
     
     const rows = await prisma.product.findMany({
-      where,
       include: { stockItems: true },
       orderBy: { name: 'asc' },
     });
@@ -46,6 +45,7 @@ export async function GET(request: Request) {
         stock: totalIn - totalOut,
         totalIn,
         totalOut,
+        rawBranch: p.branch
       };
     });
 
