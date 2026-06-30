@@ -49,6 +49,20 @@ export async function GET(request: Request) {
       };
     });
 
+    if (targetBranch === 'Baturaja') {
+      return NextResponse.json({
+        debug: {
+          branch: branch,
+          targetBranch: targetBranch,
+          where: where,
+          rowsLength: rows.length,
+          productsLength: products.length,
+          firstRow: rows[0],
+          firstProduct: products[0]
+        },
+        products: products
+      }, { status: 200 });
+    }
     return NextResponse.json(products, { status: 200 });
   } catch (error) {
     return handleError(error);
