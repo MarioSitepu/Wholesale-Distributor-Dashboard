@@ -83,8 +83,10 @@ export default function OrderPage() {
       const catList = categoriesRes.categories ? categoriesRes.categories.map((c: any) => c.name || c) : [];
       setCategories(catList);
       
-      if (!selectedCategory && catList.length > 0) {
-        setSelectedCategory(catList[0]);
+      if (catList.length > 0) {
+        if (!selectedCategory || !catList.includes(selectedCategory)) {
+          setSelectedCategory(catList[0]);
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Gagal memuat data dari server");
