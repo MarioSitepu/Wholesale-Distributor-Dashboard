@@ -56,9 +56,7 @@ export async function GET(request: Request) {
           targetBranch: targetBranch,
           where: where,
           rowsLength: rows.length,
-          productsLength: products.length,
-          firstRow: rows[0],
-          firstProduct: products[0]
+          dbUrl: process.env.DATABASE_URL?.replace(/:[^:@]*@/, ':***@')
         },
         products: products
       }, { status: 200 });
