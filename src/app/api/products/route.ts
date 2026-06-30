@@ -22,7 +22,33 @@ export async function GET(request: Request) {
     if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || 'all';
-    const products = await productService.getProducts(branch, user);
+    const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
+    
+    // Query directly to bypass any Next.js build cache issues with external files
+    const { prisma } = require('../../../../backend/config/prisma');
+    const where = targetBranch === 'all' ? {} : { branch: { in: [targetBranch, 'all'] } };
+    
+    const rows = await prisma.product.findMany({
+      where,
+      include: { stockItems: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const products = rows.map((p: any) => {
+      const s = p.stockItems.find((si: any) => si.branch === targetBranch) ?? p.stockItems[0];
+      const totalIn = s?.totalIn ?? 0;
+      const totalOut = s?.totalOut ?? 0;
+      return {
+        id: p.id,
+        name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
+        category: p.categoryName,
+        price: Number(p.price),
+        stock: totalIn - totalOut,
+        totalIn,
+        totalOut,
+      };
+    });
+
     return NextResponse.json(products, { status: 200 });
   } catch (error) {
     return handleError(error);
