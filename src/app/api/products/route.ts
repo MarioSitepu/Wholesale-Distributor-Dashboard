@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { prisma } from '../../../backend/config/prisma';
 import { ProductService } from '../../../backend/services/product.service';
 import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../backend/utils/authHelper';
 
@@ -25,7 +26,6 @@ export async function GET(request: Request) {
     const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
     
     // Query directly to bypass any Next.js build cache issues with external files
-    const { prisma } = require('../../../../backend/config/prisma');
     const where = targetBranch === 'all' ? {} : { branch: { in: [targetBranch, 'all'] } };
     
     const rows = await prisma.product.findMany({
