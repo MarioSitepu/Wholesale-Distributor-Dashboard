@@ -66,11 +66,13 @@ export default function OrderHistory() {
   const [products, setProducts] = useState<any[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
 
   useEffect(() => {
     const fetchStorageInfo = async () => {
       try {
         if (!isSuperAdmin) return;
+        setIsLoadingDb(true);
         const data = await api.get<any>('/api/database/storage');
         const percentage = (data.usedBytes / data.maxBytes) * 100;
         setDbSize({
@@ -80,6 +82,8 @@ export default function OrderHistory() {
         });
       } catch (error) {
         console.error("Gagal memuat status database:", error);
+      } finally {
+        setIsLoadingDb(false);
       }
     };
     fetchStorageInfo();
@@ -410,55 +414,64 @@ export default function OrderHistory() {
 
       {/* Database Storage Widget */}
       {isSuperAdmin && (
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-gray-500" />
-              <h3 className="font-semibold text-gray-800">
-                Kapasitas Penyimpanan
-              </h3>
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-3 min-h-[120px] justify-center">
+          {isLoadingDb ? (
+            <div className="flex flex-col items-center justify-center space-y-2 py-2">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs text-gray-500 font-medium animate-pulse">Menghitung kapasitas...</p>
             </div>
-            <span className="text-sm font-medium text-gray-600">
-              Tersisa:{" "}
-              {((dbSize.totalBytes - dbSize.usedBytes) / 1000000).toFixed(2)} MB
-              dari {(dbSize.totalBytes / 1000000).toFixed(0)} MB
-            </span>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-gray-500" />
+                  <h3 className="font-semibold text-gray-800">
+                    Kapasitas Penyimpanan
+                  </h3>
+                </div>
+                <span className="text-sm font-medium text-gray-600">
+                  Tersisa:{" "}
+                  {((dbSize.totalBytes - dbSize.usedBytes) / 1000000).toFixed(2)} MB
+                  dari {(dbSize.totalBytes / 1000000).toFixed(0)} MB
+                </span>
+              </div>
 
-          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-            <div
-              className={`h-2.5 rounded-full transition-all duration-500 ${
-                dbSize.percentage > 95
-                  ? "bg-red-600 animate-pulse"
+              <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className={`h-2.5 rounded-full transition-all duration-500 ${
+                    dbSize.percentage > 95
+                      ? "bg-red-600 animate-pulse"
+                      : dbSize.percentage >= 80
+                        ? "bg-orange-500"
+                        : dbSize.percentage >= 50
+                          ? "bg-yellow-500"
+                          : "bg-green-500"
+                  }`}
+                  style={{ width: `${Math.min(dbSize.percentage, 100)}%` }}
+                ></div>
+              </div>
+
+              <p
+                className={`text-sm font-semibold ${
+                  dbSize.percentage > 95
+                    ? "text-red-600"
+                    : dbSize.percentage >= 80
+                      ? "text-orange-600"
+                      : dbSize.percentage >= 50
+                        ? "text-yellow-600"
+                        : "text-green-600"
+                }`}
+              >
+                {dbSize.percentage > 95
+                  ? "Status Kritis! Bersihkan riwayat lama agar sistem tidak crash."
                   : dbSize.percentage >= 80
-                    ? "bg-orange-500"
+                    ? "Penyimpanan hampir penuh, hapus data segera!"
                     : dbSize.percentage >= 50
-                      ? "bg-yellow-500"
-                      : "bg-green-500"
-              }`}
-              style={{ width: `${Math.min(dbSize.percentage, 100)}%` }}
-            ></div>
-          </div>
-
-          <p
-            className={`text-sm font-semibold ${
-              dbSize.percentage > 95
-                ? "text-red-600"
-                : dbSize.percentage >= 80
-                  ? "text-orange-600"
-                  : dbSize.percentage >= 50
-                    ? "text-yellow-600"
-                    : "text-green-600"
-            }`}
-          >
-            {dbSize.percentage > 95
-              ? "Status Kritis! Bersihkan riwayat lama agar sistem tidak crash."
-              : dbSize.percentage >= 80
-                ? "Penyimpanan hampir penuh, hapus data segera!"
-                : dbSize.percentage >= 50
-                  ? "Penyimpanan cukup. Performa sistem optimal."
-                  : "Penyimpanan aman. Ruang basis data sangat lega."}
-          </p>
+                      ? "Penyimpanan cukup. Performa sistem optimal."
+                      : "Penyimpanan aman. Ruang basis data sangat lega."}
+              </p>
+            </>
+          )}
         </div>
       )}
 
