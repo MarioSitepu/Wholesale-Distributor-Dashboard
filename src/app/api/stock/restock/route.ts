@@ -12,10 +12,9 @@ const restockSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const body = restockSchema.parse(await request.json());
     const updatedStock = await stockService.restock(body, user);
     return NextResponse.json(updatedStock, { status: 200 });

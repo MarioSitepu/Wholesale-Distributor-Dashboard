@@ -5,10 +5,9 @@ import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../
 const receivableService = new ReceivableService();
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
     const summary = await receivableService.getSummary(branch, user);

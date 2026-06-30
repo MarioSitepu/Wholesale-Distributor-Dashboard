@@ -23,10 +23,9 @@ const createOrderSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
     const date = searchParams.get('date') || undefined;
@@ -40,10 +39,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const body = createOrderSchema.parse(await request.json());
     const order = await orderService.createOrder(body, user);
     return NextResponse.json(order, { status: 201 });

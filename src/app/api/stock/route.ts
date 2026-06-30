@@ -6,10 +6,9 @@ import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../
 const stockService = new StockService();
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
     const stocks = await stockService.getStock(branch, user);
@@ -27,10 +26,9 @@ const restockSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const body = restockSchema.parse(await request.json());
     const result = await stockService.restock(body, user);
     return NextResponse.json(result, { status: 200 });

@@ -17,10 +17,9 @@ const createProductSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || 'all';
     const products = await productService.getProducts(branch, user);
@@ -31,10 +30,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const body = createProductSchema.parse(await request.json());
     const product = await productService.createProduct(body, user);
     return NextResponse.json(product, { status: 201 });

@@ -39,6 +39,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
 
   if (!response.ok) {
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('wholesale_auth_session');
+        window.location.href = '/login';
+      }
+    }
+    
     let message = 'Terjadi kesalahan pada server';
     try {
       const errorMessage = await parseErrorMessage();

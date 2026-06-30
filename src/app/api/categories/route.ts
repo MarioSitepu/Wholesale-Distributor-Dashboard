@@ -10,10 +10,9 @@ const createCategorySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const categories = await categoryService.getCategories();
     return NextResponse.json({ categories }, { status: 200 });
   } catch (error) {
@@ -22,10 +21,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const body = createCategorySchema.parse(await request.json());
     const category = await categoryService.createCategory(body.name);
     return NextResponse.json(category, { status: 201 });

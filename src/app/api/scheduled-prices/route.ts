@@ -12,10 +12,9 @@ const createSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
     const prices = await scheduledPriceService.getScheduledPrices(branch);
@@ -26,10 +25,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const body = createSchema.parse(await request.json());
     const result = await scheduledPriceService.createScheduledPrice(body);
     return NextResponse.json(result, { status: 201 });

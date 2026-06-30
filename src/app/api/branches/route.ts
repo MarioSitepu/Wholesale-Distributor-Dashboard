@@ -5,10 +5,9 @@ import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../
 const branchService = new BranchService();
 
 export async function GET(request: Request) {
-  const user = getAuthenticatedUser(request);
-  if (!user) return handleUnauthorized();
-
   try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
     const branches = await branchService.getBranches();
     return NextResponse.json({ branches }, { status: 200 });
   } catch (error) {
