@@ -123,7 +123,7 @@ export default function StockManagement() {
 
       const matchesCategory = isAllCategoriesSelected(selectedCategory)
         ? true
-        : p.category === selectedCategory;
+        : p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase();
 
       return matchesSearch && matchesStockStatus && matchesCategory;
     });
