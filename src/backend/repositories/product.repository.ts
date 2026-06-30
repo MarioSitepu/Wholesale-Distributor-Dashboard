@@ -49,7 +49,14 @@ export class ProductRepository {
   }
 
   async delete(id: string) {
-    return prisma.product.delete({ where: { id } });
+    return prisma.$transaction(async (tx) => {
+      // Delete related ScheduledPrices
+      await tx.scheduledPrice.deleteMany({ where: { productId: id } });
+      // Delete related StockItems
+      await tx.stockItem.deleteMany({ where: { productId: id } });
+      // Delete the Product itself
+      return tx.product.delete({ where: { id } });
+    });
   }
 
   async existsById(id: string): Promise<boolean> {
