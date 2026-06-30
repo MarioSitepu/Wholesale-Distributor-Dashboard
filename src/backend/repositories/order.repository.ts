@@ -87,7 +87,8 @@ export class OrderRepository {
   }
 
   async findRecent(branch: string, limit = 5) {
-    const where = branch === 'all' ? {} : { branch };
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where = isUniversal ? {} : { branch };
     return prisma.order.findMany({
       where,
       include: { store: true },

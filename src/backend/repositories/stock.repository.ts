@@ -2,7 +2,8 @@ import { prisma } from '../config/prisma';
 
 export class StockRepository {
   async findByBranch(branch: string) {
-    const where = branch === 'all' ? {} : { branch };
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
     return prisma.stockItem.findMany({
       where,
       include: { product: true },
@@ -40,7 +41,8 @@ export class StockRepository {
   }
 
   async findLowStock(branch: string, threshold = 3) {
-    const where = branch === 'all' ? {} : { branch };
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where = isUniversal ? {} : { branch };
     const items = await prisma.stockItem.findMany({
       where,
       include: { product: true },

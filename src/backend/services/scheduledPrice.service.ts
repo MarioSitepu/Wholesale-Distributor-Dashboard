@@ -8,7 +8,8 @@ export class ScheduledPriceService {
   private productRepo = new ProductRepository();
 
   async getScheduledPrices(branch: string): Promise<ScheduledPrice[]> {
-    const rows = await this.repo.findAll(branch === 'all' ? undefined : branch);
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const rows = await this.repo.findAll(isUniversal ? undefined : branch);
     return rows.map((r) => ({
       id: r.id,
       productId: r.productId,

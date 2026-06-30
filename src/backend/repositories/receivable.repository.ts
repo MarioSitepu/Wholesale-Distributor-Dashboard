@@ -2,7 +2,8 @@ import { prisma } from '../config/prisma';
 
 export class ReceivableRepository {
   async findByBranch(branch: string) {
-    const where = branch === 'all' ? {} : { store: { branch } };
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where = isUniversal ? {} : { store: { branch: { in: [branch, 'all', 'Pusat'] } } };
     return prisma.receivable.findMany({
       where,
       include: { store: true, order: true },
@@ -38,7 +39,8 @@ export class ReceivableRepository {
   }
 
   async sumUnpaid(branch: string): Promise<number> {
-    const where = branch === 'all' ? { isPaid: false } : { isPaid: false, store: { branch } };
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where = isUniversal ? { isPaid: false } : { isPaid: false, store: { branch: { in: [branch, 'all', 'Pusat'] } } };
     const result = await prisma.receivable.aggregate({ where, _sum: { amount: true } });
     return Number(result._sum.amount ?? 0);
   }

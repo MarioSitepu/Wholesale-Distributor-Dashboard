@@ -2,7 +2,8 @@ import { prisma } from '../config/prisma';
 
 export class StoreRepository {
   async findByBranch(branch: string) {
-    const where = branch === 'all' ? {} : { branch };
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
     return prisma.store.findMany({ where, orderBy: { name: 'asc' } });
   }
 
