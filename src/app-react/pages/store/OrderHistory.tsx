@@ -176,7 +176,7 @@ export default function OrderHistory() {
     const product = products.find((p) => p.id === firstItem?.productId);
     const orderCategory = product?.categoryName || product?.category || "General";
     const matchesCategory =
-      categoryFilter === "all" || orderCategory === categoryFilter;
+      categoryFilter === "all" || orderCategory.toLowerCase() === categoryFilter.toLowerCase();
 
     // Global search: match No. Faktur, Nama Produk, atau ID Produk (OR, case-insensitive)
     const keyword = searchQuery.trim().toLowerCase();

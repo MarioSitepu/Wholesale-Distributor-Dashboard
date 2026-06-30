@@ -103,7 +103,11 @@ export default function OrderPage() {
   }, [effectiveBranch]);
 
   useEffect(() => {
-    setProducts(allProducts.filter((p) => p.categoryName === selectedCategory));
+    if (!selectedCategory) {
+      setProducts(allProducts);
+    } else {
+      setProducts(allProducts.filter((p) => p.categoryName.toLowerCase() === selectedCategory.toLowerCase()));
+    }
   }, [selectedCategory, allProducts]);
 
   const handleStoreChange = (storeId: string) => {
@@ -127,7 +131,7 @@ export default function OrderPage() {
     // Check if cart already has items from a different category
     if (cart.length > 0) {
       const firstItem = allProducts.find((p) => p.id === cart[0].productId);
-      if (firstItem && firstItem.categoryName !== product.categoryName) {
+      if (firstItem && product.categoryName && firstItem.categoryName?.toLowerCase() !== product.categoryName.toLowerCase()) {
         toast.warning("Keranjang Terkunci", {
           description: "Tidak bisa menggabung kategori dalam satu bon.",
           duration: 5000,
@@ -402,20 +406,20 @@ export default function OrderPage() {
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSelectedCategory(cat)}
                 className={`flex-1 min-w-[120px] py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-                  selectedCategory === cat
+                  selectedCategory && cat.toLowerCase() === selectedCategory.toLowerCase()
                     ? "bg-white text-blue-600 shadow-md"
                     : "text-gray-500 hover:text-gray-700"
-                } ${cartCategory && cartCategory !== cat ? "opacity-50" : ""}`}
+                } ${cartCategory && cartCategory.toLowerCase() !== cat.toLowerCase() ? "opacity-50" : ""}`}
               >
                 {cat.toUpperCase()}
-                {cartCategory === cat && (
+                {cartCategory && cartCategory.toLowerCase() === cat.toLowerCase() && (
                   <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                 )}
               </motion.button>
             ))}
           </div>
 
-          {cartCategory && cartCategory !== selectedCategory && (
+          {cartCategory && selectedCategory && cartCategory.toLowerCase() !== selectedCategory.toLowerCase() && (
             <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
               <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
                 <ShoppingCart className="w-5 h-5" />
@@ -459,7 +463,7 @@ export default function OrderPage() {
               {products.map((product) => {
                 const inCart = getCartQuantity(product.id);
                 const isRestricted = !!(
-                  cartCategory && cartCategory !== product.categoryName
+                  cartCategory && product.categoryName && cartCategory.toLowerCase() !== product.categoryName.toLowerCase()
                 );
 
                 return (
