@@ -96,4 +96,37 @@ export class OrderRepository {
       take: limit,
     });
   }
+
+  async deleteBeforeDate(date: Date) {
+    return prisma.$transaction(async (tx) => {
+      // Find all order IDs to delete
+      const ordersToDelete = await tx.order.findMany({
+        where: { createdAt: { lt: date } },
+        select: { id: true },
+      });
+
+      const orderIds = ordersToDelete.map((o) => o.id);
+
+      if (orderIds.length === 0) {
+        return { deletedCount: 0 };
+      }
+
+      // 1. Delete Order Items
+      await tx.orderItem.deleteMany({
+        where: { orderId: { in: orderIds } },
+      });
+
+      // 2. Delete Receivables
+      await tx.receivable.deleteMany({
+        where: { orderId: { in: orderIds } },
+      });
+
+      // 3. Delete Orders
+      const deleted = await tx.order.deleteMany({
+        where: { id: { in: orderIds } },
+      });
+
+      return { deletedCount: deleted.count };
+    });
+  }
 }

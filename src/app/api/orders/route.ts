@@ -51,3 +51,20 @@ export async function POST(request: Request) {
   }
 }
 
+
+export async function DELETE(request: Request) {
+  try {
+    const user = getAuthenticatedUser(request);
+    if (!user) return handleUnauthorized();
+    const { searchParams } = new URL(request.url);
+    const beforeMonth = searchParams.get('beforeMonth');
+    if (!beforeMonth) {
+      return NextResponse.json({ error: "Parameter beforeMonth diperlukan" }, { status: 400 });
+    }
+
+    const result = await orderService.deleteOrdersBefore(beforeMonth, user);
+    return NextResponse.json({ message: "Berhasil menghapus riwayat pesanan", deletedCount: result.deletedCount }, { status: 200 });
+  } catch (error) {
+    return handleError(error);
+  }
+}

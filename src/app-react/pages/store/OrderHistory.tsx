@@ -283,14 +283,12 @@ export default function OrderHistory() {
     if (!deleteMonthYear) return;
 
     try {
-      // In a real implementation, you would call api.delete('/api/orders?beforeDate=...')
-      // For now, since the endpoint might not exist, we just simulate or toast.
-      // await api.delete(`/api/orders?beforeMonth=${deleteMonthYear}`);
+      await api.delete(`/api/orders?beforeMonth=${deleteMonthYear}`);
       
       setRefreshCounter((prev) => prev + 1);
       setIsDeleteDialogOpen(false);
       toast.success(
-        `Penghapusan riwayat saat ini ditangguhkan pada mode Supabase demi keamanan data.`,
+        `Berhasil menghapus riwayat pesanan sebelum bulan ${deleteMonthYear}.`,
       );
     } catch (error: any) {
       toast.error(error.message || "Gagal menghapus riwayat pesanan.");

@@ -202,4 +202,21 @@ export class OrderService {
     }
     return rows;
   }
+
+  async deleteOrdersBefore(month: string, user: JwtPayload): Promise<{ deletedCount: number }> {
+    if (user.branch !== 'Pusat') {
+      throw Errors.forbidden('Hanya Super Admin yang dapat menghapus riwayat pesanan');
+    }
+
+    const [year, m] = month.split('-').map(Number);
+    if (!year || !m) {
+      throw Errors.badRequest('Format bulan tidak valid. Gunakan YYYY-MM');
+    }
+
+    // Hitung tanggal 1 pada bulan tersebut. Kita ingin menghapus sebelum tanggal tersebut.
+    // Misalnya input 2026-07. Berarti hapus sebelum 2026-07-01.
+    const beforeDate = new Date(year, m - 1, 1);
+    
+    return await this.orderRepo.deleteBeforeDate(beforeDate);
+  }
 }
