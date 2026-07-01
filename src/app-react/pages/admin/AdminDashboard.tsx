@@ -67,7 +67,7 @@ export default function AdminDashboard() {
           api.get<any[]>(`/api/receivables?branch=${branchParam}`),
           api.get<any[]>(`/api/stores?branch=${branchParam}`),
           api.get<any>('/api/branches'),
-          api.get<any[]>(`/api/stock?branch=${branchParam}`),
+          api.get<any[]>(`/api/inventory?branch=${branchParam}`),
         ]);
 
         setAllOrders(ordersRes);

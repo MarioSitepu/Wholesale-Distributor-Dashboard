@@ -86,7 +86,7 @@ export default function StockManagement() {
         let branchesRes: any = { branches: [] };
 
         try {
-          stockRes = await api.get<any[]>(`/api/stock?branch=${branchFilter}&_t=${Date.now()}`);
+          stockRes = await api.get<any[]>(`/api/inventory?branch=${branchFilter}&_t=${Date.now()}`);
         } catch (e: any) {
           toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
         }
@@ -158,7 +158,7 @@ export default function StockManagement() {
     const id = sProductParts[1];
 
     try {
-      const updatedStock = await api.post<any>('/api/stock', {
+      const updatedStock = await api.post<any>('/api/inventory', {
         productId: id,
         branch: branch,
         amount: amount,
