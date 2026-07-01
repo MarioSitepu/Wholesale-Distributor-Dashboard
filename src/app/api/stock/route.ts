@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
     const stocks = await stockService.getStock(branch, user);
+    console.log(`[GET /api/stock] branch=${branch}, userBranch=${user.branch}, targetBranch=${user.branch === 'Pusat' ? branch : user.branch}, resultCount=${stocks.length}`);
     return NextResponse.json(stocks, { status: 200 });
   } catch (error) {
     return handleError(error);
@@ -37,4 +38,3 @@ export async function POST(request: Request) {
     return handleError(error);
   }
 }
-

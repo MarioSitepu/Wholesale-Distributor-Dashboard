@@ -85,8 +85,7 @@ export default function StockManagement() {
           api.get<{ categories: string[] }>('/api/categories'),
           api.get<{ branches: string[] }>('/api/branches'),
         ]);
-        
-        setProducts(stockRes);
+        setProducts(Array.isArray(stockRes) ? stockRes : []);
         setCategoriesList(catRes.categories ? catRes.categories.map((c: any) => c.name || c) : []);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));

@@ -75,6 +75,28 @@ export default function HelpCenter() {
         </div>
       </div>
       
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <MapPin size={16} className="text-blue-500" /> Pintasan Topik Cepat
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: "Daftar Isi", page: 1 },
+            { label: "Manajemen Stok", page: 2 },
+            { label: "Laporan Keuangan", page: 3 },
+            { label: "Pengaturan Akun", page: 4 },
+          ].map((shortcut) => (
+            <button
+              key={shortcut.label}
+              onClick={() => setPageNumber(shortcut.page)}
+              className="px-4 py-2 text-sm bg-gray-50 border border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 rounded-lg transition-all shadow-sm font-medium"
+            >
+              {shortcut.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
         <div className="flex flex-wrap items-center gap-4 mb-4 bg-gray-50 px-4 py-2 rounded-lg w-full justify-center sm:justify-between">
           <div className="flex items-center gap-2">
@@ -135,8 +157,8 @@ export default function HelpCenter() {
           <Page 
             pageNumber={pageNumber} 
             scale={scale} 
-            renderTextLayer={true}
-            renderAnnotationLayer={true}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
             className="shadow-lg"
           />
           </Document>
