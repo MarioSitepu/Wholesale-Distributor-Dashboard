@@ -81,22 +81,34 @@ export default function StockManagement() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      try {
-        const [stockRes, catRes, branchesRes] = await Promise.all([
-          api.get<any[]>(`/api/stock?branch=${branchFilter}&_t=${Date.now()}`),
-          api.get<{ categories: string[] }>('/api/categories'),
-          api.get<{ branches: string[] }>('/api/branches'),
-        ]);
+        let stockRes: any = [];
+        let catRes: any = { categories: [] };
+        let branchesRes: any = { branches: [] };
+
+        try {
+          stockRes = await api.get<any[]>(`/api/stock?branch=${branchFilter}&_t=${Date.now()}`);
+        } catch (e: any) {
+          toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
+        }
+
+        try {
+          catRes = await api.get<{ categories: string[] }>('/api/categories');
+        } catch (e: any) {
+          console.error("Kategori error:", e);
+        }
+
+        try {
+          branchesRes = await api.get<{ branches: string[] }>('/api/branches');
+        } catch (e: any) {
+          console.error("Cabang error:", e);
+        }
+
         setProducts(Array.isArray(stockRes) ? stockRes : []);
-        setCategoriesList(catRes.categories ? catRes.categories.map((c: any) => c.name || c) : []);
+        setCategoriesList(catRes?.categories ? catRes.categories.map((c: any) => c.name || c) : []);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
         }
-      } catch (error: any) {
-        toast.error("Gagal memuat data: " + error.message);
-      } finally {
         setIsLoading(false);
-      }
     };
     fetchData();
   }, [branchFilter, selectedCategory]);
