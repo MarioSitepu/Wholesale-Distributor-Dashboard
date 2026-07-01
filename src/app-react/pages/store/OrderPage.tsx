@@ -57,42 +57,59 @@ export default function OrderPage() {
   }, [effectiveBranch, setCurrentBranch]);
 
   const fetchInitialData = async () => {
-    try {
-      setIsLoading(true);
-      // Constructing branch query parameters safely
-      const [productsRes, storesRes, branchesRes, categoriesRes] = await Promise.all([
-        api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`),
-        api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`),
-        api.get<any>(`/api/branches?t=${Date.now()}`),
-        api.get<any>(`/api/categories?t=${Date.now()}`),
-      ]);
-      
-      const mappedProducts = productsRes.map(p => ({
-        ...p,
-        categoryName: p.categoryName || p.category,
-        stock: p.stock !== undefined ? p.stock : (p.stockItems?.[0] ? (p.stockItems[0].totalIn - p.stockItems[0].totalOut) : 0)
-      }));
+    setIsLoading(true);
+    let productsRes: any[] = [];
+    let storesRes: any[] = [];
+    let branchesRes: any = { branches: [] };
+    let categoriesRes: any = { categories: [] };
 
-      setAllProducts(mappedProducts);
-      setStores(storesRes);
-      
-      // Ensure branches and categories format aligns with backend response
-      const branchList = branchesRes.branches ? branchesRes.branches.map((b: any) => b.name || b).filter((b: string) => b !== 'Pusat') : [];
-      setBranches(branchList);
-      
-      const catList = categoriesRes.categories ? categoriesRes.categories.map((c: any) => c.name || c) : [];
-      setCategories(catList);
-      
-      if (catList.length > 0) {
-        if (!selectedCategory || !catList.includes(selectedCategory)) {
-          setSelectedCategory(catList[0]);
-        }
-      }
+    try {
+      productsRes = await api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
     } catch (error: any) {
-      toast.error(error.message || "Gagal memuat data dari server");
-    } finally {
-      setIsLoading(false);
+      toast.error("Gagal memuat produk: " + (error.message || "Error"));
     }
+
+    try {
+      storesRes = await api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
+    } catch (error: any) {
+      toast.error("Gagal memuat toko: " + (error.message || "Error"));
+    }
+
+    try {
+      branchesRes = await api.get<any>(`/api/branches?t=${Date.now()}`);
+    } catch (error: any) {
+      console.error("Gagal memuat cabang:", error);
+    }
+
+    try {
+      categoriesRes = await api.get<any>(`/api/categories?t=${Date.now()}`);
+    } catch (error: any) {
+      console.error("Gagal memuat kategori:", error);
+    }
+
+    const mappedProducts = productsRes.map(p => ({
+      ...p,
+      categoryName: p.categoryName || p.category,
+      stock: p.stock !== undefined ? p.stock : (p.stockItems?.[0] ? (p.stockItems[0].totalIn - p.stockItems[0].totalOut) : 0)
+    }));
+
+    setAllProducts(mappedProducts);
+    setStores(Array.isArray(storesRes) ? storesRes : []);
+    
+    // Ensure branches and categories format aligns with backend response
+    const branchList = branchesRes?.branches ? branchesRes.branches.map((b: any) => b.name || b).filter((b: string) => b !== 'Pusat') : [];
+    setBranches(branchList);
+    
+    const catList = categoriesRes?.categories ? categoriesRes.categories.map((c: any) => c.name || c) : [];
+    setCategories(catList);
+    
+    if (catList.length > 0) {
+      if (!selectedCategory || !catList.includes(selectedCategory)) {
+        setSelectedCategory(catList[0]);
+      }
+    }
+    
+    setIsLoading(false);
   };
 
   useEffect(() => {
