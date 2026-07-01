@@ -8,24 +8,20 @@ export async function GET(request: Request) {
     const branch = searchParams.get('branch') || 'Palembang';
 
     const countAll = await prisma.stockItem.count();
-    const countBranch = await prisma.stockItem.count({
-      where: { branch: { in: [branch, 'all', 'Pusat'] } }
-    });
+    const productCount = await prisma.product.count();
+    const userCount = await prisma.user.count();
 
-    const first5 = await prisma.stockItem.findMany({
-      where: { branch: { in: [branch, 'all', 'Pusat'] } },
-      take: 5,
-      include: { product: true }
-    });
-
+    const dbUrl = process.env.DATABASE_URL || "";
+    
     return NextResponse.json({
       success: true,
-      branch_tested: branch,
       total_stock_all_branches: countAll,
-      total_stock_this_branch: countBranch,
-      first_5_items: first5,
-      database_url: process.env.DATABASE_URL ? "SET" : "MISSING",
-      direct_url: process.env.DIRECT_URL ? "SET" : "MISSING",
+      total_products: productCount,
+      total_users: userCount,
+      db_url_starts_with: dbUrl.substring(0, 15),
+      db_url_host: dbUrl.includes("@") ? dbUrl.split("@")[1].split("/")[0] : "unknown",
+      db_url_is_supabase: dbUrl.includes("supabase"),
+      direct_url_is_supabase: (process.env.DIRECT_URL || "").includes("supabase"),
     }, { status: 200 });
 
   } catch (error: any) {
