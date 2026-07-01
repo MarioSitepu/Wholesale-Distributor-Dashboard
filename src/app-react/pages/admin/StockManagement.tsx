@@ -55,6 +55,7 @@ export default function StockManagement() {
   const [stockAmount, setStockAmount] = useState("");
   const [stockAction, setStockAction] = useState<'add' | 'reduce'>('add');
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Check Product State
   const [showCheckProductModal, setShowCheckProductModal] = useState(false);
@@ -79,6 +80,7 @@ export default function StockManagement() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const [stockRes, catRes, branchesRes] = await Promise.all([
           api.get<any[]>(`/api/stock?branch=${branchFilter}&_t=${Date.now()}`),
@@ -92,6 +94,8 @@ export default function StockManagement() {
         }
       } catch (error: any) {
         toast.error("Gagal memuat data: " + error.message);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchData();
@@ -341,9 +345,13 @@ export default function StockManagement() {
                   <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Total Produk
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {products.length}
-                  </p>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {isLoading ? (
+                      <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse mt-1" />
+                    ) : (
+                      products.length
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -357,9 +365,13 @@ export default function StockManagement() {
                   <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Stok Menipis
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {products.filter((p) => p.stock < 50 && p.stock > 0).length}
-                  </p>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {isLoading ? (
+                      <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse mt-1" />
+                    ) : (
+                      products.filter((p) => p.stock < 50 && p.stock > 0).length
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -373,9 +385,13 @@ export default function StockManagement() {
                   <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Stok Habis
                   </p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {products.filter((p) => p.stock === 0).length}
-                  </p>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {isLoading ? (
+                      <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse mt-1" />
+                    ) : (
+                      products.filter((p) => p.stock === 0).length
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -464,7 +480,16 @@ export default function StockManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredProducts.map((product) => {
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-24 text-center">
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                        <p className="text-gray-500 font-medium animate-pulse">Sedang memuat data stok...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredProducts.map((product) => {
                   const branch = product.branch || user?.branch || "Palembang";
                   const uniqueKey = `${branch}|${product.id}`;
                   return (
@@ -532,7 +557,12 @@ export default function StockManagement() {
 
           {/* Mobile View */}
           <div className="md:hidden divide-y divide-gray-100">
-            {filteredProducts.map((product) => {
+            {isLoading ? (
+              <div className="p-12 flex flex-col items-center justify-center gap-4">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                <p className="text-gray-500 font-medium animate-pulse">Sedang memuat...</p>
+              </div>
+            ) : filteredProducts.map((product) => {
               const branch = product.branch || user?.branch || "Palembang";
               const uniqueKey = `${branch}|${product.id}`;
               return (
@@ -601,7 +631,7 @@ export default function StockManagement() {
             })}
           </div>
 
-          {filteredProducts.length === 0 && (
+          {!isLoading && filteredProducts.length === 0 && (
             <div className="py-20 text-center">
               <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-10 h-10 text-gray-300" />
