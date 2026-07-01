@@ -23,14 +23,24 @@ export default function ReceivablesManagement() {
   >(null);
 
   // Security Check: Mencegah manipulasi state oleh Admin biasa
+  useEffect(() => {
+    if (
+      !isSuperAdmin &&
+      activeBranch &&
+      activeBranch !== "all" &&
+      activeBranch !== user?.branch
+    ) {
+      console.warn("Security Alert: Branch manipulation detected!");
+      setActiveBranch(user?.branch || "");
+    }
+  }, [isSuperAdmin, activeBranch, user?.branch, setActiveBranch]);
+
   if (
     !isSuperAdmin &&
     activeBranch &&
     activeBranch !== "all" &&
     activeBranch !== user?.branch
   ) {
-    console.warn("Security Alert: Branch manipulation detected!");
-    setActiveBranch(user?.branch || "");
     return (
       <div className="p-8 text-center text-red-600 font-bold">
         Akses Ditolak: Anda tidak memiliki izin melihat data cabang lain.
