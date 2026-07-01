@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../backend/config/prisma';
+import { prisma } from '../../../../backend/config/prisma';
 
 export async function GET(request: Request) {
   try {
