@@ -81,7 +81,7 @@ export default function StockManagement() {
     const fetchData = async () => {
       try {
         const [stockRes, catRes, branchesRes] = await Promise.all([
-          api.get<any[]>(`/api/stock?branch=${branchFilter}`),
+          api.get<any[]>(`/api/stock?branch=${branchFilter}&_t=${Date.now()}`),
           api.get<{ categories: string[] }>('/api/categories'),
           api.get<{ branches: string[] }>('/api/branches'),
         ]);
