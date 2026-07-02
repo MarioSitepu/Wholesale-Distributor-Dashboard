@@ -52,14 +52,14 @@ export default function AdminDashboard() {
   const [allReceivables, setAllReceivables] = useState<any[]>([]);
   const [allStores, setAllStores] = useState<any[]>([]);
   const [allStockItems, setAllStockItems] = useState<any[]>([]);
-  const [branches, setBranches] = useState<string[]>([
-    "Palembang", "Lubuk Linggau", "Prabumulih", "Tugu Mulyo", "Batu Raja"
-  ]);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Sync data dynamically by adding a refresh listener/interval
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsLoading(true);
         const branchParam = selectedBranch === "all" ? "all" : selectedBranch;
         const [ordersRes, productsRes, receivablesRes, storesRes, branchesRes, stockRes] = await Promise.all([
           api.get<any[]>(`/api/orders?branch=${branchParam}`),
@@ -80,6 +80,8 @@ export default function AdminDashboard() {
         }
       } catch (error: any) {
         toast.error("Gagal memuat data dashboard: " + error.message);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -286,6 +288,14 @@ export default function AdminDashboard() {
   }, [orders, isSuperAdmin]);
 
   const COLORS = ["#2563eb", "#7c3aed", "#db2777", "#ea580c"];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
