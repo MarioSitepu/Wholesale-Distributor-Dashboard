@@ -53,7 +53,7 @@ export default function ReceivablesManagement() {
   const fetchReceivables = async () => {
     try {
       setIsLoading(true);
-      const effectiveBranch = isSuperAdmin ? (branchFilter === "all" ? "Pusat" : branchFilter) : user?.branch;
+      const effectiveBranch = isSuperAdmin ? branchFilter : user?.branch;
       const res = await api.get<any[]>(`/api/receivables?branch=${effectiveBranch || ''}`);
       setReceivables(res);
     } catch (error: any) {

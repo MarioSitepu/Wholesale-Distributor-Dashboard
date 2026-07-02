@@ -60,7 +60,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const branchParam = selectedBranch === "all" ? "" : selectedBranch;
+        const branchParam = selectedBranch === "all" ? "all" : selectedBranch;
         const [ordersRes, productsRes, receivablesRes, storesRes, branchesRes, stockRes] = await Promise.all([
           api.get<any[]>(`/api/orders?branch=${branchParam}`),
           api.get<any[]>(`/api/products?branch=${branchParam}`),
