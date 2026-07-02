@@ -125,7 +125,7 @@ export default function OrderHistory() {
       
       // Let backend handle date filtering if possible, otherwise we filter on frontend
       const qs = new URLSearchParams();
-      if (effectiveBranch && effectiveBranch !== "all") qs.set("branch", effectiveBranch);
+      if (effectiveBranch) qs.set("branch", effectiveBranch);
       if (filterType === "day") qs.set("date", selectedDate);
       if (filterType === "month") qs.set("month", selectedMonth);
       
