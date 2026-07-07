@@ -7,11 +7,30 @@ export class StockService {
   private stockRepo = new StockRepository();
   private productRepo = new ProductRepository();
 
-  async getStock(branch: string, user: JwtPayload): Promise<StockItem[]> {
+  async getStock(
+    branch: string, 
+    user: JwtPayload,
+    page?: number,
+    limit?: number,
+    search?: string,
+    category?: string,
+    status?: string
+  ): Promise<any> {
     const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
-    const rows = await this.stockRepo.findByBranch(targetBranch);
+    
+    // If status filter is provided, we must fetch all matching records and paginate in memory
+    // because totalIn - totalOut cannot be filtered directly in Prisma's where clause.
+    const isMemoryPagination = !!status && status !== 'all';
+    
+    const rows = await this.stockRepo.findByBranch(
+      targetBranch, 
+      isMemoryPagination ? undefined : page, 
+      isMemoryPagination ? undefined : limit, 
+      search, 
+      category
+    );
 
-    return rows.map((s) => ({
+    let data = rows.map((s) => ({
       id: s.productId,
       name: s.product?.name ? s.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim() : `Produk ${s.productId}`,
       category: s.product?.categoryName || 'Tanpa Kategori',
@@ -20,6 +39,34 @@ export class StockService {
       stock: s.totalIn - s.totalOut,
       branch: s.branch,
     }));
+
+    if (isMemoryPagination) {
+      if (status === 'normal') data = data.filter(d => d.stock > 49);
+      else if (status === 'low') data = data.filter(d => d.stock > 0 && d.stock < 50);
+      else if (status === 'empty') data = data.filter(d => d.stock === 0);
+    }
+
+    let totalItems = data.length;
+    
+    if (!isMemoryPagination && page !== undefined && limit !== undefined) {
+      totalItems = await this.stockRepo.countByBranch(targetBranch, search, category);
+    }
+
+    if (isMemoryPagination && page !== undefined && limit !== undefined) {
+      const startIndex = (page - 1) * limit;
+      data = data.slice(startIndex, startIndex + limit);
+    }
+
+    if (page !== undefined && limit !== undefined) {
+      return {
+        data,
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page
+      };
+    }
+
+    return data;
   }
 
   async restock(
@@ -60,12 +107,13 @@ export class StockService {
     branch: string,
     user: JwtPayload,
   ): Promise<{ csv: string; filename: string }> {
-    const items = await this.getStock(branch, user);
+    const result = await this.getStock(branch, user);
+    const items = Array.isArray(result) ? result : result.data;
 
     const header = 'ID,Nama Produk,Kategori,Branch,Total Masuk,Total Keluar,Stok\n';
     const rows = items
       .map(
-        (i) =>
+        (i: any) =>
           `${i.id},"${i.name}","${i.category}","${i.branch}",${i.totalIn},${i.totalOut},${i.stock}`,
       )
       .join('\n');

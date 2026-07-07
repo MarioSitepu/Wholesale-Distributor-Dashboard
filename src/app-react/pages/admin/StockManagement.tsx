@@ -57,11 +57,30 @@ export default function StockManagement() {
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Check Product State
   const [showCheckProductModal, setShowCheckProductModal] = useState(false);
   const [checkProductId, setCheckProductId] = useState("");
   const [checkProductResult, setCheckProductResult] = useState<any>(null);
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedStockStatus, selectedCategory, branchFilter]);
 
   // Security Check: Mencegah manipulasi state oleh Admin biasa
   useEffect(() => {
@@ -92,29 +111,50 @@ export default function StockManagement() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-        let stockRes: any = [];
+        let stockRes: any = { data: [], totalPages: 1, totalItems: 0 };
         let catRes: any = { categories: [] };
         let branchesRes: any = { branches: [] };
 
         try {
-          stockRes = await api.get<any[]>(`/api/inventory?branch=${branchFilter}&_t=${Date.now()}`);
+          const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+          const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
+          const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+          
+          const [stockResRaw, catResRaw, branchesResRaw] = await Promise.all([
+            api.get<any>(`/api/inventory?branch=${branchFilter}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`).catch((e) => {
+              toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
+              return { data: [], totalPages: 1, totalItems: 0 };
+            }),
+            api.get<{ categories: string[] }>('/api/categories').catch((e) => {
+              console.error("Kategori error:", e);
+              return { categories: [] };
+            }),
+            api.get<{ branches: string[] }>('/api/branches').catch((e) => {
+              console.error("Cabang error:", e);
+              return { branches: [] };
+            })
+          ]);
+          stockRes = stockResRaw;
+          catRes = catResRaw;
+          branchesRes = branchesResRaw;
         } catch (e: any) {
-          toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
+          console.error(e);
         }
 
-        try {
-          catRes = await api.get<{ categories: string[] }>('/api/categories');
-        } catch (e: any) {
-          console.error("Kategori error:", e);
+        if (stockRes && stockRes.data) {
+          setProducts(stockRes.data);
+          setTotalPages(stockRes.totalPages || 1);
+          setTotalItems(stockRes.totalItems || 0);
+        } else if (Array.isArray(stockRes)) {
+          setProducts(stockRes);
+          setTotalPages(1);
+          setTotalItems(stockRes.length);
+        } else {
+          setProducts([]);
+          setTotalPages(1);
+          setTotalItems(0);
         }
-
-        try {
-          branchesRes = await api.get<{ branches: string[] }>('/api/branches');
-        } catch (e: any) {
-          console.error("Cabang error:", e);
-        }
-
-        setProducts(Array.isArray(stockRes) ? stockRes : []);
+        
         setCategoriesList(catRes?.categories ? catRes.categories.map((c: any) => c.name || c) : []);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
@@ -122,38 +162,16 @@ export default function StockManagement() {
         setIsLoading(false);
     };
     fetchData();
-  }, [branchFilter, selectedCategory]);
+  }, [branchFilter, effectiveSelectedCategory, currentPage, debouncedSearch, selectedStockStatus]);
 
   const categories = useMemo(() => {
     return ["all", ...categoriesList];
   }, [categoriesList]);
 
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-    return products.filter((p) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        p.name.toLowerCase().includes(normalizedSearch) ||
-        p.id.toLowerCase().includes(normalizedSearch);
-
-      const stock = Number(p.stock) || 0;
-      const matchesStockStatus = isAllStockStatusSelected(selectedStockStatus)
-        ? true
-        : selectedStockStatus === "normal"
-          ? stock > 49
-          : selectedStockStatus === "low"
-            ? stock > 0 && stock < 50
-            : selectedStockStatus === "empty"
-              ? stock === 0
-              : true;
-
-      const matchesCategory = isAllCategoriesSelected(selectedCategory)
-        ? true
-        : p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase();
-
-      return matchesSearch && matchesStockStatus && matchesCategory;
-    });
-  }, [products, searchQuery, selectedStockStatus, selectedCategory]);
+  // paginatedProducts is now directly products because pagination is server-side
+  const paginatedProducts = products;
+  // filteredProducts is used for export (current page only)
+  const filteredProducts = products;
 
   const handleStockAction = async () => {
     if (!selectedProductKey || !stockAmount || isSubmitting) return;
@@ -515,7 +533,7 @@ export default function StockManagement() {
                       </div>
                     </td>
                   </tr>
-                ) : filteredProducts.map((product) => {
+                ) : paginatedProducts.map((product) => {
                   const branch = product.branch || user?.branch || "Palembang";
                   const uniqueKey = `${branch}|${product.id}`;
                   return (
@@ -588,7 +606,7 @@ export default function StockManagement() {
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                 <p className="text-gray-500 font-medium animate-pulse">Sedang memuat...</p>
               </div>
-            ) : filteredProducts.map((product) => {
+            ) : paginatedProducts.map((product) => {
               const branch = product.branch || user?.branch || "Palembang";
               const uniqueKey = `${branch}|${product.id}`;
               return (
@@ -656,6 +674,31 @@ export default function StockManagement() {
               );
             })}
           </div>
+
+          {/* Pagination Controls */}
+          {!isLoading && totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between flex-wrap gap-4">
+              <span className="text-sm text-gray-500 font-medium">
+                Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} dari {totalItems} produk
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
+                >
+                  Selanjutnya
+                </button>
+              </div>
+            </div>
+          )}
 
           {!isLoading && filteredProducts.length === 0 && (
             <div className="py-20 text-center">
