@@ -41,7 +41,7 @@ export default function OrderHistory() {
 
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
-  const [filterType, setFilterType] = useState<"day" | "month">("day");
+  const [filterType, setFilterType] = useState<"day" | "month">("month");
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -288,7 +288,7 @@ export default function OrderHistory() {
       setRefreshCounter((prev) => prev + 1);
       setIsDeleteDialogOpen(false);
       toast.success(
-        `Berhasil menghapus riwayat pesanan sebelum bulan ${deleteMonthYear}.`,
+        `Berhasil menghapus riwayat pesanan dan piutang untuk bulan ${deleteMonthYear} dan sebelumnya.`,
       );
     } catch (error: any) {
       toast.error(error.message || "Gagal menghapus riwayat pesanan.");
@@ -327,14 +327,17 @@ export default function OrderHistory() {
                   Hapus Riwayat Lama
                 </button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="sm:max-w-[425px] border-red-100 bg-red-50">
                 <DialogHeader>
-                  <DialogTitle className="text-red-600 flex items-center gap-2">
-                    <Trash2 className="w-5 h-5" /> Hapus Riwayat Pesanan
+                  <DialogTitle className="text-red-700 flex items-center gap-2">
+                    <Trash2 className="w-5 h-5" />
+                    Hapus Permanen Riwayat
                   </DialogTitle>
-                  <DialogDescription>
-                    Pilih bulan dan tahun untuk menghapus riwayat pesanan
-                    (seluruh cabang) sebelum tanggal tersebut secara permanen.
+                  <DialogDescription className="text-red-900/80 font-medium pt-2">
+                    Anda yakin ingin menghapus permanen seluruh riwayat pesanan
+                    dan piutang untuk bulan <strong>{deleteMonthYear}</strong> dan sebelumnya?
+                    <br />
+                    <br />
                     Tindakan ini tidak dapat dibatalkan.
                   </DialogDescription>
                 </DialogHeader>

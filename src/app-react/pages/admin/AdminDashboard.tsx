@@ -47,121 +47,92 @@ export default function AdminDashboard() {
   );
   const [trendValue, setTrendValue] = useState<number | undefined>(undefined);
 
-  const [allOrders, setAllOrders] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [allReceivables, setAllReceivables] = useState<any[]>([]);
-  const [allStores, setAllStores] = useState<any[]>([]);
-  const [allStockItems, setAllStockItems] = useState<any[]>([]);
+  const [kpi, setKpi] = useState({ dailySales: 0, monthlySales: 0, totalReceivables: 0, lowStockCount: 0 });
+  const [dataTrend, setDataTrend] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
+  const [branchContribution, setBranchContribution] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [dailyReportData, setDailyReportData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [selectedReportStore, setSelectedReportStore] = useState<string>("all");
+  const [selectedReportDate, setSelectedReportDate] = useState<string>(new Date().toLocaleDateString("en-CA"));
 
-  // Sync data dynamically by adding a refresh listener/interval
+  // Fetch Main Dashboard Data
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchMainData = async () => {
       try {
         setIsLoading(true);
         const branchParam = selectedBranch === "all" ? "all" : selectedBranch;
-        const [ordersRes, productsRes, receivablesRes, storesRes, branchesRes, stockRes] = await Promise.all([
-          api.get<any[]>(`/api/orders?branch=${branchParam}`),
-          api.get<any[]>(`/api/products?branch=${branchParam}`),
-          api.get<any[]>(`/api/receivables?branch=${branchParam}`),
-          api.get<any[]>(`/api/stores?branch=${branchParam}`),
+        const [kpiRes, branchesRes, storesRes, contributionRes, recentRes, topProdRes] = await Promise.all([
+          api.get<any>(`/api/dashboard/kpi?branch=${branchParam}`),
           api.get<any>('/api/branches'),
-          api.get<any[]>(`/api/inventory?branch=${branchParam}`),
+          api.get<any[]>(`/api/stores?branch=${branchParam}`),
+          api.get<any[]>(`/api/dashboard/branch-contribution`),
+          api.get<any[]>(`/api/dashboard/recent-orders?branch=${branchParam}`),
+          api.get<any[]>(`/api/dashboard/top-products?branch=${branchParam}`)
         ]);
 
-        setAllOrders(ordersRes);
-        setAllProducts(productsRes);
-        setAllReceivables(receivablesRes);
-        setAllStores(storesRes);
-        setAllStockItems(Array.isArray(stockRes) ? stockRes : []);
+        setKpi(kpiRes || { dailySales: 0, monthlySales: 0, totalReceivables: 0, lowStockCount: 0 });
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
         }
+        setStores(storesRes || []);
+        setBranchContribution(contributionRes || []);
+        setRecentOrders(recentRes || []);
+        setTopProducts(topProdRes || []);
       } catch (error: any) {
         toast.error("Gagal memuat data dashboard: " + error.message);
       } finally {
         setIsLoading(false);
       }
     };
-    
-    fetchData();
-
-    const interval = setInterval(() => {
-      setRefreshKey((prev) => prev + 1);
-    }, 60000);
-    return () => clearInterval(interval);
+    fetchMainData();
   }, [refreshKey, selectedBranch]);
+
+  // Fetch Sales Trend independently (reacts to trendPeriod)
+  useEffect(() => {
+    const fetchTrend = async () => {
+      try {
+        const branchParam = selectedBranch === "all" ? "all" : selectedBranch;
+        let url = `/api/dashboard/sales-trend?branch=${branchParam}&type=${trendPeriod}`;
+        if (trendValue !== undefined) url += `&value=${trendValue}`;
+        const res = await api.get<any[]>(url);
+        setDataTrend(res || []);
+      } catch (error: any) {
+        toast.error("Gagal memuat tren penjualan: " + error.message);
+      }
+    };
+    fetchTrend();
+  }, [refreshKey, selectedBranch, trendPeriod, trendValue]);
+
+  // Fetch Daily Report Data independently (reacts to report date/store)
+  useEffect(() => {
+    const fetchReport = async () => {
+      if (!selectedReportDate) return;
+      try {
+        setIsLoadingReport(true);
+        const branchParam = selectedBranch === "all" ? "all" : selectedBranch;
+        const res = await api.get<any[]>(`/api/orders/daily-report?date=${selectedReportDate}&storeId=${selectedReportStore}&branch=${branchParam}`);
+        
+        setDailyReportData(res || []);
+      } catch (error: any) {
+        toast.error("Gagal memuat laporan harian");
+      } finally {
+        setIsLoadingReport(false);
+      }
+    };
+    fetchReport();
+  }, [refreshKey, selectedBranch, selectedReportDate, selectedReportStore]);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
   };
 
-  const effectiveChartBranch = undefined; // We already filtered by branch in the API call
 
-  const dataTrend = useMemo(
-    () => getSalesTrend(allOrders, trendPeriod, trendValue, effectiveChartBranch),
-    [allOrders, trendPeriod, trendValue, effectiveChartBranch],
-  );
-
-  const topProducts = useMemo(
-    () => getTopSellingProducts(allOrders, effectiveChartBranch),
-    [allOrders, effectiveChartBranch],
-  );
-
-  const orders = allOrders;
-  const products = allProducts;
-  const receivables = allReceivables;
-  const stores = allStores;
-
-  const [selectedReportStore, setSelectedReportStore] = useState<string>("all");
-  const [selectedReportDate, setSelectedReportDate] = useState<string>(
-    new Date().toLocaleDateString("en-CA"),
-  );
-
-  const dailyReportData = useMemo(() => {
-    let filteredOrders = orders;
-
-    if (selectedReportDate) {
-      filteredOrders = filteredOrders.filter((order) => {
-        const orderDateLocal = new Date(order.createdAt).toLocaleDateString(
-          "en-CA",
-        );
-        return orderDateLocal === selectedReportDate;
-      });
-    }
-
-    if (selectedReportStore !== "all") {
-      filteredOrders = filteredOrders.filter(
-        (o) => o.storeId === selectedReportStore,
-      );
-    }
-
-    const rows: {
-      orderId: string;
-      storeName: string;
-      branch: string;
-      productName: string;
-      quantity: number;
-      price: number;
-      total: number;
-    }[] = [];
-    filteredOrders.forEach((order) => {
-      order.items.forEach((item) => {
-        rows.push({
-          orderId: order.id,
-          storeName: order.storeName,
-          branch: (order as any).branch || "General",
-          productName: item.productName,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.quantity * item.price,
-        });
-      });
-    });
-
-    return rows;
-  }, [orders, selectedReportStore, selectedReportDate]);
+  // Old calculations removed in favor of API
 
   const handleExportExcel = () => {
     if (dailyReportData.length === 0) return;
@@ -217,75 +188,8 @@ export default function AdminDashboard() {
     });
   };
 
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  const dailySales = useMemo(() => {
-    const todayOrders = orders.filter((order) => {
-      const orderDate = new Date(order.createdAt);
-      return (
-        orderDate.getDate() === today.getDate() &&
-        orderDate.getMonth() === currentMonth &&
-        orderDate.getFullYear() === currentYear
-      );
-    });
-    return todayOrders.reduce((sum, order) => sum + order.total, 0);
-  }, [orders, today, currentMonth, currentYear]);
-
-  const monthlySales = useMemo(() => {
-    const monthOrders = orders.filter((order) => {
-      const orderDate = new Date(order.createdAt);
-      return (
-        orderDate.getMonth() === currentMonth &&
-        orderDate.getFullYear() === currentYear
-      );
-    });
-    return monthOrders.reduce((sum, order) => sum + order.total, 0);
-  }, [orders, currentMonth, currentYear]);
-
-  const totalReceivables = receivables
-    .filter((r) => !r.isPaid)
-    .reduce((sum, r) => sum + r.amount, 0);
-
-  // Sama persis dengan rumus di StockManagement: stock > 0 && stock < 50
-  // Data dari /api/stock yang menghitung totalIn - totalOut, identik dengan Kelola Stok
-  const lowStockCount = allStockItems.filter((p) => {
-    const stock = Number(p.stock) || 0;
-    return stock > 0 && stock < 50;
-  }).length;
-
-  const weeklyData = useMemo(() => {
-    const data = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dayOrders = orders.filter((order) => {
-        const orderDate = new Date(order.createdAt);
-        return (
-          orderDate.getDate() === date.getDate() &&
-          orderDate.getMonth() === date.getMonth() &&
-          orderDate.getFullYear() === date.getFullYear()
-        );
-      });
-      const total = dayOrders.reduce((sum, order) => sum + order.total, 0);
-      data.push({
-        name: date.toLocaleDateString("id-ID", { weekday: "short" }),
-        sales: total / 1000,
-      });
-    }
-    return data;
-  }, [orders]);
-
-  const branchSalesData = useMemo(() => {
-    if (!isSuperAdmin) return [];
-    const branchMap: Record<string, number> = {};
-    orders.forEach((order) => {
-      const branch = (order as any).branch || "Unknown";
-      branchMap[branch] = (branchMap[branch] || 0) + order.total;
-    });
-    return Object.entries(branchMap).map(([name, value]) => ({ name, value }));
-  }, [orders, isSuperAdmin]);
+  const { dailySales, monthlySales, totalReceivables, lowStockCount } = kpi;
+  const branchSalesData = branchContribution;
 
   const COLORS = ["#2563eb", "#7c3aed", "#db2777", "#ea580c"];
 
@@ -509,11 +413,11 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
             Pesanan Terbaru
           </h2>
-          {orders.length === 0 ? (
+          {recentOrders.length === 0 ? (
             <p className="text-gray-500 text-center py-8">Belum ada pesanan</p>
           ) : (
             <div className="space-y-3">
-              {orders.slice(0, 15).map((order) => (
+              {recentOrders.slice(0, 15).map((order: any) => (
                   <div
                     key={order.id}
                     className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"

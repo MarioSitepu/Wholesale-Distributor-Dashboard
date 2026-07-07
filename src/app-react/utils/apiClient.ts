@@ -23,24 +23,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   const parseErrorMessage = async () => {
-    const contentType = response.headers.get('Content-Type') || '';
     const text = await response.text();
-
-    if (contentType.includes('application/json')) {
-      try {
-        const parsed = JSON.parse(text);
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
         return parsed.message || parsed.error || text;
-      } catch {
-        return text;
       }
+    } catch {
+      // Ignored
     }
-
     return text;
   };
 
   if (!response.ok) {
     if (response.status === 401) {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         localStorage.removeItem('token');
         localStorage.removeItem('wholesale_auth_session');
         window.location.href = '/login';

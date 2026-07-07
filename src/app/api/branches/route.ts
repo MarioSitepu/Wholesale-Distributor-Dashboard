@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+export const revalidate = 86400; // Cache selama 24 jam
 import { NextResponse } from 'next/server';
 import { BranchService } from '../../../backend/services/branch.service';
 import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../backend/utils/authHelper';

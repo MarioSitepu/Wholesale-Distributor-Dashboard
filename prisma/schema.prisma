@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,8 +7,6 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
-
-// ─── User / Account ───────────────────────────────────────────────────────────
 
 model User {
   username  String   @id
@@ -23,16 +18,12 @@ model User {
   @@map("users")
 }
 
-// ─── Branch ───────────────────────────────────────────────────────────────────
-
 model Branch {
   id   String @id
   name String @unique
 
   @@map("branches")
 }
-
-// ─── Category ─────────────────────────────────────────────────────────────────
 
 model Category {
   id   String @id @default(cuid())
@@ -41,59 +32,47 @@ model Category {
   @@map("categories")
 }
 
-// ─── Product ──────────────────────────────────────────────────────────────────
-
 model Product {
-  id           String  @id
-  name         String
-  categoryName String
-  price        Decimal @db.Decimal(15, 2)
-  branch       String
-
-  stockItems      StockItem[]
+  id              String           @id
+  name            String
+  categoryName    String
+  price           Decimal          @db.Decimal(15, 2)
+  branch          String
   orderItems      OrderItem[]
   scheduledPrices ScheduledPrice[]
+  stockItems      StockItem[]
 
   @@map("products")
 }
-
-// ─── ScheduledPrice ───────────────────────────────────────────────────────────
 
 model ScheduledPrice {
   id        String   @id @default(cuid())
   productId String
   newPrice  Decimal  @db.Decimal(15, 2)
   startDate DateTime @db.Date
-
-  product Product @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
 
   @@map("scheduled_prices")
 }
 
-// ─── Store ────────────────────────────────────────────────────────────────────
-
 model Store {
-  id     String @id
-  name   String
-  branch String
-
+  id          String       @id
+  name        String
+  branch      String
   orders      Order[]
   receivables Receivable[]
 
   @@map("stores")
 }
 
-// ─── Order ────────────────────────────────────────────────────────────────────
-
 model Order {
-  id        String   @id
-  storeId   String
-  branch    String
-  total     Decimal  @db.Decimal(15, 2)
-  createdAt DateTime
-
-  store       Store        @relation(fields: [storeId], references: [id])
+  id          String       @id
+  storeId     String
+  branch      String
+  total       Decimal      @db.Decimal(15, 2)
+  createdAt   DateTime
   items       OrderItem[]
+  store       Store        @relation(fields: [storeId], references: [id])
   receivables Receivable[]
 
   @@map("orders")
@@ -106,14 +85,11 @@ model OrderItem {
   productName String
   quantity    Int
   price       Decimal @db.Decimal(15, 2)
-
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  order       Order   @relation(fields: [orderId], references: [id])
+  product     Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
 }
-
-// ─── Receivable ───────────────────────────────────────────────────────────────
 
 model Receivable {
   id      String   @id @default(cuid())
@@ -122,23 +98,19 @@ model Receivable {
   amount  Decimal  @db.Decimal(15, 2)
   dueDate DateTime
   isPaid  Boolean  @default(false)
-
-  store Store @relation(fields: [storeId], references: [id])
-  order Order @relation(fields: [orderId], references: [id])
+  order   Order    @relation(fields: [orderId], references: [id])
+  store   Store    @relation(fields: [storeId], references: [id])
 
   @@map("receivables")
 }
 
-// ─── Stock ────────────────────────────────────────────────────────────────────
-
 model StockItem {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   productId String
   branch    String
-  totalIn   Int    @default(0)
-  totalOut  Int    @default(0)
-
-  product Product @relation(fields: [productId], references: [id])
+  totalIn   Int     @default(0)
+  totalOut  Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id])
 
   @@unique([productId, branch])
   @@map("stock_items")

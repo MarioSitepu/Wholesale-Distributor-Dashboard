@@ -213,9 +213,9 @@ export class OrderService {
       throw Errors.badRequest('Format bulan tidak valid. Gunakan YYYY-MM');
     }
 
-    // Hitung tanggal 1 pada bulan tersebut. Kita ingin menghapus sebelum tanggal tersebut.
-    // Misalnya input 2026-07. Berarti hapus sebelum 2026-07-01.
-    const beforeDate = new Date(year, m - 1, 1);
+    // Kita ingin menghapus histori sampai dengan akhir bulan yang dipilih.
+    // Misalnya input 2026-07. Berarti hapus sebelum 2026-08-01.
+    const beforeDate = new Date(year, m, 1);
     
     return await this.orderRepo.deleteBeforeDate(beforeDate);
   }

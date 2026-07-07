@@ -26,7 +26,7 @@ export default function OrderPage() {
   const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
   
   const effectiveBranch = isSuperAdmin
-    ? activeBranch || "Palembang"
+    ? (activeBranch === "all" ? "" : (activeBranch || ""))
     : user?.branch || "Palembang";
 
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -58,21 +58,26 @@ export default function OrderPage() {
 
   const fetchInitialData = async () => {
     setIsLoading(true);
+    setStores([]);
+    setAllProducts([]);
+    setProducts([]);
     let productsRes: any[] = [];
     let storesRes: any[] = [];
     let branchesRes: any = { branches: [] };
     let categoriesRes: any = { categories: [] };
 
-    try {
-      productsRes = await api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
-    } catch (error: any) {
-      toast.error("Gagal memuat produk: " + (error.message || "Error"));
-    }
+    if (effectiveBranch) {
+      try {
+        productsRes = await api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
+      } catch (error: any) {
+        toast.error("Gagal memuat produk: " + (error.message || "Error"));
+      }
 
-    try {
-      storesRes = await api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
-    } catch (error: any) {
-      toast.error("Gagal memuat toko: " + (error.message || "Error"));
+      try {
+        storesRes = await api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
+      } catch (error: any) {
+        toast.error("Gagal memuat toko: " + (error.message || "Error"));
+      }
     }
 
     try {
@@ -376,7 +381,8 @@ export default function OrderPage() {
               <select
                 value={selectedStore}
                 onChange={(e) => handleStoreChange(e.target.value)}
-                className="border-none outline-none bg-transparent text-gray-900 cursor-pointer font-medium"
+                disabled={isSuperAdmin && !effectiveBranch}
+                className="border-none outline-none bg-transparent text-gray-900 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">Pilih Toko...</option>
                 {stores.map((store) => (
@@ -592,11 +598,12 @@ export default function OrderPage() {
                   <Store className="w-8 h-8 text-blue-600" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Pilih Toko Dahulu
+                  {isSuperAdmin && !effectiveBranch ? "Pilih Cabang Dahulu" : "Pilih Toko Dahulu"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  Silakan pilih toko pada menu di atas untuk mulai melihat stok
-                  dan melakukan pemesanan.
+                  {isSuperAdmin && !effectiveBranch 
+                    ? "Silakan pilih cabang pada menu di atas untuk memuat daftar toko."
+                    : "Silakan pilih toko pada menu di atas untuk mulai melihat stok dan melakukan pemesanan."}
                 </p>
               </div>
             </div>
