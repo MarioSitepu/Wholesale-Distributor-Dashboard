@@ -21,8 +21,8 @@ export class ProductService {
       totalItems = await this.productRepo.countByBranch(targetBranch, search, category);
     }
 
-    const data = rows.map((p) => {
-      const s = p.stockItems.find((si) => si.branch === targetBranch) ?? p.stockItems[0];
+    const data = rows.map((p: any) => {
+      const s = p.stockItems?.find((si: any) => si.branch === targetBranch) ?? p.stockItems?.[0];
       const totalIn = s?.totalIn ?? 0;
       const totalOut = s?.totalOut ?? 0;
       return {
