@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { z } from "zod";
 import {
   Product,
   Order,
@@ -25,6 +26,15 @@ import {
 import { toast } from "sonner";
 import { useAuthStore } from "../../../store/useAuthStore";
 
+const addProductSchema = z.object({
+  id: z.string().trim().min(1, "ID Produk wajib diisi"),
+  name: z.string().trim().min(1, "Nama Produk wajib diisi"),
+  category: z.string().trim().min(1, "Kategori wajib diisi"),
+  price: z.coerce.number().int().positive("Harga harus lebih dari 0"),
+  unitsPerCarton: z.coerce.number().int().min(0, "Jumlah unit per karton minimal 0"),
+  branch: z.string().trim().min(1, "Cabang wajib diisi"),
+});
+
 export default function ProductLedger() {
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.branch === "Pusat";
@@ -44,6 +54,7 @@ export default function ProductLedger() {
   const [newProductId, setNewProductId] = useState("");
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
+  const [newUnitsPerCarton, setNewUnitsPerCarton] = useState("0");
   const [newProductCategory, setNewProductCategory] = useState<string>("");
   const [categories, setCategories] = useState<string[]>([]);
   const [isManagingCategories, setIsManagingCategories] = useState(false);
@@ -125,18 +136,23 @@ export default function ProductLedger() {
   };
 
   const handleAddProduct = async () => {
-    if (!newProductId.trim() || !newProductName.trim() || !newProductPrice) {
-      toast.error("Semua field harus diisi");
+    const parsed = addProductSchema.safeParse({
+      id: newProductId.trim().toUpperCase(),
+      name: newProductName.trim(),
+      category: newProductCategory,
+      price: newProductPrice,
+      unitsPerCarton: newUnitsPerCarton,
+      branch: selectedBranch,
+    });
+
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message || "Validasi produk gagal");
       return;
     }
 
     try {
       const newProduct = await api.post<Product>('/api/products', {
-        id: newProductId.trim().toUpperCase(),
-        name: newProductName.trim(),
-        category: newProductCategory,
-        price: Number(newProductPrice),
-        branch: selectedBranch,
+        ...parsed.data,
       });
 
       setProducts([...products, newProduct]);
@@ -145,6 +161,7 @@ export default function ProductLedger() {
       setNewProductId("");
       setNewProductName("");
       setNewProductPrice("");
+      setNewUnitsPerCarton("0");
       setIsAddingProduct(false);
     } catch (error: any) {
       toast.error(error.message || "Gagal menambahkan produk");
@@ -393,12 +410,28 @@ export default function ProductLedger() {
                       </label>
                       <input
                         type="number"
+                        min={0}
+                        step="1"
                         placeholder="0"
                         className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-bold text-blue-600"
                         value={newProductPrice}
                         onChange={(e) => setNewProductPrice(e.target.value)}
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">
+                      JUMLAH UNIT PER KARTON
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="1"
+                      placeholder="Contoh: 24"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-bold text-blue-600"
+                      value={newUnitsPerCarton}
+                      onChange={(e) => setNewUnitsPerCarton(e.target.value)}
+                    />
                   </div>
                 </div>
                 <button

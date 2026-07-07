@@ -20,6 +20,7 @@ export interface Product {
   name: string;
   category: string;
   price: number;
+  unitsPerCarton: number;
   stock: number;
   totalIn: number;
   totalOut: number;

@@ -11,7 +11,8 @@ const createProductSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   category: z.string().min(1),
-  price: z.number().positive(),
+  price: z.coerce.number().positive(),
+  unitsPerCarton: z.coerce.number().int().min(0).default(0),
   branch: z.string().optional(),
 });
 

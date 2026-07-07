@@ -23,6 +23,7 @@ export class ProductRepository {
     name: string;
     categoryName: string;
     price: number;
+    unitsPerCarton: number;
     branch: string;
   }) {
     return prisma.product.create({
@@ -31,6 +32,7 @@ export class ProductRepository {
         name: data.name,
         categoryName: data.categoryName,
         price: data.price,
+        unitsPerCarton: data.unitsPerCarton,
         branch: data.branch,
         stockItems: {
           create: { branch: data.branch, totalIn: 0, totalOut: 0 },

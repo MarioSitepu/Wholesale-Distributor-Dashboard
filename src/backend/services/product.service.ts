@@ -18,6 +18,7 @@ export class ProductService {
         name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
         category: p.categoryName,
         price: Number(p.price),
+        unitsPerCarton: p.unitsPerCarton ?? 0,
         stock: totalIn - totalOut,
         totalIn,
         totalOut,
@@ -26,7 +27,7 @@ export class ProductService {
   }
 
   async createProduct(
-    data: { id: string; name: string; category: string; price: number; branch?: string },
+    data: { id: string; name: string; category: string; price: number; unitsPerCarton?: number; branch?: string },
     user: JwtPayload,
   ): Promise<Product> {
     const exists = await this.productRepo.existsById(data.id);
@@ -39,6 +40,7 @@ export class ProductService {
       name: data.name,
       categoryName: data.category,
       price: data.price,
+      unitsPerCarton: data.unitsPerCarton ?? 0,
       branch: targetBranch,
     });
 
@@ -48,6 +50,7 @@ export class ProductService {
       name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
       category: p.categoryName,
       price: Number(p.price),
+      unitsPerCarton: p.unitsPerCarton ?? 0,
       stock: 0,
       totalIn: s?.totalIn ?? 0,
       totalOut: s?.totalOut ?? 0,
@@ -75,6 +78,7 @@ export class ProductService {
       name: p.name ? p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim() : `Produk ${p.id}`,
       category: p.categoryName,
       price: Number(p.price),
+      unitsPerCarton: p.unitsPerCarton ?? 0,
       stock: totalIn - totalOut,
       totalIn,
       totalOut,
