@@ -53,6 +53,7 @@ export default function StockManagement() {
     null,
   );
   const [stockAmount, setStockAmount] = useState("");
+  const [stockCartonAmount, setStockCartonAmount] = useState("0");
   const [stockAction, setStockAction] = useState<'add' | 'reduce'>('add');
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -157,9 +158,16 @@ export default function StockManagement() {
   const handleStockAction = async () => {
     if (!selectedProductKey || !stockAmount) return;
 
-    const amount = parseInt(stockAmount);
+    const amount = stockAction === 'add'
+      ? calculatedIncomingUnits
+      : calculatedOutgoingUnits;
     if (isNaN(amount) || amount <= 0) {
       toast.error("Jumlah stok tidak valid");
+      return;
+    }
+
+    if (stockAction === 'reduce' && amount > currentStock) {
+      toast.error("Jumlah barang keluar melebihi stok yang tersedia!");
       return;
     }
 
@@ -270,6 +278,7 @@ export default function StockManagement() {
     setStockAction(action);
     setShowStockModal(true);
     setStockAmount("");
+    setStockCartonAmount("0");
   };
 
   const getStockStatusColor = (stock: number) => {
@@ -292,6 +301,18 @@ export default function StockManagement() {
         p.id === id && (p.branch || user?.branch || "Palembang") === branch,
     );
   }, [selectedProductKey, products]);
+
+  const selectedUnitsPerCarton = Number(selectedProductData?.unitsPerCarton) || 0;
+  const cartonInputDisabled = stockAction === 'add' && selectedUnitsPerCarton === 0;
+  const currentStock = Number(selectedProductData?.stock) || 0;
+  const cartonUnits = cartonInputDisabled ? 0 : (Number(stockCartonAmount) || 0) * selectedUnitsPerCarton;
+  const calculatedIncomingUnits = stockAction === 'add'
+    ? (Number(stockAmount) || 0) + cartonUnits
+    : Number(stockAmount) || 0;
+  const calculatedOutgoingUnits = stockAction === 'reduce'
+    ? (Number(stockAmount) || 0) + cartonUnits
+    : Number(stockAmount) || 0;
+  const isOutgoingOverStock = stockAction === 'reduce' && calculatedOutgoingUnits > currentStock;
 
   return (
     <>
@@ -723,19 +744,90 @@ export default function StockManagement() {
               </div>
             )}
 
-            <div className="mb-8">
-              <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
-                {stockAction === 'add' ? 'Jumlah Unit Masuk' : 'Jumlah Unit Keluar'}
-              </label>
-              <input
-                type="number"
-                value={stockAmount}
-                onChange={(e) => setStockAmount(e.target.value)}
-                className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-bold"
-                placeholder="0"
-                min="1"
-                autoFocus
-              />
+            <div className="mb-8 space-y-4">
+              {stockAction === 'add' && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                    Jumlah Karton Masuk
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stockCartonAmount}
+                    onChange={(e) => setStockCartonAmount(e.target.value)}
+                    className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    placeholder={
+                      cartonInputDisabled
+                        ? "0"
+                        : `Contoh: 5 karton (isi ${selectedUnitsPerCarton} unit/karton)`
+                    }
+                    disabled={cartonInputDisabled}
+                    readOnly={cartonInputDisabled}
+                  />
+                  {cartonInputDisabled && (
+                    <p className="mt-2 text-xs text-gray-500 ml-1">
+                      Karton dinonaktifkan karena isi per karton = 0
+                    </p>
+                  )}
+                </div>
+              )}
+              {stockAction === 'reduce' && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                    Jumlah Karton Keluar
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stockCartonAmount}
+                    onChange={(e) => setStockCartonAmount(e.target.value)}
+                    className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none transition-all text-lg font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    placeholder={
+                      cartonInputDisabled
+                        ? "0"
+                        : `Contoh: 1 karton (isi ${selectedUnitsPerCarton} unit/karton)`
+                    }
+                    disabled={cartonInputDisabled}
+                    readOnly={cartonInputDisabled}
+                  />
+                  {cartonInputDisabled && (
+                    <p className="mt-2 text-xs text-gray-500 ml-1">
+                      Karton dinonaktifkan karena isi per karton = 0
+                    </p>
+                  )}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                  {stockAction === 'add' ? 'Jumlah Unit Masuk' : 'Jumlah Unit Keluar'}
+                </label>
+                <input
+                  type="number"
+                  value={stockAmount}
+                  onChange={(e) => setStockAmount(e.target.value)}
+                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-bold"
+                  placeholder="0"
+                  min={0}
+                  autoFocus
+                />
+              </div>
+              {stockAction === 'add' && (
+                <p className="text-xs text-gray-500 ml-1">
+                  Total unit masuk: {calculatedIncomingUnits}
+                </p>
+              )}
+              {stockAction === 'reduce' && (
+                <>
+                  <p className="text-xs text-gray-500 ml-1">
+                    Total unit keluar: {calculatedOutgoingUnits}
+                  </p>
+                  {isOutgoingOverStock && (
+                    <p className="text-xs font-bold text-rose-600 ml-1">
+                      Jumlah barang keluar melebihi stok yang tersedia!
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -751,10 +843,13 @@ export default function StockManagement() {
               </button>
               <button
                 onClick={handleStockAction}
+                disabled={stockAction === 'reduce' && isOutgoingOverStock}
                 className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 ${
-                  stockAction === 'add' 
-                    ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' 
-                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                  stockAction === 'reduce'
+                    ? isOutgoingOverStock
+                      ? 'bg-rose-300 shadow-none cursor-not-allowed'
+                      : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
                 }`}
               >
                 Konfirmasi {stockAction === 'add' ? 'Masuk' : 'Keluar'}

@@ -264,93 +264,6 @@ export default function OrderPage() {
     return sum + (product?.price || 0) * item.quantity;
   }, 0);
 
-  const getProductUnitsPerCarton = (productId: string) => {
-    const product = allProducts.find((p) => p.id === productId);
-    return Number(product?.unitsPerCarton) || 0;
-  };
-
-  const getCartDisplayValues = (productId: string, quantity: number) => {
-    const unitsPerCarton = getProductUnitsPerCarton(productId);
-    if (unitsPerCarton <= 0) {
-      return { unitsPerCarton: 0, cartons: 0, units: quantity };
-    }
-
-    return {
-      unitsPerCarton,
-      cartons: Math.floor(quantity / unitsPerCarton),
-      units: quantity % unitsPerCarton,
-    };
-  };
-
-  const updateCartQuantity = (productId: string, nextQuantity: number, stock: number) => {
-    const safeQuantity = Math.max(0, Math.min(stock, Math.floor(nextQuantity)));
-    if (safeQuantity <= 0) {
-      removeCartItem(productId);
-      setDraftQuantities((current) => {
-        const next = { ...current };
-        delete next[productId];
-        return next;
-      });
-      return;
-    }
-
-    setDraftQuantities((current) => {
-      const next = { ...current };
-      delete next[productId];
-      return next;
-    });
-    setCartQuantity(productId, safeQuantity);
-  };
-
-  const handleCartonQuantityChange = (
-    productId: string,
-    cartonValue: string,
-    stock: number,
-  ) => {
-    const unitsPerCarton = getProductUnitsPerCarton(productId);
-    if (unitsPerCarton <= 0) return;
-
-    const parsedCarton = Number(cartonValue);
-    if (Number.isNaN(parsedCarton)) return;
-
-    const currentQuantity = getCartQuantity(productId);
-    const currentUnits = currentQuantity % unitsPerCarton;
-    updateCartQuantity(
-      productId,
-      (Math.max(0, Math.floor(parsedCarton)) * unitsPerCarton) + currentUnits,
-      stock,
-    );
-  };
-
-  const handleUnitQuantityChange = (
-    productId: string,
-    unitValue: string,
-    stock: number,
-  ) => {
-    const unitsPerCarton = getProductUnitsPerCarton(productId);
-    const parsedUnit = Number(unitValue);
-    if (Number.isNaN(parsedUnit)) return;
-
-    const currentQuantity = getCartQuantity(productId);
-    const currentCartons = unitsPerCarton > 0
-      ? Math.floor(currentQuantity / unitsPerCarton)
-      : 0;
-    updateCartQuantity(
-      productId,
-      (currentCartons * unitsPerCarton) + Math.max(0, Math.floor(parsedUnit)),
-      stock,
-    );
-  };
-
-  const handleUnitQuantityStep = (
-    productId: string,
-    delta: number,
-    stock: number,
-  ) => {
-    const currentQuantity = getCartQuantity(productId);
-    updateCartQuantity(productId, currentQuantity + delta, stock);
-  };
-
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error("Keranjang kosong");
@@ -767,103 +680,56 @@ export default function OrderPage() {
                       );
                       if (!product) return null;
 
-                      const displayValues = getCartDisplayValues(item.productId, item.quantity);
-                      const isCartonFrozen = displayValues.unitsPerCarton <= 0;
-
                       return (
                         <div
                           key={item.productId}
-                          className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full bg-gray-50 p-4 rounded-lg"
+                          className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg"
                         >
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900">
                               {product.name}
                             </h3>
                             <p className="text-sm text-gray-500">
                               Rp {product.price.toLocaleString("id-ID")}
                             </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              (Isi {displayValues.unitsPerCarton} unit/karton)
-                            </p>
                           </div>
-                          <div className="flex items-center gap-6 flex-wrap md:flex-nowrap md:justify-end">
-                            <div className="flex flex-col items-center gap-1 shrink-0">
-                              <label className="block text-[10px] font-bold text-gray-400 uppercase">
-                                Karton
-                              </label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={displayValues.cartons}
-                                onChange={(event) =>
-                                  handleCartonQuantityChange(
-                                    item.productId,
-                                    event.target.value,
-                                    product.stock,
-                                  )
-                                }
-                                disabled={isCartonFrozen}
-                                readOnly={isCartonFrozen}
-                                className="font-medium w-14 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                aria-label={`Jumlah karton ${product.name}`}
-                              />
-                            </div>
-                            <div className="flex flex-col items-center gap-1 shrink-0">
-                              <label className="block text-[10px] font-bold text-gray-400 uppercase">
-                                Unit
-                              </label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() =>
-                                    handleUnitQuantityStep(
-                                      item.productId,
-                                      -1,
-                                      product.stock,
-                                    )
-                                  }
-                                  className="bg-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 shrink-0"
-                                >
-                                  <Minus className="w-4 h-4" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={displayValues.unitsPerCarton > 0 ? displayValues.unitsPerCarton - 1 : product.stock}
-                                  value={displayValues.units}
-                                  onChange={(event) =>
-                                    handleUnitQuantityChange(
-                                      item.productId,
-                                      event.target.value,
-                                      product.stock,
-                                    )
-                                  }
-                                  className="font-medium w-14 shrink-0 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  aria-label={`Jumlah unit ${product.name}`}
-                                />
-                                <button
-                                  onClick={() =>
-                                    handleUnitQuantityStep(
-                                      item.productId,
-                                      1,
-                                      product.stock,
-                                    )
-                                  }
-                                  className="bg-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 shrink-0"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                            <div className="text-right min-w-[100px] shrink-0 font-semibold text-gray-900 whitespace-nowrap">
-                              Rp {(product.price * item.quantity).toLocaleString("id-ID")}
-                            </div>
+                          <div className="flex items-center gap-3">
                             <button
-                              onClick={() => removeFromCart(item.productId)}
-                              className="text-red-600 hover:text-red-700 shrink-0"
+                              onClick={() => decreaseQuantity(item.productId)}
+                              className="bg-white p-3 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200"
                             >
-                              <X className="w-5 h-5" />
+                              <Minus className="w-4 h-4 md:w-4 md:h-4" />
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={product.stock}
+                              value={getDisplayQuantity(item.productId, item.quantity)}
+                              onFocus={handleQuantityFocus(item.productId, item.quantity)}
+                              onChange={handleQuantityChange(item.productId)}
+                              onBlur={handleQuantityBlur(item.productId, product.stock)}
+                              className="font-medium w-16 shrink-0 text-center text-lg md:text-base bg-transparent border border-gray-300 rounded-lg px-2 py-1 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              aria-label={`Jumlah ${product.name}`}
+                            />
+                            <button
+                              onClick={() => addToCart(item.productId)}
+                              className="bg-white p-3 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200"
+                            >
+                              <Plus className="w-4 h-4 md:w-4 md:h-4" />
                             </button>
                           </div>
+                          <div className="font-semibold text-gray-900 w-32 text-right">
+                            Rp{" "}
+                            {(product.price * item.quantity).toLocaleString(
+                              "id-ID",
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeFromCart(item.productId)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
                         </div>
                       );
                     })}

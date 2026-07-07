@@ -86,6 +86,7 @@ export interface StockItem {
   id: string;
   name: string;
   category: string;
+  unitsPerCarton: number;
   totalIn: number;
   totalOut: number;
   stock: number;
