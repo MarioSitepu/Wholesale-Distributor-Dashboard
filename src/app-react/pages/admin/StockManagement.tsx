@@ -57,6 +57,7 @@ export default function StockManagement() {
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -226,65 +227,98 @@ export default function StockManagement() {
     }
   };
 
-  const handleExportExcel = () => {
-    if (filteredProducts.length === 0) return;
+  const handleExportExcel = async () => {
+    if (totalItems === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
 
-    const headers = isSuperAdmin
-      ? [
-          "Cabang",
-          "ID Produk",
-          "Nama Produk",
-          "Kategori",
-          "Total Masuk",
-          "Total Keluar",
-          "Stok Saat Ini",
-        ]
-      : [
-          "ID Produk",
-          "Nama Produk",
-          "Kategori",
-          "Total Masuk",
-          "Total Keluar",
-          "Stok Saat Ini",
+    setIsExporting(true);
+    const loadingToast = toast.loading("Sedang menyiapkan data Export...");
+
+    try {
+      const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+      const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
+      const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+      
+      // Fetch all items (up to 1000000)
+      const res = await api.get<any>(`/api/inventory?branch=${branchFilter}&page=1&limit=1000000${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`);
+      
+      let itemsToExport = [];
+      if (res && res.data) {
+        itemsToExport = res.data;
+      } else if (Array.isArray(res)) {
+        itemsToExport = res;
+      }
+
+      if (itemsToExport.length === 0) {
+        toast.error("Tidak ada data untuk diekspor", { id: loadingToast });
+        return;
+      }
+
+      const headers = isSuperAdmin
+        ? [
+            "Cabang",
+            "ID Produk",
+            "Nama Produk",
+            "Kategori",
+            "Total Masuk",
+            "Total Keluar",
+            "Stok Saat Ini",
+          ]
+        : [
+            "ID Produk",
+            "Nama Produk",
+            "Kategori",
+            "Total Masuk",
+            "Total Keluar",
+            "Stok Saat Ini",
+          ];
+
+      const rows = itemsToExport.map((product: any) => {
+        const base = [
+          product.id,
+          product.name,
+          product.category,
+          product.totalIn,
+          product.totalOut,
+          product.stock,
         ];
+        return isSuperAdmin
+          ? [product.branch || user?.branch || "Palembang", ...base]
+          : base;
+      });
 
-    const rows = filteredProducts.map((product) => {
-      const base = [
-        product.id,
-        product.name,
-        product.category,
-        product.totalIn,
-        product.totalOut,
-        product.stock,
-      ];
-      return isSuperAdmin
-        ? [product.branch || user?.branch || "Palembang", ...base]
-        : base;
-    });
+      const alignments: ("left" | "center" | "right")[] = isSuperAdmin
+        ? ["center", "center", "left", "left", "center", "center", "center"]
+        : ["center", "left", "left", "center", "center", "center"];
 
-    const alignments: ("left" | "center" | "right")[] = isSuperAdmin
-      ? ["center", "center", "left", "left", "center", "center", "center"]
-      : ["center", "left", "left", "center", "center", "center"];
+      const types: ("text" | "number" | "currency")[] = isSuperAdmin
+        ? ["text", "text", "text", "text", "number", "number", "number"]
+        : ["text", "text", "text", "number", "number", "number"];
 
-    const types: ("text" | "number" | "currency")[] = isSuperAdmin
-      ? ["text", "text", "text", "text", "number", "number", "number"]
-      : ["text", "text", "text", "number", "number", "number"];
+      const filename =
+        isSuperAdmin && branchFilter !== "all"
+          ? `Stok_${branchFilter}.xls`
+          : "Stok_Gudang_Semua.xls";
 
-    const filename =
-      isSuperAdmin && branchFilter !== "all"
-        ? `Stok_${branchFilter}.xls`
-        : "Stok_Gudang_Semua.xls";
-
-    exportToExcel({
-      filename,
-      title: "LAPORAN STOK GUDANG",
-      subtitle: `Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch || "Palembang"}`,
-      headers,
-      rows,
-      alignments,
-      types,
-      showTotalRow: false,
-    });
+      exportToExcel({
+        filename,
+        title: "LAPORAN STOK GUDANG",
+        subtitle: `Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch || "Palembang"}`,
+        headers,
+        rows,
+        alignments,
+        types,
+        showTotalRow: false,
+      });
+      
+      toast.success("Berhasil mengekspor data!", { id: loadingToast });
+    } catch (error: any) {
+      toast.error("Gagal mengekspor data: " + (error.message || "Error"), { id: loadingToast });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const openStockModal = (productKey: string, action: 'add' | 'reduce') => {
@@ -369,11 +403,15 @@ export default function StockManagement() {
 
               <button
                 onClick={handleExportExcel}
-                disabled={filteredProducts.length === 0}
+                disabled={totalItems === 0 || isExporting}
                 className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-2xl hover:bg-emerald-700 transition-all shadow-sm hover:shadow-md active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed font-bold text-sm"
               >
-                <Download className="w-4 h-4" />
-                Export Excel
+                {isExporting ? (
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {isExporting ? "Mengekspor..." : "Export Excel"}
               </button>
             </div>
           </div>
