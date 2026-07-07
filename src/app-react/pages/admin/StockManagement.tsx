@@ -56,6 +56,7 @@ export default function StockManagement() {
   const [stockAction, setStockAction] = useState<'add' | 'reduce'>('add');
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check Product State
   const [showCheckProductModal, setShowCheckProductModal] = useState(false);
@@ -155,7 +156,7 @@ export default function StockManagement() {
   }, [products, searchQuery, selectedStockStatus, selectedCategory]);
 
   const handleStockAction = async () => {
-    if (!selectedProductKey || !stockAmount) return;
+    if (!selectedProductKey || !stockAmount || isSubmitting) return;
 
     const amount = parseInt(stockAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -168,6 +169,7 @@ export default function StockManagement() {
     const id = sProductParts[1];
 
     try {
+      setIsSubmitting(true);
       const updatedStock = await api.post<any>('/api/inventory', {
         productId: id,
         branch: branch,
@@ -189,6 +191,8 @@ export default function StockManagement() {
       toast.success(`Berhasil ${stockAction === 'add' ? 'menambah' : 'mengurangi'} stok ${updatedStock.name}`);
     } catch (error: any) {
       toast.error(error.message || `Gagal ${stockAction === 'add' ? 'menambah' : 'mengurangi'} stok`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -741,23 +745,33 @@ export default function StockManagement() {
             <div className="flex gap-3">
               <button
                 onClick={() => {
+                  if (isSubmitting) return;
                   setShowStockModal(false);
                   setSelectedProductKey(null);
                   setStockAmount("");
                 }}
-                className="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
+                disabled={isSubmitting}
+                className="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Batal
               </button>
               <button
                 onClick={handleStockAction}
-                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 ${
+                disabled={isSubmitting}
+                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
                   stockAction === 'add' 
                     ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' 
                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
                 }`}
               >
-                Konfirmasi {stockAction === 'add' ? 'Masuk' : 'Keluar'}
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Memproses...
+                  </span>
+                ) : (
+                  `Konfirmasi ${stockAction === 'add' ? 'Masuk' : 'Keluar'}`
+                )}
               </button>
             </div>
           </div>

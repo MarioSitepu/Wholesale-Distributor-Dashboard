@@ -51,6 +51,7 @@ export default function OrderPage() {
     new Date().toLocaleDateString("en-CA"),
   );
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setCurrentBranch(effectiveBranch);
@@ -270,8 +271,8 @@ export default function OrderPage() {
   }, 0);
 
   const handleCheckout = async () => {
-    if (cart.length === 0) {
-      toast.error("Keranjang kosong");
+    if (cart.length === 0 || isSubmitting) {
+      if (cart.length === 0) toast.error("Keranjang kosong");
       return;
     }
     if (!selectedStore) {
@@ -307,8 +308,10 @@ export default function OrderPage() {
       createdAt: new Date(orderDate).toISOString(),
     };
 
+    let toastId;
     try {
-      const toastId = toast.loading("Sedang memproses pesanan...");
+      setIsSubmitting(true);
+      toastId = toast.loading("Sedang memproses pesanan...");
       await api.post('/api/orders', newOrder);
       toast.success("Pesanan Berhasil Dibuat!", {
         id: toastId,
@@ -328,7 +331,11 @@ export default function OrderPage() {
       // Refresh produk agar sisa stok terbaru tampil
       fetchInitialData();
     } catch (error: any) {
-      toast.error(error.message || "Gagal menyimpan pesanan. Silakan coba lagi.");
+      toast.error(error.message || "Gagal menyimpan pesanan. Silakan coba lagi.", {
+        id: toastId,
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -755,10 +762,17 @@ export default function OrderPage() {
                 </div>
                 <button
                   onClick={handleCheckout}
-                  disabled={cart.length === 0}
+                  disabled={cart.length === 0 || isSubmitting}
                   className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
                 >
-                  Checkout
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Memproses...
+                    </span>
+                  ) : (
+                    "Checkout"
+                  )}
                 </button>
               </div>
             </motion.div>
