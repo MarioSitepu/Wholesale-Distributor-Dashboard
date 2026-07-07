@@ -30,7 +30,7 @@ export class StockService {
       category
     );
 
-    let data = rows.map((s) => ({
+    let data = rows.map((s: any) => ({
       id: s.productId,
       name: s.product?.name ? s.product.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim() : `Produk ${s.productId}`,
       category: s.product?.categoryName || 'Tanpa Kategori',
