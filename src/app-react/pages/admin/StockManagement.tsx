@@ -57,11 +57,32 @@ export default function StockManagement() {
   const [stockAction, setStockAction] = useState<'add' | 'reduce'>('add');
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Check Product State
   const [showCheckProductModal, setShowCheckProductModal] = useState(false);
   const [checkProductId, setCheckProductId] = useState("");
   const [checkProductResult, setCheckProductResult] = useState<any>(null);
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedStockStatus, selectedCategory, branchFilter]);
 
   // Security Check: Mencegah manipulasi state oleh Admin biasa
   useEffect(() => {
@@ -92,29 +113,50 @@ export default function StockManagement() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-        let stockRes: any = [];
+        let stockRes: any = { data: [], totalPages: 1, totalItems: 0 };
         let catRes: any = { categories: [] };
         let branchesRes: any = { branches: [] };
 
         try {
-          stockRes = await api.get<any[]>(`/api/inventory?branch=${branchFilter}&_t=${Date.now()}`);
+          const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+          const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
+          const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+          
+          const [stockResRaw, catResRaw, branchesResRaw] = await Promise.all([
+            api.get<any>(`/api/inventory?branch=${branchFilter}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`).catch((e) => {
+              toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
+              return { data: [], totalPages: 1, totalItems: 0 };
+            }),
+            api.get<{ categories: string[] }>('/api/categories').catch((e) => {
+              console.error("Kategori error:", e);
+              return { categories: [] };
+            }),
+            api.get<{ branches: string[] }>('/api/branches').catch((e) => {
+              console.error("Cabang error:", e);
+              return { branches: [] };
+            })
+          ]);
+          stockRes = stockResRaw;
+          catRes = catResRaw;
+          branchesRes = branchesResRaw;
         } catch (e: any) {
-          toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
+          console.error(e);
         }
 
-        try {
-          catRes = await api.get<{ categories: string[] }>('/api/categories');
-        } catch (e: any) {
-          console.error("Kategori error:", e);
+        if (stockRes && stockRes.data) {
+          setProducts(stockRes.data);
+          setTotalPages(stockRes.totalPages || 1);
+          setTotalItems(stockRes.totalItems || 0);
+        } else if (Array.isArray(stockRes)) {
+          setProducts(stockRes);
+          setTotalPages(1);
+          setTotalItems(stockRes.length);
+        } else {
+          setProducts([]);
+          setTotalPages(1);
+          setTotalItems(0);
         }
-
-        try {
-          branchesRes = await api.get<{ branches: string[] }>('/api/branches');
-        } catch (e: any) {
-          console.error("Cabang error:", e);
-        }
-
-        setProducts(Array.isArray(stockRes) ? stockRes : []);
+        
         setCategoriesList(catRes?.categories ? catRes.categories.map((c: any) => c.name || c) : []);
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
@@ -122,41 +164,19 @@ export default function StockManagement() {
         setIsLoading(false);
     };
     fetchData();
-  }, [branchFilter, selectedCategory]);
+  }, [branchFilter, effectiveSelectedCategory, currentPage, debouncedSearch, selectedStockStatus]);
 
   const categories = useMemo(() => {
     return ["all", ...categoriesList];
   }, [categoriesList]);
 
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-    return products.filter((p) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        p.name.toLowerCase().includes(normalizedSearch) ||
-        p.id.toLowerCase().includes(normalizedSearch);
-
-      const stock = Number(p.stock) || 0;
-      const matchesStockStatus = isAllStockStatusSelected(selectedStockStatus)
-        ? true
-        : selectedStockStatus === "normal"
-          ? stock > 49
-          : selectedStockStatus === "low"
-            ? stock > 0 && stock < 50
-            : selectedStockStatus === "empty"
-              ? stock === 0
-              : true;
-
-      const matchesCategory = isAllCategoriesSelected(selectedCategory)
-        ? true
-        : p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase();
-
-      return matchesSearch && matchesStockStatus && matchesCategory;
-    });
-  }, [products, searchQuery, selectedStockStatus, selectedCategory]);
+  // paginatedProducts is now directly products because pagination is server-side
+  const paginatedProducts = products;
+  // filteredProducts is used for export (current page only)
+  const filteredProducts = products;
 
   const handleStockAction = async () => {
-    if (!selectedProductKey || !stockAmount) return;
+    if (!selectedProductKey || !stockAmount || isSubmitting) return;
 
     const amount = stockAction === 'add'
       ? calculatedIncomingUnits
@@ -176,6 +196,7 @@ export default function StockManagement() {
     const id = sProductParts[1];
 
     try {
+      setIsSubmitting(true);
       const updatedStock = await api.post<any>('/api/inventory', {
         productId: id,
         branch: branch,
@@ -197,6 +218,8 @@ export default function StockManagement() {
       toast.success(`Berhasil ${stockAction === 'add' ? 'menambah' : 'mengurangi'} stok ${updatedStock.name}`);
     } catch (error: any) {
       toast.error(error.message || `Gagal ${stockAction === 'add' ? 'menambah' : 'mengurangi'} stok`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -212,65 +235,98 @@ export default function StockManagement() {
     }
   };
 
-  const handleExportExcel = () => {
-    if (filteredProducts.length === 0) return;
+  const handleExportExcel = async () => {
+    if (totalItems === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
 
-    const headers = isSuperAdmin
-      ? [
-          "Cabang",
-          "ID Produk",
-          "Nama Produk",
-          "Kategori",
-          "Total Masuk",
-          "Total Keluar",
-          "Stok Saat Ini",
-        ]
-      : [
-          "ID Produk",
-          "Nama Produk",
-          "Kategori",
-          "Total Masuk",
-          "Total Keluar",
-          "Stok Saat Ini",
+    setIsExporting(true);
+    const loadingToast = toast.loading("Sedang menyiapkan data Export...");
+
+    try {
+      const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+      const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
+      const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+      
+      // Fetch all items (up to 1000000)
+      const res = await api.get<any>(`/api/inventory?branch=${branchFilter}&page=1&limit=1000000${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`);
+      
+      let itemsToExport = [];
+      if (res && res.data) {
+        itemsToExport = res.data;
+      } else if (Array.isArray(res)) {
+        itemsToExport = res;
+      }
+
+      if (itemsToExport.length === 0) {
+        toast.error("Tidak ada data untuk diekspor", { id: loadingToast });
+        return;
+      }
+
+      const headers = isSuperAdmin
+        ? [
+            "Cabang",
+            "ID Produk",
+            "Nama Produk",
+            "Kategori",
+            "Total Masuk",
+            "Total Keluar",
+            "Stok Saat Ini",
+          ]
+        : [
+            "ID Produk",
+            "Nama Produk",
+            "Kategori",
+            "Total Masuk",
+            "Total Keluar",
+            "Stok Saat Ini",
+          ];
+
+      const rows = itemsToExport.map((product: any) => {
+        const base = [
+          product.id,
+          product.name,
+          product.category,
+          product.totalIn,
+          product.totalOut,
+          product.stock,
         ];
+        return isSuperAdmin
+          ? [product.branch || user?.branch || "Palembang", ...base]
+          : base;
+      });
 
-    const rows = filteredProducts.map((product) => {
-      const base = [
-        product.id,
-        product.name,
-        product.category,
-        product.totalIn,
-        product.totalOut,
-        product.stock,
-      ];
-      return isSuperAdmin
-        ? [product.branch || user?.branch || "Palembang", ...base]
-        : base;
-    });
+      const alignments: ("left" | "center" | "right")[] = isSuperAdmin
+        ? ["center", "center", "left", "left", "center", "center", "center"]
+        : ["center", "left", "left", "center", "center", "center"];
 
-    const alignments: ("left" | "center" | "right")[] = isSuperAdmin
-      ? ["center", "center", "left", "left", "center", "center", "center"]
-      : ["center", "left", "left", "center", "center", "center"];
+      const types: ("text" | "number" | "currency")[] = isSuperAdmin
+        ? ["text", "text", "text", "text", "number", "number", "number"]
+        : ["text", "text", "text", "number", "number", "number"];
 
-    const types: ("text" | "number" | "currency")[] = isSuperAdmin
-      ? ["text", "text", "text", "text", "number", "number", "number"]
-      : ["text", "text", "text", "number", "number", "number"];
+      const filename =
+        isSuperAdmin && branchFilter !== "all"
+          ? `Stok_${branchFilter}.xls`
+          : "Stok_Gudang_Semua.xls";
 
-    const filename =
-      isSuperAdmin && branchFilter !== "all"
-        ? `Stok_${branchFilter}.xls`
-        : "Stok_Gudang_Semua.xls";
-
-    exportToExcel({
-      filename,
-      title: "LAPORAN STOK GUDANG",
-      subtitle: `Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch || "Palembang"}`,
-      headers,
-      rows,
-      alignments,
-      types,
-      showTotalRow: false,
-    });
+      exportToExcel({
+        filename,
+        title: "LAPORAN STOK GUDANG",
+        subtitle: `Cabang: ${isSuperAdmin ? (branchFilter === "all" ? "Semua Cabang" : branchFilter) : user?.branch || "Palembang"}`,
+        headers,
+        rows,
+        alignments,
+        types,
+        showTotalRow: false,
+      });
+      
+      toast.success("Berhasil mengekspor data!", { id: loadingToast });
+    } catch (error: any) {
+      toast.error("Gagal mengekspor data: " + (error.message || "Error"), { id: loadingToast });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const openStockModal = (productKey: string, action: 'add' | 'reduce') => {
@@ -368,11 +424,15 @@ export default function StockManagement() {
 
               <button
                 onClick={handleExportExcel}
-                disabled={filteredProducts.length === 0}
+                disabled={totalItems === 0 || isExporting}
                 className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-2xl hover:bg-emerald-700 transition-all shadow-sm hover:shadow-md active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed font-bold text-sm"
               >
-                <Download className="w-4 h-4" />
-                Export Excel
+                {isExporting ? (
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {isExporting ? "Mengekspor..." : "Export Excel"}
               </button>
             </div>
           </div>
@@ -532,7 +592,7 @@ export default function StockManagement() {
                       </div>
                     </td>
                   </tr>
-                ) : filteredProducts.map((product) => {
+                ) : paginatedProducts.map((product) => {
                   const branch = product.branch || user?.branch || "Palembang";
                   const uniqueKey = `${branch}|${product.id}`;
                   return (
@@ -605,7 +665,7 @@ export default function StockManagement() {
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                 <p className="text-gray-500 font-medium animate-pulse">Sedang memuat...</p>
               </div>
-            ) : filteredProducts.map((product) => {
+            ) : paginatedProducts.map((product) => {
               const branch = product.branch || user?.branch || "Palembang";
               const uniqueKey = `${branch}|${product.id}`;
               return (
@@ -673,6 +733,31 @@ export default function StockManagement() {
               );
             })}
           </div>
+
+          {/* Pagination Controls */}
+          {!isLoading && totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between flex-wrap gap-4">
+              <span className="text-sm text-gray-500 font-medium">
+                Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} dari {totalItems} produk
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
+                >
+                  Sebelumnya
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
+                >
+                  Selanjutnya
+                </button>
+              </div>
+            </div>
+          )}
 
           {!isLoading && filteredProducts.length === 0 && (
             <div className="py-20 text-center">
@@ -833,18 +918,20 @@ export default function StockManagement() {
             <div className="flex gap-3">
               <button
                 onClick={() => {
+                  if (isSubmitting) return;
                   setShowStockModal(false);
                   setSelectedProductKey(null);
                   setStockAmount("");
                 }}
-                className="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
+                disabled={isSubmitting}
+                className="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Batal
               </button>
               <button
                 onClick={handleStockAction}
-                disabled={stockAction === 'reduce' && isOutgoingOverStock}
-                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 ${
+                disabled={isSubmitting || (stockAction === 'reduce' && isOutgoingOverStock)}
+                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
                   stockAction === 'reduce'
                     ? isOutgoingOverStock
                       ? 'bg-rose-300 shadow-none cursor-not-allowed'
@@ -852,7 +939,14 @@ export default function StockManagement() {
                     : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
                 }`}
               >
-                Konfirmasi {stockAction === 'add' ? 'Masuk' : 'Keluar'}
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Memproses...
+                  </span>
+                ) : (
+                  `Konfirmasi ${stockAction === 'add' ? 'Masuk' : 'Keluar'}`
+                )}
               </button>
             </div>
           </div>

@@ -22,7 +22,16 @@ export async function GET(request: Request) {
     if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || 'all';
-    const products = await productService.getProducts(branch, user);
+    
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    const search = searchParams.get('search') || undefined;
+    const category = searchParams.get('category') || undefined;
+
+    const page = pageParam ? parseInt(pageParam) : undefined;
+    const limit = limitParam ? parseInt(limitParam) : undefined;
+
+    const products = await productService.getProducts(branch, user, page, limit, search, category);
     return NextResponse.json(products, { status: 200 });
   } catch (error) {
     return handleError(error);

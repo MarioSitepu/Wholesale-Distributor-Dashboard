@@ -30,17 +30,15 @@ export default function Login() {
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type') || '';
         const rawError = await response.text();
-        if (contentType.includes('application/json')) {
-          try {
-            const err = JSON.parse(rawError);
-            throw new Error(err.message || 'Username atau password salah');
-          } catch {
-            throw new Error(rawError || 'Username atau password salah');
+        try {
+          const err = JSON.parse(rawError);
+          if (err && typeof err === 'object' && err.message) {
+            throw new Error(err.message);
           }
+        } catch {
+          // Abaikan, lanjut ke baris berikutnya
         }
-
         throw new Error(rawError || 'Username atau password salah');
       }
 
@@ -60,7 +58,16 @@ export default function Login() {
         router.push("/admin");
       }, 500);
     } catch (error: any) {
-      toast.error(error.message || "Username atau password salah");
+      let errorMessage = error.message || "Username atau password salah";
+      if (typeof errorMessage === "string" && errorMessage.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(errorMessage);
+          if (parsed.message) errorMessage = parsed.message;
+        } catch (e) {
+          // Abaikan
+        }
+      }
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

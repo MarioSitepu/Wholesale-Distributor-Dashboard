@@ -28,6 +28,7 @@ export default function StoreLedger() {
   const setActiveBranch = useAppStore((state) => state.setActiveBranch);
   const branchFilter = isSuperAdmin ? activeBranch || "all" : user?.branch || "Palembang";
   const [branches, setBranches] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -66,6 +67,7 @@ export default function StoreLedger() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const [storesRes, ordersRes, branchesRes] = await Promise.all([
           api.get<Store[]>(`/api/stores?branch=${branchFilter}`),
@@ -79,6 +81,8 @@ export default function StoreLedger() {
         }
       } catch (error: any) {
         toast.error("Gagal memuat data: " + error.message);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchData();
@@ -233,7 +237,17 @@ export default function StoreLedger() {
             </div>
           </div>
           <div className="overflow-y-auto flex-1">
-            {filteredStores.map((store) => (
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                <p>Memuat daftar toko...</p>
+              </div>
+            ) : filteredStores.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                Tidak ada toko ditemukan
+              </div>
+            ) : (
+              filteredStores.map((store) => (
               <button
                 key={store.id}
                 onClick={() => {
@@ -273,12 +287,7 @@ export default function StoreLedger() {
                   </div>
                 </div>
               </button>
-            ))}
-            {filteredStores.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                Tidak ada toko ditemukan
-              </div>
-            )}
+            )))}
           </div>
         </div>
 

@@ -5,12 +5,24 @@ import { Errors } from '../utils/errors';
 export class ProductService {
   private productRepo = new ProductRepository();
 
-  async getProducts(branch: string, user: JwtPayload): Promise<Product[]> {
+  async getProducts(
+    branch: string, 
+    user: JwtPayload,
+    page?: number,
+    limit?: number,
+    search?: string,
+    category?: string
+  ): Promise<any> {
     const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
-    const rows = await this.productRepo.findByBranch(targetBranch);
+    const rows = await this.productRepo.findByBranch(targetBranch, page, limit, search, category);
 
-    return rows.map((p) => {
-      const s = p.stockItems.find((si) => si.branch === targetBranch) ?? p.stockItems[0];
+    let totalItems = 0;
+    if (page !== undefined && limit !== undefined) {
+      totalItems = await this.productRepo.countByBranch(targetBranch, search, category);
+    }
+
+    const data = rows.map((p: any) => {
+      const s = p.stockItems?.find((si: any) => si.branch === targetBranch) ?? p.stockItems?.[0];
       const totalIn = s?.totalIn ?? 0;
       const totalOut = s?.totalOut ?? 0;
       return {
@@ -24,6 +36,17 @@ export class ProductService {
         totalOut,
       };
     });
+
+    if (page !== undefined && limit !== undefined) {
+      return {
+        data,
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page
+      };
+    }
+
+    return data;
   }
 
   async createProduct(

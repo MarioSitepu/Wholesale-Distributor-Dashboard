@@ -24,6 +24,16 @@ export class OrderRepository {
     });
   }
 
+  async findByDateRange(branch: string, start: Date, end: Date) {
+    const where: Record<string, unknown> = { createdAt: { gte: start, lt: end } };
+    if (branch !== 'all') where.branch = branch;
+    
+    return prisma.order.findMany({
+      where,
+      select: { createdAt: true, total: true },
+    });
+  }
+
   async create(data: {
     id: string;
     storeId: string;

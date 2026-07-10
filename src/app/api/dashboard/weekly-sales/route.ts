@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
-    const data = await dashboardService.getWeeklySales(branch);
+    const data = await dashboardService.getSalesTrend(branch, 'minggu');
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
     return handleError(error);

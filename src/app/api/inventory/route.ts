@@ -12,8 +12,18 @@ export async function GET(request: Request) {
     if (!user) return handleUnauthorized();
     const { searchParams } = new URL(request.url);
     const branch = searchParams.get('branch') || user.branch;
-    const stocks = await stockService.getStock(branch, user);
-    console.log(`[GET /api/stock] branch=${branch}, userBranch=${user.branch}, targetBranch=${user.branch === 'Pusat' ? branch : user.branch}, resultCount=${stocks.length}`);
+    
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    const search = searchParams.get('search') || undefined;
+    const category = searchParams.get('category') || undefined;
+    const status = searchParams.get('status') || undefined;
+
+    const page = pageParam ? parseInt(pageParam) : undefined;
+    const limit = limitParam ? parseInt(limitParam) : undefined;
+
+    const stocks = await stockService.getStock(branch, user, page, limit, search, category, status);
+    console.log(`[GET /api/stock] branch=${branch}, userBranch=${user.branch}, targetBranch=${user.branch === 'Pusat' ? branch : user.branch}, resultCount=${Array.isArray(stocks) ? stocks.length : stocks.data.length}`);
     return NextResponse.json(stocks, { status: 200 });
   } catch (error) {
     return handleError(error);

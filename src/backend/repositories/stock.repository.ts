@@ -1,14 +1,67 @@
 import { prisma } from '../config/prisma';
 
 export class StockRepository {
-  async findByBranch(branch: string) {
+  async findByBranch(branch: string, page?: number, limit?: number, search?: string, category?: string, status?: string) {
     const isUniversal = branch === 'all' || branch === 'Pusat';
-    const where = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
-    return prisma.stockItem.findMany({
+    const where: any = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
+
+    const andConditions: any[] = [];
+    if (search) {
+      andConditions.push({
+        OR: [
+          { productId: { contains: search, mode: 'insensitive' } },
+          { product: { name: { contains: search, mode: 'insensitive' } } }
+        ]
+      });
+    }
+    if (category && category !== 'all' && category !== 'Semua Kategori') {
+      andConditions.push({
+        product: { categoryName: { equals: category, mode: 'insensitive' } }
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const query: any = {
       where,
       include: { product: true },
       orderBy: { product: { name: 'asc' } },
-    });
+    };
+
+    if (page !== undefined && limit !== undefined) {
+      query.skip = (page - 1) * limit;
+      query.take = limit;
+    }
+
+    return prisma.stockItem.findMany(query);
+  }
+
+  async countByBranch(branch: string, search?: string, category?: string): Promise<number> {
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where: any = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
+
+    const andConditions: any[] = [];
+    if (search) {
+      andConditions.push({
+        OR: [
+          { productId: { contains: search, mode: 'insensitive' } },
+          { product: { name: { contains: search, mode: 'insensitive' } } }
+        ]
+      });
+    }
+    if (category && category !== 'all' && category !== 'Semua Kategori') {
+      andConditions.push({
+        product: { categoryName: { equals: category, mode: 'insensitive' } }
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    return prisma.stockItem.count({ where });
   }
 
   async findByProductAndBranch(productId: string, branch: string) {

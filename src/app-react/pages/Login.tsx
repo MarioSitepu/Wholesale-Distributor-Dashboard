@@ -59,7 +59,16 @@ export default function Login() {
         navigate("/admin");
       }, 500);
     } catch (error: any) {
-      toast.error(error.message || "Username atau password salah");
+      let errorMessage = error.message || "Username atau password salah";
+      if (typeof errorMessage === "string" && errorMessage.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(errorMessage);
+          if (parsed.message) errorMessage = parsed.message;
+        } catch (e) {
+          // Abaikan jika bukan JSON valid
+        }
+      }
+      toast.error(errorMessage);
     }
   };
 

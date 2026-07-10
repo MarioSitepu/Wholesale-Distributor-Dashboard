@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -26,15 +26,35 @@ export default function OrderPage() {
   const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
   
   const effectiveBranch = isSuperAdmin
-    ? activeBranch || "Palembang"
+    ? (activeBranch === "all" ? "" : (activeBranch || ""))
     : user?.branch || "Palembang";
 
-  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [productCache, setProductCache] = useState<Map<string, any>>(new Map());
   const [stores, setStores] = useState<any[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
+
+  // Pagination & Search
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const itemsPerPage = 20;
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory]);
 
   const cart = useCartStore((state) => state.cart);
   const setCurrentBranch = useCartStore((state) => state.setCurrentBranch);
@@ -51,6 +71,7 @@ export default function OrderPage() {
     new Date().toLocaleDateString("en-CA"),
   );
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setCurrentBranch(effectiveBranch);
@@ -58,21 +79,17 @@ export default function OrderPage() {
 
   const fetchInitialData = async () => {
     setIsLoading(true);
-    let productsRes: any[] = [];
+    setStores([]);
     let storesRes: any[] = [];
     let branchesRes: any = { branches: [] };
     let categoriesRes: any = { categories: [] };
 
-    try {
-      productsRes = await api.get<any[]>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
-    } catch (error: any) {
-      toast.error("Gagal memuat produk: " + (error.message || "Error"));
-    }
-
-    try {
-      storesRes = await api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
-    } catch (error: any) {
-      toast.error("Gagal memuat toko: " + (error.message || "Error"));
+    if (effectiveBranch) {
+      try {
+        storesRes = await api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
+      } catch (error: any) {
+        toast.error("Gagal memuat toko: " + (error.message || "Error"));
+      }
     }
 
     try {
@@ -87,13 +104,6 @@ export default function OrderPage() {
       console.error("Gagal memuat kategori:", error);
     }
 
-    const mappedProducts = productsRes.map(p => ({
-      ...p,
-      categoryName: p.categoryName || p.category,
-      stock: p.stock !== undefined ? p.stock : (p.stockItems?.[0] ? (p.stockItems[0].totalIn - p.stockItems[0].totalOut) : 0)
-    }));
-
-    setAllProducts(mappedProducts);
     setStores(Array.isArray(storesRes) ? storesRes : []);
     
     // Ensure branches and categories format aligns with backend response
@@ -112,20 +122,59 @@ export default function OrderPage() {
     setIsLoading(false);
   };
 
+  const fetchProducts = async () => {
+    if (!effectiveBranch) return;
+    setIsProductsLoading(true);
+    try {
+      const categoryQuery = selectedCategory && selectedCategory !== 'Semua Kategori' ? `&category=${encodeURIComponent(selectedCategory)}` : '';
+      const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+      
+      const res = await api.get<any>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${searchQueryParam}&t=${Date.now()}`);
+      
+      let productsData = [];
+      let pages = 1;
+      
+      if (res && res.data) {
+        productsData = res.data;
+        pages = res.totalPages || 1;
+      } else if (Array.isArray(res)) {
+        productsData = res;
+      }
+      
+      const mappedProducts = productsData.map((p: any) => ({
+        ...p,
+        categoryName: p.categoryName || p.category,
+        stock: p.stock !== undefined ? p.stock : (p.stockItems?.[0] ? (p.stockItems[0].totalIn - p.stockItems[0].totalOut) : 0)
+      }));
+
+      setProducts(mappedProducts);
+      setTotalPages(pages);
+      
+      // Update cache
+      setProductCache(prev => {
+        const next = new Map(prev);
+        mappedProducts.forEach((p: any) => next.set(p.id, p));
+        return next;
+      });
+      
+    } catch (error: any) {
+      toast.error("Gagal memuat produk: " + (error.message || "Error"));
+    } finally {
+      setIsProductsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInitialData();
     clearCart();
     setSelectedStore("");
     setDraftQuantities({});
+    setProductCache(new Map());
   }, [effectiveBranch]);
 
   useEffect(() => {
-    if (!selectedCategory) {
-      setProducts(allProducts);
-    } else {
-      setProducts(allProducts.filter((p) => p.categoryName.toLowerCase() === selectedCategory.toLowerCase()));
-    }
-  }, [selectedCategory, allProducts]);
+    fetchProducts();
+  }, [effectiveBranch, selectedCategory, currentPage, debouncedSearch]);
 
   const handleStoreChange = (storeId: string) => {
     if (!storeId) {
@@ -142,12 +191,12 @@ export default function OrderPage() {
       toast.error("Silakan pilih toko terlebih dahulu!");
       return;
     }
-    const product = allProducts.find((p) => p.id === productId);
+    const product = productCache.get(productId);
     if (!product || product.stock === 0) return;
 
     // Check if cart already has items from a different category
     if (cart.length > 0) {
-      const firstItem = allProducts.find((p) => p.id === cart[0].productId);
+      const firstItem = productCache.get(cart[0].productId);
       if (firstItem && product.categoryName && firstItem.categoryName?.toLowerCase() !== product.categoryName.toLowerCase()) {
         toast.warning("Keranjang Terkunci", {
           description: "Tidak bisa menggabung kategori dalam satu bon.",
@@ -260,7 +309,7 @@ export default function OrderPage() {
   };
 
   const cartTotal = cart.reduce((sum, item) => {
-    const product = allProducts.find((p) => p.id === item.productId);
+    const product = productCache.get(item.productId);
     return sum + (product?.price || 0) * item.quantity;
   }, 0);
 
@@ -352,8 +401,8 @@ export default function OrderPage() {
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0) {
-      toast.error("Keranjang kosong");
+    if (cart.length === 0 || isSubmitting) {
+      if (cart.length === 0) toast.error("Keranjang kosong");
       return;
     }
     if (!selectedStore) {
@@ -370,7 +419,7 @@ export default function OrderPage() {
     const orderBranch = effectiveBranch;
 
     const orderItems = cart.map((item) => {
-      const product = allProducts.find((p) => p.id === item.productId);
+      const product = productCache.get(item.productId);
       return {
         productId: item.productId,
         productName: product?.name || "",
@@ -389,8 +438,10 @@ export default function OrderPage() {
       createdAt: new Date(orderDate).toISOString(),
     };
 
+    let toastId;
     try {
-      const toastId = toast.loading("Sedang memproses pesanan...");
+      setIsSubmitting(true);
+      toastId = toast.loading("Sedang memproses pesanan...");
       await api.post('/api/orders', newOrder);
       toast.success("Pesanan Berhasil Dibuat!", {
         id: toastId,
@@ -410,13 +461,17 @@ export default function OrderPage() {
       // Refresh produk agar sisa stok terbaru tampil
       fetchInitialData();
     } catch (error: any) {
-      toast.error(error.message || "Gagal menyimpan pesanan. Silakan coba lagi.");
+      toast.error(error.message || "Gagal menyimpan pesanan. Silakan coba lagi.", {
+        id: toastId,
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const cartCategory =
     cart.length > 0
-      ? allProducts.find((p) => p.id === cart[0].productId)?.categoryName
+      ? productCache.get(cart[0].productId)?.categoryName
       : null;
 
   const getDisplayQuantity = (productId: string, fallbackQuantity: number) =>
@@ -459,14 +514,19 @@ export default function OrderPage() {
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-4 py-2">
-              <Store className="w-5 h-5 text-gray-600" />
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Store className="w-5 h-5 text-gray-600" />
+              )}
               <select
                 value={selectedStore}
                 onChange={(e) => handleStoreChange(e.target.value)}
-                className="border-none outline-none bg-transparent text-gray-900 cursor-pointer font-medium"
+                disabled={isLoading || (isSuperAdmin && !effectiveBranch)}
+                className="border-none outline-none bg-transparent text-gray-900 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="">Pilih Toko...</option>
-                {stores.map((store) => (
+                <option value="">{isLoading ? "Memuat Toko..." : "Pilih Toko..."}</option>
+                {!isLoading && stores.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.name}
                   </option>
@@ -552,6 +612,17 @@ export default function OrderPage() {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Search Input */}
+        <div className="flex gap-4">
+          <input
+            type="text"
+            placeholder="Cari produk..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          />
         </div>
 
         {/* Wrapper relative: katalog + overlay "Pilih Toko" ditumpuk di sini */}
@@ -671,19 +742,47 @@ export default function OrderPage() {
             </AnimatePresence>
           </motion.div>
 
-          {/* Overlay "Pilih Toko Dahulu" ΓÇö tetap tampil selama belum memilih toko */}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-8 pb-4">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-lg disabled:opacity-50 font-medium"
+              >
+                Sebelumnya
+              </button>
+              <span className="font-medium text-gray-600">
+                Halaman {currentPage} dari {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-lg disabled:opacity-50 font-medium"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          )}
+
+          {/* Overlay "Pilih Toko Dahulu" – tetap tampil selama belum memilih toko */}
           {!selectedStore && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl">
               <div className="bg-white p-6 rounded-2xl shadow-2xl border border-blue-100 flex flex-col items-center text-center max-w-sm mx-4">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Store className="w-8 h-8 text-blue-600" />
+                  {isLoading ? (
+                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Store className="w-8 h-8 text-blue-600" />
+                  )}
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Pilih Toko Dahulu
+                  {isLoading ? "Memuat Data..." : isSuperAdmin && !effectiveBranch ? "Pilih Cabang Dahulu" : "Pilih Toko Dahulu"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  Silakan pilih toko pada menu di atas untuk mulai melihat stok
-                  dan melakukan pemesanan.
+                  {isLoading ? "Sedang menyinkronkan data toko dan produk..." : isSuperAdmin && !effectiveBranch 
+                    ? "Silakan pilih cabang pada menu di atas untuk memuat daftar toko."
+                    : "Silakan pilih toko pada menu di atas untuk mulai melihat stok dan melakukan pemesanan."}
                 </p>
               </div>
             </div>
@@ -762,9 +861,7 @@ export default function OrderPage() {
                 ) : (
                   <div className="space-y-4">
                     {cart.map((item) => {
-                      const product = allProducts.find(
-                        (p) => p.id === item.productId,
-                      );
+                      const product = productCache.get(item.productId);
                       if (!product) return null;
 
                       const displayValues = getCartDisplayValues(item.productId, item.quantity);
@@ -882,10 +979,17 @@ export default function OrderPage() {
                 </div>
                 <button
                   onClick={handleCheckout}
-                  disabled={cart.length === 0}
+                  disabled={cart.length === 0 || isSubmitting}
                   className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
                 >
-                  Checkout
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Memproses...
+                    </span>
+                  ) : (
+                    "Checkout"
+                  )}
                 </button>
               </div>
             </motion.div>
