@@ -33,22 +33,12 @@ model Category {
 }
 
 model Product {
-<<<<<<< HEAD
-  id           String  @id
-  name         String
-  categoryName String
-  price        Decimal @db.Decimal(15, 2)
-  unitsPerCarton Int   @default(0)
-  branch       String
-
-  stockItems      StockItem[]
-=======
   id              String           @id
   name            String
   categoryName    String
   price           Decimal          @db.Decimal(15, 2)
+  unitsPerCarton  Int              @default(0)
   branch          String
->>>>>>> main
   orderItems      OrderItem[]
   scheduledPrices ScheduledPrice[]
   stockItems      StockItem[]

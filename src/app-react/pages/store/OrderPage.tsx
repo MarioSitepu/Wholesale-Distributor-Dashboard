@@ -736,9 +736,6 @@ export default function OrderPage() {
             </AnimatePresence>
           </motion.div>
 
-<<<<<<< HEAD
-  {/* Overlay "Pilih Toko Dahulu" ΓÇö tetap tampil selama belum memilih toko */ }
-=======
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex justify-center items-center gap-4 mt-8 pb-4">
@@ -763,7 +760,6 @@ export default function OrderPage() {
           )}
 
           {/* Overlay "Pilih Toko Dahulu" – tetap tampil selama belum memilih toko */}
->>>>>>> main
   {
     !selectedStore && (
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl">

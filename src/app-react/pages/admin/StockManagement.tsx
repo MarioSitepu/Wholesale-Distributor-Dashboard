@@ -930,20 +930,13 @@ export default function StockManagement() {
               </button>
               <button
                 onClick={handleStockAction}
-<<<<<<< HEAD
-                disabled={stockAction === 'reduce' && isOutgoingOverStock}
-                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 ${stockAction === 'reduce'
+                disabled={isSubmitting || (stockAction === 'reduce' && isOutgoingOverStock)}
+                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
+                  stockAction === 'reduce'
                     ? isOutgoingOverStock
                       ? 'bg-rose-300 shadow-none cursor-not-allowed'
                       : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
                     : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-=======
-                disabled={isSubmitting}
-                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-                  stockAction === 'add'
-                    ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
->>>>>>> main
                   }`}
               >
                 {isSubmitting ? (
