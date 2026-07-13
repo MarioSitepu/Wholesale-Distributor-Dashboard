@@ -56,15 +56,13 @@ export class ProductService {
     const exists = await this.productRepo.existsById(data.id);
     if (exists) throw Errors.conflict(`Produk '${data.id}' sudah ada`);
 
-    const targetBranch = user.branch === 'Pusat' ? (data.branch || 'Palembang') : user.branch;
-
     const p = await this.productRepo.create({
       id: data.id,
       name: data.name,
       categoryName: data.category,
       price: data.price,
       unitsPerCarton: data.unitsPerCarton ?? 0,
-      branch: targetBranch,
+      branch: 'all',
     });
 
     const s = p.stockItems[0];

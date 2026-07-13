@@ -493,21 +493,20 @@ export default function OrderPage() {
 
           {/* Mode Pusat: Pilih Cabang */}
           {isSuperAdmin && (
-            <div className="flex-1 max-w-md bg-blue-50 border border-blue-100 p-1 rounded-xl flex">
-              {branches.map((branch) => (
-                <button
-                  key={branch}
-                  onClick={() => {
-                    setActiveBranch(branch);
-                  }}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${effectiveBranch === branch
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-blue-600 hover:bg-blue-100/50"
-                    }`}
-                >
-                  {branch}
-                </button>
-              ))}
+            <div className="flex-1 max-w-xs flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-blue-700">
+              <MapPin className="w-5 h-5 shrink-0" />
+              <select
+                className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold outline-none cursor-pointer"
+                value={effectiveBranch}
+                onChange={(e) => setActiveBranch(e.target.value)}
+              >
+                <option value="" disabled>Pilih Cabang</option>
+                {branches.map((branch) => (
+                  <option key={branch} value={branch} className="text-gray-900 font-medium">
+                    {branch}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

@@ -12,12 +12,16 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+
+const pdfOptions = { disableRange: true };
 
 export default function HelpCenter() {
   const [numPages, setNumPages] = useState<number>();
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(0.8);
+  const user = useAuthStore((state) => state.user);
+  const isSuperadmin = user?.role === 'superadmin';
 
   useEffect(() => {
     // Sesuaikan zoom awal untuk layar mobile
@@ -52,8 +56,6 @@ export default function HelpCenter() {
     changePage(1);
   }
 
-  const pdfOptions = useMemo(() => ({ disableRange: true }), []);
-
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
@@ -79,21 +81,94 @@ export default function HelpCenter() {
         <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
           <MapPin size={16} className="text-blue-500" /> Pintasan Topik Cepat
         </h2>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: "Daftar Isi", page: 1 },
-            { label: "Manajemen Stok", page: 2 },
-            { label: "Laporan Keuangan", page: 3 },
-            { label: "Pengaturan Akun", page: 4 },
-          ].map((shortcut) => (
-            <button
-              key={shortcut.label}
-              onClick={() => setPageNumber(shortcut.page)}
-              className="px-4 py-2 text-sm bg-gray-50 border border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 rounded-lg transition-all shadow-sm font-medium"
-            >
-              {shortcut.label}
-            </button>
-          ))}
+        
+        <div className="max-h-64 overflow-y-auto pr-2">
+          <div className="mb-4">
+            <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Menu Admin</h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Login", page: 23 },
+                { label: "Dashboard", page: 24 },
+                { label: "• Informasi Penjualan, Piutang & Stok", page: 25 },
+                { label: "• Tren Penjualan", page: 26 },
+                { label: "• Produk Terlaris", page: 27 },
+                { label: "• Pesanan Terbaru", page: 28 },
+                { label: "• Laporan Penjualan Harian", page: 29 },
+                { label: "• Export Penjualan Harian", page: 30 },
+                { label: "Pesan Produk", page: 31 },
+                { label: "• Pilih Toko", page: 32 },
+                { label: "• Pilih Brand & Produk", page: 33 },
+                { label: "• Atur Jumlah Produk", page: 34 },
+                { label: "• Keranjang Belanja", page: 35 },
+                { label: "• Checkout", page: 36 },
+                { label: "Riwayat Pesanan", page: 37 },
+                { label: "• Filter Riwayat", page: 38 },
+                { label: "• Filter Toko & Brand", page: 39 },
+                { label: "• Detail Riwayat", page: 40 },
+                { label: "• Export Excel", page: 41 },
+                { label: "Buku Produk", page: 42 },
+                { label: "• Cari Produk", page: 43 },
+                { label: "• Tambah Produk", page: 44 },
+                { label: "Kelola Piutang", page: 45 },
+                { label: "Kelola Daftar Toko", page: 46 },
+                { label: "• Pilih Toko", page: 47 },
+                { label: "• Tambah Toko", page: 48 },
+                { label: "• Konfirmasi Berhasil", page: 49 },
+              ].map((shortcut) => (
+                <button
+                  key={shortcut.page}
+                  onClick={() => setPageNumber(shortcut.page)}
+                  className={`px-3 py-1.5 text-xs sm:text-sm border rounded-lg transition-all shadow-sm font-medium ${
+                    shortcut.label.startsWith('•') 
+                      ? 'bg-white border-gray-100 text-gray-500 hover:bg-blue-50 hover:text-blue-700' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
+                  }`}
+                >
+                  {shortcut.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isSuperadmin && (
+            <div>
+              <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-4 pt-4 border-t border-gray-100">Menu Superadmin</h3>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "Hak Superadmin", page: 50 },
+                  { label: "Kelola Akun", page: 51 },
+                  { label: "• Tambah Akun", page: 52 },
+                  { label: "• Simpan Akun", page: 53 },
+                  { label: "• Ubah Password", page: 54 },
+                  { label: "• Hapus Akun", page: 55 },
+                  { label: "Kelola Riwayat Pesanan", page: 56 },
+                  { label: "• Export & Hapus Riwayat", page: 57 },
+                  { label: "• Konfirmasi Penghapusan", page: 58 },
+                  { label: "Kelola Produk", page: 59 },
+                  { label: "• Atur Kategori", page: 60 },
+                  { label: "• Tambah/Hapus Kategori", page: 61 },
+                  { label: "• Tambah Produk", page: 62 },
+                  { label: "• Edit Produk", page: 63 },
+                  { label: "• Simpan Edit", page: 64 },
+                  { label: "• Jadwal Perubahan Harga", page: 65 },
+                  { label: "• Hapus Produk", page: 66 },
+                  { label: "Help Center", page: 67 },
+                ].map((shortcut) => (
+                  <button
+                    key={shortcut.page}
+                    onClick={() => setPageNumber(shortcut.page)}
+                    className={`px-3 py-1.5 text-xs sm:text-sm border rounded-lg transition-all shadow-sm font-medium ${
+                      shortcut.label.startsWith('•') 
+                        ? 'bg-white border-gray-100 text-gray-500 hover:bg-blue-50 hover:text-blue-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
+                    }`}
+                  >
+                    {shortcut.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

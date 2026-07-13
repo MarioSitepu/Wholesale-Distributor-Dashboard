@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { UserRepository } from "../repositories/user.repository";
 import { Errors } from "../utils/errors";
+import { prisma } from "../config/prisma";
 
 export class AccountService {
   private userRepo = new UserRepository();
@@ -20,6 +21,16 @@ export class AccountService {
       throw Errors.conflict(`Username '${data.username}' sudah digunakan`);
 
     const hashed = await bcrypt.hash(data.password, 10);
+    
+    // Auto-register branch if it doesn't exist
+    const branchId = data.branch.toLowerCase().replace(/\s+/g, '-');
+    const existingBranch = await prisma.branch.findUnique({ where: { name: data.branch } });
+    if (!existingBranch) {
+      await prisma.branch.create({
+        data: { id: branchId, name: data.branch }
+      });
+    }
+
     return this.userRepo.create({
       username: data.username,
       password: hashed,
