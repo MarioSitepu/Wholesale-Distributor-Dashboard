@@ -113,55 +113,55 @@ export default function StockManagement() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-        let stockRes: any = { data: [], totalPages: 1, totalItems: 0 };
-        let catRes: any = { categories: [] };
-        let branchesRes: any = { branches: [] };
+      let stockRes: any = { data: [], totalPages: 1, totalItems: 0 };
+      let catRes: any = { categories: [] };
+      let branchesRes: any = { branches: [] };
 
-        try {
-          const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
-          const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
-          const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
-          
-          const [stockResRaw, catResRaw, branchesResRaw] = await Promise.all([
-            api.get<any>(`/api/inventory?branch=${branchFilter}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`).catch((e) => {
-              toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
-              return { data: [], totalPages: 1, totalItems: 0 };
-            }),
-            api.get<{ categories: string[] }>('/api/categories').catch((e) => {
-              console.error("Kategori error:", e);
-              return { categories: [] };
-            }),
-            api.get<{ branches: string[] }>('/api/branches').catch((e) => {
-              console.error("Cabang error:", e);
-              return { branches: [] };
-            })
-          ]);
-          stockRes = stockResRaw;
-          catRes = catResRaw;
-          branchesRes = branchesResRaw;
-        } catch (e: any) {
-          console.error(e);
-        }
+      try {
+        const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+        const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
+        const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
 
-        if (stockRes && stockRes.data) {
-          setProducts(stockRes.data);
-          setTotalPages(stockRes.totalPages || 1);
-          setTotalItems(stockRes.totalItems || 0);
-        } else if (Array.isArray(stockRes)) {
-          setProducts(stockRes);
-          setTotalPages(1);
-          setTotalItems(stockRes.length);
-        } else {
-          setProducts([]);
-          setTotalPages(1);
-          setTotalItems(0);
-        }
-        
-        setCategoriesList(catRes?.categories ? catRes.categories.map((c: any) => c.name || c) : []);
-        if (branchesRes && branchesRes.branches) {
-          setBranches(branchesRes.branches.map((b: any) => b.name || b));
-        }
-        setIsLoading(false);
+        const [stockResRaw, catResRaw, branchesResRaw] = await Promise.all([
+          api.get<any>(`/api/inventory?branch=${branchFilter}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`).catch((e) => {
+            toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
+            return { data: [], totalPages: 1, totalItems: 0 };
+          }),
+          api.get<{ categories: string[] }>('/api/categories').catch((e) => {
+            console.error("Kategori error:", e);
+            return { categories: [] };
+          }),
+          api.get<{ branches: string[] }>('/api/branches').catch((e) => {
+            console.error("Cabang error:", e);
+            return { branches: [] };
+          })
+        ]);
+        stockRes = stockResRaw;
+        catRes = catResRaw;
+        branchesRes = branchesResRaw;
+      } catch (e: any) {
+        console.error(e);
+      }
+
+      if (stockRes && stockRes.data) {
+        setProducts(stockRes.data);
+        setTotalPages(stockRes.totalPages || 1);
+        setTotalItems(stockRes.totalItems || 0);
+      } else if (Array.isArray(stockRes)) {
+        setProducts(stockRes);
+        setTotalPages(1);
+        setTotalItems(stockRes.length);
+      } else {
+        setProducts([]);
+        setTotalPages(1);
+        setTotalItems(0);
+      }
+
+      setCategoriesList(catRes?.categories ? catRes.categories.map((c: any) => c.name || c) : []);
+      if (branchesRes && branchesRes.branches) {
+        setBranches(branchesRes.branches.map((b: any) => b.name || b));
+      }
+      setIsLoading(false);
     };
     fetchData();
   }, [branchFilter, effectiveSelectedCategory, currentPage, debouncedSearch, selectedStockStatus]);
@@ -227,7 +227,7 @@ export default function StockManagement() {
     if (!checkProductId) return;
     const branchToSearch = isSuperAdmin ? (branchFilter === 'all' ? 'Palembang' : branchFilter) : user?.branch;
     const found = products.find(p => p.id === checkProductId && (p.branch === branchToSearch || p.branch === 'all'));
-    
+
     if (found) {
       setCheckProductResult(found);
     } else {
@@ -248,10 +248,10 @@ export default function StockManagement() {
       const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
       const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
       const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
-      
+
       // Fetch all items (up to 1000000)
       const res = await api.get<any>(`/api/inventory?branch=${branchFilter}&page=1&limit=1000000${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`);
-      
+
       let itemsToExport = [];
       if (res && res.data) {
         itemsToExport = res.data;
@@ -266,22 +266,22 @@ export default function StockManagement() {
 
       const headers = isSuperAdmin
         ? [
-            "Cabang",
-            "ID Produk",
-            "Nama Produk",
-            "Kategori",
-            "Total Masuk",
-            "Total Keluar",
-            "Stok Saat Ini",
-          ]
+          "Cabang",
+          "ID Produk",
+          "Nama Produk",
+          "Kategori",
+          "Total Masuk",
+          "Total Keluar",
+          "Stok Saat Ini",
+        ]
         : [
-            "ID Produk",
-            "Nama Produk",
-            "Kategori",
-            "Total Masuk",
-            "Total Keluar",
-            "Stok Saat Ini",
-          ];
+          "ID Produk",
+          "Nama Produk",
+          "Kategori",
+          "Total Masuk",
+          "Total Keluar",
+          "Stok Saat Ini",
+        ];
 
       const rows = itemsToExport.map((product: any) => {
         const base = [
@@ -320,7 +320,7 @@ export default function StockManagement() {
         types,
         showTotalRow: false,
       });
-      
+
       toast.success("Berhasil mengekspor data!", { id: loadingToast });
     } catch (error: any) {
       toast.error("Gagal mengekspor data: " + (error.message || "Error"), { id: loadingToast });
@@ -409,7 +409,7 @@ export default function StockManagement() {
                   </select>
                 </div>
               )}
-              
+
               <button
                 onClick={() => {
                   setCheckProductId("");
@@ -930,14 +930,21 @@ export default function StockManagement() {
               </button>
               <button
                 onClick={handleStockAction}
-                disabled={isSubmitting || (stockAction === 'reduce' && isOutgoingOverStock)}
-                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-                  stockAction === 'reduce'
+<<<<<<< HEAD
+                disabled={stockAction === 'reduce' && isOutgoingOverStock}
+                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 ${stockAction === 'reduce'
                     ? isOutgoingOverStock
                       ? 'bg-rose-300 shadow-none cursor-not-allowed'
                       : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
                     : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-                }`}
+=======
+                disabled={isSubmitting}
+                className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
+                  stockAction === 'add'
+                    ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+>>>>>>> main
+                  }`}
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
