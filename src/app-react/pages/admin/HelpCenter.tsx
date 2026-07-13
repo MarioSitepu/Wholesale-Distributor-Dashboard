@@ -14,8 +14,6 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
-const pdfOptions = { disableRange: true };
-
 export default function HelpCenter() {
   const [numPages, setNumPages] = useState<number>();
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -82,10 +80,17 @@ export default function HelpCenter() {
           <MapPin size={16} className="text-blue-500" /> Pintasan Topik Cepat
         </h2>
         
-        <div className="max-h-64 overflow-y-auto pr-2">
-          <div className="mb-4">
-            <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Menu Admin</h3>
-            <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
+              <Shield className="w-4 h-4" /> Menu Admin
+            </h3>
+            <select
+              onChange={(e) => setPageNumber(Number(e.target.value))}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+              defaultValue=""
+            >
+              <option value="" disabled>Pilih Topik Panduan...</option>
               {[
                 { label: "Login", page: 23 },
                 { label: "Dashboard", page: 24 },
@@ -115,25 +120,24 @@ export default function HelpCenter() {
                 { label: "• Tambah Toko", page: 48 },
                 { label: "• Konfirmasi Berhasil", page: 49 },
               ].map((shortcut) => (
-                <button
-                  key={shortcut.page}
-                  onClick={() => setPageNumber(shortcut.page)}
-                  className={`px-3 py-1.5 text-xs sm:text-sm border rounded-lg transition-all shadow-sm font-medium ${
-                    shortcut.label.startsWith('•') 
-                      ? 'bg-white border-gray-100 text-gray-500 hover:bg-blue-50 hover:text-blue-700' 
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
-                  }`}
-                >
-                  {shortcut.label}
-                </button>
+                <option key={shortcut.page} value={shortcut.page} className={shortcut.label.startsWith('•') ? "text-gray-500" : "font-bold text-gray-900"}>
+                  {shortcut.label.startsWith('•') ? `\u00A0\u00A0\u00A0\u00A0${shortcut.label}` : shortcut.label}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {isSuperadmin && (
-            <div>
-              <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-4 pt-4 border-t border-gray-100">Menu Superadmin</h3>
-              <div className="flex flex-wrap gap-2">
+            <div className="flex-1 bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <h3 className="text-xs font-bold text-blue-600 uppercase mb-2 flex items-center gap-2">
+                <Key className="w-4 h-4" /> Menu Superadmin
+              </h3>
+              <select
+                onChange={(e) => setPageNumber(Number(e.target.value))}
+                className="w-full bg-white border border-blue-300 rounded-lg px-3 py-2 text-sm font-medium text-blue-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+                defaultValue=""
+              >
+                <option value="" disabled>Pilih Topik Superadmin...</option>
                 {[
                   { label: "Hak Superadmin", page: 50 },
                   { label: "Kelola Akun", page: 51 },
@@ -154,19 +158,11 @@ export default function HelpCenter() {
                   { label: "• Hapus Produk", page: 66 },
                   { label: "Help Center", page: 67 },
                 ].map((shortcut) => (
-                  <button
-                    key={shortcut.page}
-                    onClick={() => setPageNumber(shortcut.page)}
-                    className={`px-3 py-1.5 text-xs sm:text-sm border rounded-lg transition-all shadow-sm font-medium ${
-                      shortcut.label.startsWith('•') 
-                        ? 'bg-white border-gray-100 text-gray-500 hover:bg-blue-50 hover:text-blue-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
-                    }`}
-                  >
-                    {shortcut.label}
-                  </button>
+                  <option key={shortcut.page} value={shortcut.page} className={shortcut.label.startsWith('•') ? "text-gray-500" : "font-bold text-gray-900"}>
+                    {shortcut.label.startsWith('•') ? `\u00A0\u00A0\u00A0\u00A0${shortcut.label}` : shortcut.label}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
           )}
         </div>
@@ -216,7 +212,6 @@ export default function HelpCenter() {
         <div className="border border-gray-200 overflow-auto max-h-[800px] w-full flex justify-center bg-gray-100 rounded-lg p-4">
           <Document
             file="/guidebook.pdf"
-            options={pdfOptions}
             onLoadSuccess={onDocumentLoadSuccess}
             loading={
               <div className="flex items-center justify-center p-12 text-gray-500">

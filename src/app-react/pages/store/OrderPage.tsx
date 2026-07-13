@@ -314,7 +314,7 @@ export default function OrderPage() {
   }, 0);
 
   const getProductUnitsPerCarton = (productId: string) => {
-    const product = allProducts.find((p) => p.id === productId);
+    const product = productCache.get(productId);
     return Number(product?.unitsPerCarton) || 0;
   };
 
