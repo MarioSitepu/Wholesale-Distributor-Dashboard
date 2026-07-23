@@ -70,6 +70,11 @@ export default function StockManagement() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [summaryStats, setSummaryStats] = useState({
+    totalProducts: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0,
+  });
 
   // Debounce search query
   useEffect(() => {
@@ -147,6 +152,9 @@ export default function StockManagement() {
         setProducts(stockRes.data);
         setTotalPages(stockRes.totalPages || 1);
         setTotalItems(stockRes.totalItems || 0);
+        if (stockRes.summaryStats) {
+          setSummaryStats(stockRes.summaryStats);
+        }
       } else if (Array.isArray(stockRes)) {
         setProducts(stockRes);
         setTotalPages(1);
@@ -452,7 +460,7 @@ export default function StockManagement() {
                     {isLoading ? (
                       <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse mt-1" />
                     ) : (
-                      products.length
+                      summaryStats.totalProducts
                     )}
                   </div>
                 </div>
@@ -472,7 +480,7 @@ export default function StockManagement() {
                     {isLoading ? (
                       <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse mt-1" />
                     ) : (
-                      products.filter((p) => p.stock < 50 && p.stock > 0).length
+                      summaryStats.lowStockCount
                     )}
                   </div>
                 </div>
@@ -492,7 +500,7 @@ export default function StockManagement() {
                     {isLoading ? (
                       <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse mt-1" />
                     ) : (
-                      products.filter((p) => p.stock === 0).length
+                      summaryStats.outOfStockCount
                     )}
                   </div>
                 </div>

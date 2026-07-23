@@ -93,22 +93,52 @@ export class StockRepository {
     return item.totalIn - item.totalOut;
   }
 
-  async findLowStock(branch: string, threshold = 3) {
+  async findLowStock(branch: string, threshold = 49) {
     const isUniversal = branch === 'all' || branch === 'Pusat';
-    const where = isUniversal ? {} : { branch };
+    // Identik dengan findByBranch: sertakan produk universal ('all', 'Pusat')
+    // agar hasilnya 100% sama dengan Kelola Stok (/api/inventory?status=low)
+    const where: any = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
     const items = await prisma.stockItem.findMany({
       where,
       include: { product: true },
     });
-    // Hanya produk yang stoknya > 0 tapi <= threshold (menipis, bukan habis)
     return items.filter((i) => {
       const stock = i.totalIn - i.totalOut;
       return stock > 0 && stock <= threshold;
     });
   }
 
-  async countLowStock(branch: string, threshold = 3): Promise<number> {
+  async countLowStock(branch: string, threshold = 49): Promise<number> {
     const items = await this.findLowStock(branch, threshold);
     return items.length;
+  }
+
+  /**
+   * Hitung ringkasan statistik stok secara global untuk cabang tertentu.
+   * Tidak menggunakan pagination — selalu menghitung seluruh data di database.
+   */
+  async getSummaryStats(branch: string): Promise<{
+    totalProducts: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+  }> {
+    const isUniversal = branch === 'all' || branch === 'Pusat';
+    const where: any = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
+
+    // Ambil semua item tanpa pagination
+    const allItems = await prisma.stockItem.findMany({ where });
+
+    let totalProducts = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    for (const item of allItems) {
+      const stock = item.totalIn - item.totalOut;
+      totalProducts++;
+      if (stock === 0) outOfStockCount++;
+      else if (stock > 0 && stock < 50) lowStockCount++;
+    }
+
+    return { totalProducts, lowStockCount, outOfStockCount };
   }
 }

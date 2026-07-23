@@ -63,7 +63,8 @@ export class StockService {
         data,
         totalItems,
         totalPages: Math.ceil(totalItems / limit),
-        currentPage: page
+        currentPage: page,
+        summaryStats: await this.stockRepo.getSummaryStats(targetBranch),
       };
     }
 

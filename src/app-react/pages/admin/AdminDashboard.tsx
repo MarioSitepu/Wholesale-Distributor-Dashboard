@@ -48,6 +48,7 @@ export default function AdminDashboard() {
   const [trendValue, setTrendValue] = useState<number | undefined>(undefined);
 
   const [kpi, setKpi] = useState({ dailySales: 0, monthlySales: 0, totalReceivables: 0, lowStockCount: 0 });
+  const [lowStockCount, setLowStockCount] = useState(0);
   const [dataTrend, setDataTrend] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [branchContribution, setBranchContribution] = useState<any[]>([]);
@@ -66,16 +67,27 @@ export default function AdminDashboard() {
       try {
         setIsLoading(true);
         const branchParam = selectedBranch === "all" ? "all" : selectedBranch;
-        const [kpiRes, branchesRes, storesRes, contributionRes, recentRes, topProdRes] = await Promise.all([
+        const [kpiRes, branchesRes, storesRes, contributionRes, recentRes, topProdRes, lowStockRes] = await Promise.all([
           api.get<any>(`/api/dashboard/kpi?branch=${branchParam}`),
           api.get<any>('/api/branches'),
           api.get<any[]>(`/api/stores?branch=${branchParam}`),
           api.get<any[]>(`/api/dashboard/branch-contribution`),
           api.get<any[]>(`/api/dashboard/recent-orders?branch=${branchParam}`),
-          api.get<any[]>(`/api/dashboard/top-products?branch=${branchParam}`)
+          api.get<any[]>(`/api/dashboard/top-products?branch=${branchParam}`),
+          // Gunakan endpoint IDENTIK dengan Kelola Stok: tanpa filter status,
+          // page=1 limit=50 persis seperti itemsPerPage di StockManagement
+          api.get<any>(`/api/inventory?branch=${branchParam}&page=1&limit=50`),
         ]);
 
         setKpi(kpiRes || { dailySales: 0, monthlySales: 0, totalReceivables: 0, lowStockCount: 0 });
+
+        // Gunakan summaryStats.lowStockCount dari respons inventory —
+        // dihitung backend dari seluruh data tanpa limit pagination
+        const allItems: any[] = lowStockRes?.data ?? (Array.isArray(lowStockRes) ? lowStockRes : []);
+        const inventoryTotal = lowStockRes?.summaryStats?.lowStockCount
+          ?? allItems.filter((p: any) => p.stock < 50 && p.stock > 0).length;
+        setLowStockCount(inventoryTotal);
+
         if (branchesRes && branchesRes.branches) {
           setBranches(branchesRes.branches.map((b: any) => b.name || b));
         }
@@ -188,7 +200,7 @@ export default function AdminDashboard() {
     });
   };
 
-  const { dailySales, monthlySales, totalReceivables, lowStockCount } = kpi;
+  const { dailySales, monthlySales, totalReceivables } = kpi;
   const branchSalesData = branchContribution;
 
   const COLORS = ["#2563eb", "#7c3aed", "#db2777", "#ea580c"];
