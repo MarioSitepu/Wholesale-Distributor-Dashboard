@@ -40,9 +40,19 @@ export class AccountService {
   }
 
   async deleteAccount(username: string): Promise<void> {
-    const exists = await this.userRepo.existsByUsername(username);
-    if (!exists) throw Errors.notFound(`Akun '${username}' tidak ditemukan`);
+    const user = await this.userRepo.findByUsername(username);
+    if (!user) throw Errors.notFound(`Akun '${username}' tidak ditemukan`);
+
+    const branchName = user.branch;
     await this.userRepo.deleteByUsername(username);
+
+    // Jika cabang lain bukan Pusat, dan tidak ada lagi akun user di cabang tersebut, hapus cabang dari master
+    if (branchName && branchName !== "Pusat") {
+      const remainingUsers = await prisma.user.count({ where: { branch: branchName } });
+      if (remainingUsers === 0) {
+        await prisma.branch.deleteMany({ where: { name: branchName } });
+      }
+    }
   }
 
   async changePassword(username: string, newPassword: string): Promise<void> {
