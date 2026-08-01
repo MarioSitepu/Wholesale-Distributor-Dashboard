@@ -53,10 +53,32 @@ export function handleError(error: unknown) {
       { status: error.statusCode },
     );
   }
-  console.error(error);
-  const msg = error instanceof Error ? error.message : String(error);
+
+  console.error("Unhandled Server Error:", error);
+  const rawMsg = error instanceof Error ? error.message : String(error);
+  let friendlyMessage = "Terjadi kendala pada sistem. Silakan muat ulang halaman atau coba beberapa saat lagi.";
+
+  if (
+    rawMsg.includes("EMAXCONNSESSION") ||
+    rawMsg.includes("max clients reached") ||
+    rawMsg.includes("Can't reach database server") ||
+    rawMsg.includes("P1001") ||
+    rawMsg.includes("P1002") ||
+    rawMsg.includes("connect ETIMEDOUT") ||
+    rawMsg.includes("ECONNREFUSED") ||
+    rawMsg.includes("Error querying the database")
+  ) {
+    friendlyMessage = "Koneksi ke basis data sedang padat atau terputus sementara. Silakan muat ulang halaman dalam beberapa detik.";
+  } else if (rawMsg.includes("Unique constraint") || rawMsg.includes("P2002")) {
+    friendlyMessage = "Data yang Anda masukkan sudah terdaftar di sistem.";
+  } else if (rawMsg.includes("Foreign key constraint") || rawMsg.includes("P2003")) {
+    friendlyMessage = "Data referensi tidak ditemukan di sistem.";
+  } else if (rawMsg.includes("Record to update not found") || rawMsg.includes("P2025")) {
+    friendlyMessage = "Data yang ingin diperbarui tidak ditemukan.";
+  }
+
   return NextResponse.json(
-    { message: `Terjadi kesalahan pada server: ${msg}` },
+    { message: friendlyMessage },
     { status: 500 },
   );
 }
