@@ -6,7 +6,7 @@ export class ProductService {
   private productRepo = new ProductRepository();
 
   async getProducts(
-    branch: string, 
+    branch: string,
     user: JwtPayload,
     page?: number,
     limit?: number,

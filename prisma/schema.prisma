@@ -37,8 +37,8 @@ model Product {
   name            String
   categoryName    String
   price           Decimal          @db.Decimal(15, 2)
-  unitsPerCarton  Int              @default(0)
   branch          String
+  unitsPerCarton  Int              @default(0)
   orderItems      OrderItem[]
   scheduledPrices ScheduledPrice[]
   stockItems      StockItem[]
