@@ -46,12 +46,21 @@ export class DashboardService {
     const today = new Date();
 
     if (type === "minggu") {
+      const startDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+      const endDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const orders = await this.orderRepo.findByDateRange(branch, startDay, endDay);
+
+      const salesMap = new Map<string, number>();
+      orders.forEach((o) => {
+        const d = new Date(o.createdAt);
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        salesMap.set(key, (salesMap.get(key) || 0) + Number(o.total));
+      });
+
       for (let i = 6; i >= 0; i--) {
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-        const next = new Date(day);
-        next.setDate(next.getDate() + 1);
-
-        const sales = await this.orderRepo.sumTotal(branch, day, next);
+        const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+        const sales = salesMap.get(key) || 0;
         trend.push({ date: DAY_LABELS[day.getDay()], sales });
       }
     } else if (type === "bulan") {
