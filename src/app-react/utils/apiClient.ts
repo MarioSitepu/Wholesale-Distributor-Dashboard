@@ -5,14 +5,45 @@ export class ApiError extends Error {
   }
 }
 
+export function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  try {
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) return true;
+    const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const decoded = JSON.parse(jsonPayload);
+    if (decoded.exp && typeof decoded.exp === 'number') {
+      return Date.now() >= decoded.exp * 1000;
+    }
+  } catch {
+    return true;
+  }
+  return false;
+}
+
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers = new Headers(options.headers || {});
   
   if (token) {
+    if (isTokenExpired(token)) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/login') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('wholesale_auth_session');
+        window.location.href = '/';
+      }
+      throw new ApiError(401, 'Token telah kedaluwarsa. Silakan login kembali.');
+    }
     headers.set('Authorization', `Bearer ${token}`);
   }
-  
+
   if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -37,10 +68,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     if (response.status === 401) {
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/login') {
         localStorage.removeItem('token');
         localStorage.removeItem('wholesale_auth_session');
-        window.location.href = '/login';
+        window.location.href = '/';
       }
     }
     

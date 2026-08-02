@@ -22,6 +22,7 @@ import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
 import { initializeMockData } from "../../app-react/utils/mockData";
 import { useAuthStore } from "../../store/useAuthStore";
+import { isTokenExpired } from "../../app-react/utils/apiClient";
 
 export default function AdminLayout({
   children,
@@ -38,10 +39,15 @@ export default function AdminLayout({
 
   useEffect(() => {
     initializeMockData();
-    if (hasHydrated && !user) {
-      router.replace("/");
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (hasHydrated) {
+      if (!user || (token && isTokenExpired(token))) {
+        localStorage.removeItem('token');
+        logout();
+        router.replace("/");
+      }
     }
-  }, [router, user, hasHydrated]);
+  }, [router, user, hasHydrated, logout]);
 
   // Tutup menu mobile ketika navigasi berpindah
   useEffect(() => {
