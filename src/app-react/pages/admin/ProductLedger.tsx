@@ -6,6 +6,7 @@ import {
   ScheduledPrice,
 } from "../../utils/mockData";
 import { api } from "../../utils/apiClient";
+import { fetchBranchesCached, fetchCategoriesCached, invalidateCategoriesCache } from "../../utils/globalCache";
 import {
   Search,
   Package,
@@ -84,22 +85,20 @@ export default function ProductLedger() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [productsRes, ordersRes, pricesRes, categoriesRes, branchesRes] = await Promise.all([
+        const [productsRes, ordersRes, pricesRes, categoriesList, branchesList] = await Promise.all([
           api.get<Product[]>(`/api/products?branch=${selectedBranch}`),
           api.get<Order[]>(`/api/orders?branch=${selectedBranch}`),
           api.get<ScheduledPrice[]>(`/api/scheduled-prices?branch=${selectedBranch}`),
-          api.get<{ categories: string[] }>('/api/categories'),
-          api.get<{ branches: string[] }>('/api/branches'),
+          fetchCategoriesCached(),
+          fetchBranchesCached(),
         ]);
         setProducts(productsRes);
         setOrders(ordersRes);
         setScheduledPrices(pricesRes);
-        setCategories(categoriesRes.categories);
-        if (branchesRes && branchesRes.branches) {
-          setBranches(branchesRes.branches.map((b: any) => b.name || b));
-        }
-        if (!newProductCategory && categoriesRes.categories.length > 0) {
-          setNewProductCategory(categoriesRes.categories[0]);
+        setCategories(categoriesList);
+        setBranches(branchesList);
+        if (!newProductCategory && categoriesList.length > 0) {
+          setNewProductCategory(categoriesList[0]);
         }
       } catch (error: any) {
         toast.error("Gagal memuat data: " + error.message);

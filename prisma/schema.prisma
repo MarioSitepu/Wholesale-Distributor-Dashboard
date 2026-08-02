@@ -15,6 +15,7 @@ model User {
   branch    String
   createdAt DateTime @default(now())
 
+  @@index([branch])
   @@map("users")
 }
 
@@ -43,6 +44,8 @@ model Product {
   scheduledPrices ScheduledPrice[]
   stockItems      StockItem[]
 
+  @@index([branch])
+  @@index([categoryName])
   @@map("products")
 }
 
@@ -53,6 +56,8 @@ model ScheduledPrice {
   startDate DateTime @db.Date
   product   Product  @relation(fields: [productId], references: [id])
 
+  @@index([productId])
+  @@index([startDate])
   @@map("scheduled_prices")
 }
 
@@ -63,6 +68,7 @@ model Store {
   orders      Order[]
   receivables Receivable[]
 
+  @@index([branch])
   @@map("stores")
 }
 
@@ -76,6 +82,8 @@ model Order {
   store       Store        @relation(fields: [storeId], references: [id])
   receivables Receivable[]
 
+  @@index([branch, createdAt])
+  @@index([storeId])
   @@map("orders")
 }
 
@@ -89,6 +97,8 @@ model OrderItem {
   order       Order   @relation(fields: [orderId], references: [id])
   product     Product @relation(fields: [productId], references: [id])
 
+  @@index([orderId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -102,6 +112,8 @@ model Receivable {
   order   Order    @relation(fields: [orderId], references: [id])
   store   Store    @relation(fields: [storeId], references: [id])
 
+  @@index([isPaid, storeId])
+  @@index([orderId])
   @@map("receivables")
 }
 
@@ -114,5 +126,7 @@ model StockItem {
   product   Product @relation(fields: [productId], references: [id])
 
   @@unique([productId, branch])
+  @@index([branch])
+  @@index([productId])
   @@map("stock_items")
 }
