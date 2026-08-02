@@ -322,26 +322,28 @@ export default function StoreLedger() {
                         </button>
                       </div>
                     ) : (
-                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 group">
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                         <StoreIcon className="w-6 h-6 text-blue-600" />
                         {selectedStore.name}
-                        <button
-                          onClick={() => {
-                            setEditStoreName(selectedStore.name);
-                            setIsEditingStore(true);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 transition-opacity"
-                          title="Edit Toko"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteStore(selectedStore.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-opacity"
-                          title="Hapus Toko"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => {
+                              setEditStoreName(selectedStore.name);
+                              setIsEditingStore(true);
+                            }}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                            title="Edit Nama Toko"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStore(selectedStore.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-gray-200"
+                            title="Hapus Toko"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </h2>
                     )}
                     <p className="text-gray-500 mt-1">
