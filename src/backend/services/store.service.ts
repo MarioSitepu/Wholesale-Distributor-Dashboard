@@ -7,17 +7,17 @@ export class StoreService {
 
   async getStores(branch: string, user: JwtPayload): Promise<Store[]> {
     const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
-    const rows = await this.storeRepo.findByBranch(targetBranch);
+    const [rows, debtMap] = await Promise.all([
+      this.storeRepo.findByBranch(targetBranch),
+      this.storeRepo.getUnpaidDebtsGroupedByStore(),
+    ]);
 
-    const stores = await Promise.all(
-      rows.map(async (s) => ({
-        id: s.id,
-        name: s.name,
-        branch: s.branch,
-        totalDebt: await this.storeRepo.getTotalDebt(s.id),
-      })),
-    );
-    return stores;
+    return rows.map((s) => ({
+      id: s.id,
+      name: s.name,
+      branch: s.branch,
+      totalDebt: debtMap.get(s.id) || 0,
+    }));
   }
 
   async createStore(

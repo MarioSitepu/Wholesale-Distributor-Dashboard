@@ -40,4 +40,17 @@ export class StoreRepository {
     });
     return Number(result._sum.amount ?? 0);
   }
+
+  async getUnpaidDebtsGroupedByStore(): Promise<Map<string, number>> {
+    const groups = await prisma.receivable.groupBy({
+      by: ['storeId'],
+      where: { isPaid: false },
+      _sum: { amount: true },
+    });
+    const debtMap = new Map<string, number>();
+    groups.forEach((g) => {
+      debtMap.set(g.storeId, Number(g._sum.amount ?? 0));
+    });
+    return debtMap;
+  }
 }
