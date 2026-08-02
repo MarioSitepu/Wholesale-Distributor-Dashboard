@@ -46,11 +46,21 @@ export class AccountService {
     const branchName = user.branch;
     await this.userRepo.deleteByUsername(username);
 
-    // Jika cabang lain bukan Pusat, dan tidak ada lagi akun user di cabang tersebut, hapus cabang dari master
+    // Jika cabang lain bukan Pusat, dan tidak ada lagi akun user di cabang tersebut, hapus cabang & toko yatim
     if (branchName && branchName !== "Pusat") {
       const remainingUsers = await prisma.user.count({ where: { branch: branchName } });
       if (remainingUsers === 0) {
         await prisma.branch.deleteMany({ where: { name: branchName } });
+        
+        // Hapus toko yatim di cabang yang dihapus jika tidak memilii order
+        const storesInBranch = await prisma.store.findMany({ where: { branch: branchName } });
+        for (const store of storesInBranch) {
+          const orderCount = await prisma.order.count({ where: { storeId: store.id } });
+          if (orderCount === 0) {
+            await prisma.receivable.deleteMany({ where: { storeId: store.id } });
+            await prisma.store.delete({ where: { id: store.id } });
+          }
+        }
       }
     }
   }
