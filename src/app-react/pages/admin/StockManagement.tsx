@@ -39,7 +39,11 @@ export default function StockManagement() {
   };
   const isAllStockStatusSelected = (value?: string | null) => {
     const normalizedValue = value?.trim();
-    return !normalizedValue || normalizedValue === "all" || normalizedValue === "Semua Status";
+    return (
+      !normalizedValue ||
+      normalizedValue === "all" ||
+      normalizedValue === "Semua Status"
+    );
   };
   const effectiveSelectedCategory = isAllCategoriesSelected(selectedCategory)
     ? "all"
@@ -54,7 +58,7 @@ export default function StockManagement() {
   );
   const [stockAmount, setStockAmount] = useState("");
   const [stockCartonAmount, setStockCartonAmount] = useState("0");
-  const [stockAction, setStockAction] = useState<'add' | 'reduce'>('add');
+  const [stockAction, setStockAction] = useState<"add" | "reduce">("add");
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,23 +127,37 @@ export default function StockManagement() {
       let branchesRes: any = { branches: [] };
 
       try {
-        const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
-        const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
-        const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+        const categoryQuery =
+          effectiveSelectedCategory === "all"
+            ? ""
+            : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+        const statusQuery =
+          selectedStockStatus === "all"
+            ? ""
+            : `&status=${encodeURIComponent(selectedStockStatus)}`;
+        const searchQueryParam = debouncedSearch
+          ? `&search=${encodeURIComponent(debouncedSearch)}`
+          : "";
 
         const [stockResRaw, catResRaw, branchesResRaw] = await Promise.all([
-          api.get<any>(`/api/inventory?branch=${branchFilter}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`).catch((e) => {
-            toast.error("Gagal memuat stok: " + (e.message || "Timeout/Server Error"));
-            return { data: [], totalPages: 1, totalItems: 0 };
-          }),
-          api.get<{ categories: string[] }>('/api/categories').catch((e) => {
+          api
+            .get<any>(
+              `/api/inventory?branch=${branchFilter}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`,
+            )
+            .catch((e) => {
+              toast.error(
+                "Gagal memuat stok: " + (e.message || "Timeout/Server Error"),
+              );
+              return { data: [], totalPages: 1, totalItems: 0 };
+            }),
+          api.get<{ categories: string[] }>("/api/categories").catch((e) => {
             console.error("Kategori error:", e);
             return { categories: [] };
           }),
-          api.get<{ branches: string[] }>('/api/branches').catch((e) => {
+          api.get<{ branches: string[] }>("/api/branches").catch((e) => {
             console.error("Cabang error:", e);
             return { branches: [] };
-          })
+          }),
         ]);
         stockRes = stockResRaw;
         catRes = catResRaw;
@@ -165,14 +183,24 @@ export default function StockManagement() {
         setTotalItems(0);
       }
 
-      setCategoriesList(catRes?.categories ? catRes.categories.map((c: any) => c.name || c) : []);
+      setCategoriesList(
+        catRes?.categories
+          ? catRes.categories.map((c: any) => c.name || c)
+          : [],
+      );
       if (branchesRes && branchesRes.branches) {
         setBranches(branchesRes.branches.map((b: any) => b.name || b));
       }
       setIsLoading(false);
     };
     fetchData();
-  }, [branchFilter, effectiveSelectedCategory, currentPage, debouncedSearch, selectedStockStatus]);
+  }, [
+    branchFilter,
+    effectiveSelectedCategory,
+    currentPage,
+    debouncedSearch,
+    selectedStockStatus,
+  ]);
 
   const categories = useMemo(() => {
     return ["all", ...categoriesList];
@@ -184,17 +212,16 @@ export default function StockManagement() {
   const filteredProducts = products;
 
   const handleStockAction = async () => {
-    if (!selectedProductKey || !stockAmount || isSubmitting) return;
+    if (!selectedProductKey || isSubmitting) return;
 
-    const amount = stockAction === 'add'
-      ? calculatedIncomingUnits
-      : calculatedOutgoingUnits;
+    const amount =
+      stockAction === "add" ? calculatedIncomingUnits : calculatedOutgoingUnits;
     if (isNaN(amount) || amount <= 0) {
       toast.error("Jumlah stok tidak valid");
       return;
     }
 
-    if (stockAction === 'reduce' && amount > currentStock) {
+    if (stockAction === "reduce" && amount > currentStock) {
       toast.error("Jumlah barang keluar melebihi stok yang tersedia!");
       return;
     }
@@ -205,27 +232,34 @@ export default function StockManagement() {
 
     try {
       setIsSubmitting(true);
-      const updatedStock = await api.post<any>('/api/inventory', {
+      const updatedStock = await api.post<any>("/api/inventory", {
         productId: id,
         branch: branch,
         amount: amount,
-        action: stockAction
+        action: stockAction,
       });
 
       // Update the local state
-      setProducts(products.map(p => {
-        if (p.id === id && p.branch === branch) {
-          return updatedStock;
-        }
-        return p;
-      }));
+      setProducts(
+        products.map((p) => {
+          if (p.id === id && p.branch === branch) {
+            return updatedStock;
+          }
+          return p;
+        }),
+      );
 
       setShowStockModal(false);
       setSelectedProductKey(null);
       setStockAmount("");
-      toast.success(`Berhasil ${stockAction === 'add' ? 'menambah' : 'mengurangi'} stok ${updatedStock.name}`);
+      toast.success(
+        `Berhasil ${stockAction === "add" ? "menambah" : "mengurangi"} stok ${updatedStock.name}`,
+      );
     } catch (error: any) {
-      toast.error(error.message || `Gagal ${stockAction === 'add' ? 'menambah' : 'mengurangi'} stok`);
+      toast.error(
+        error.message ||
+          `Gagal ${stockAction === "add" ? "menambah" : "mengurangi"} stok`,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -233,8 +267,16 @@ export default function StockManagement() {
 
   const handleCheckProduct = () => {
     if (!checkProductId) return;
-    const branchToSearch = isSuperAdmin ? (branchFilter === 'all' ? 'Palembang' : branchFilter) : user?.branch;
-    const found = products.find(p => p.id === checkProductId && (p.branch === branchToSearch || p.branch === 'all'));
+    const branchToSearch = isSuperAdmin
+      ? branchFilter === "all"
+        ? "Palembang"
+        : branchFilter
+      : user?.branch;
+    const found = products.find(
+      (p) =>
+        p.id === checkProductId &&
+        (p.branch === branchToSearch || p.branch === "all"),
+    );
 
     if (found) {
       setCheckProductResult(found);
@@ -253,12 +295,22 @@ export default function StockManagement() {
     const loadingToast = toast.loading("Sedang menyiapkan data Export...");
 
     try {
-      const categoryQuery = effectiveSelectedCategory === 'all' ? '' : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
-      const statusQuery = selectedStockStatus === 'all' ? '' : `&status=${encodeURIComponent(selectedStockStatus)}`;
-      const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+      const categoryQuery =
+        effectiveSelectedCategory === "all"
+          ? ""
+          : `&category=${encodeURIComponent(effectiveSelectedCategory)}`;
+      const statusQuery =
+        selectedStockStatus === "all"
+          ? ""
+          : `&status=${encodeURIComponent(selectedStockStatus)}`;
+      const searchQueryParam = debouncedSearch
+        ? `&search=${encodeURIComponent(debouncedSearch)}`
+        : "";
 
       // Fetch all items (up to 1000000)
-      const res = await api.get<any>(`/api/inventory?branch=${branchFilter}&page=1&limit=1000000${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`);
+      const res = await api.get<any>(
+        `/api/inventory?branch=${branchFilter}&page=1&limit=1000000${categoryQuery}${statusQuery}${searchQueryParam}&_t=${Date.now()}`,
+      );
 
       let itemsToExport = [];
       if (res && res.data) {
@@ -274,22 +326,22 @@ export default function StockManagement() {
 
       const headers = isSuperAdmin
         ? [
-          "Cabang",
-          "ID Produk",
-          "Nama Produk",
-          "Kategori",
-          "Total Masuk",
-          "Total Keluar",
-          "Stok Saat Ini",
-        ]
+            "Cabang",
+            "ID Produk",
+            "Nama Produk",
+            "Kategori",
+            "Total Masuk",
+            "Total Keluar",
+            "Stok Saat Ini",
+          ]
         : [
-          "ID Produk",
-          "Nama Produk",
-          "Kategori",
-          "Total Masuk",
-          "Total Keluar",
-          "Stok Saat Ini",
-        ];
+            "ID Produk",
+            "Nama Produk",
+            "Kategori",
+            "Total Masuk",
+            "Total Keluar",
+            "Stok Saat Ini",
+          ];
 
       const rows = itemsToExport.map((product: any) => {
         const base = [
@@ -331,13 +383,15 @@ export default function StockManagement() {
 
       toast.success("Berhasil mengekspor data!", { id: loadingToast });
     } catch (error: any) {
-      toast.error("Gagal mengekspor data: " + (error.message || "Error"), { id: loadingToast });
+      toast.error("Gagal mengekspor data: " + (error.message || "Error"), {
+        id: loadingToast,
+      });
     } finally {
       setIsExporting(false);
     }
   };
 
-  const openStockModal = (productKey: string, action: 'add' | 'reduce') => {
+  const openStockModal = (productKey: string, action: "add" | "reduce") => {
     setSelectedProductKey(productKey);
     setStockAction(action);
     setShowStockModal(true);
@@ -366,17 +420,39 @@ export default function StockManagement() {
     );
   }, [selectedProductKey, products]);
 
-  const selectedUnitsPerCarton = Number(selectedProductData?.unitsPerCarton) || 0;
-  const cartonInputDisabled = stockAction === 'add' && selectedUnitsPerCarton === 0;
+  const selectedUnitsPerCarton =
+    Number(selectedProductData?.unitsPerCarton) || 0;
+  const cartonInputDisabled = selectedUnitsPerCarton === 0;
   const currentStock = Number(selectedProductData?.stock) || 0;
-  const cartonUnits = cartonInputDisabled ? 0 : (Number(stockCartonAmount) || 0) * selectedUnitsPerCarton;
-  const calculatedIncomingUnits = stockAction === 'add'
-    ? (Number(stockAmount) || 0) + cartonUnits
-    : Number(stockAmount) || 0;
-  const calculatedOutgoingUnits = stockAction === 'reduce'
-    ? (Number(stockAmount) || 0) + cartonUnits
-    : Number(stockAmount) || 0;
-  const isOutgoingOverStock = stockAction === 'reduce' && calculatedOutgoingUnits > currentStock;
+  const normalizeUnits = (totalUnits: number) => {
+    if (selectedUnitsPerCarton <= 0) {
+      return { cartons: 0, units: Math.max(0, Math.floor(totalUnits)) };
+    }
+
+    const normalizedUnits = Math.max(0, Math.floor(totalUnits));
+    return {
+      cartons: Math.floor(normalizedUnits / selectedUnitsPerCarton),
+      units: normalizedUnits % selectedUnitsPerCarton,
+    };
+  };
+  const applyNormalizedQuantity = (totalUnits: number) => {
+    const normalized = normalizeUnits(totalUnits);
+    setStockCartonAmount(String(normalized.cartons));
+    setStockAmount(String(normalized.units));
+    return normalized;
+  };
+  const cartonCount = Number(stockCartonAmount) || 0;
+  const unitCount = Number(stockAmount) || 0;
+  const rawTotalUnits = cartonInputDisabled
+    ? unitCount
+    : cartonCount * selectedUnitsPerCarton + unitCount;
+  const normalizedBreakdown = normalizeUnits(rawTotalUnits);
+  const calculatedIncomingUnits =
+    stockAction === "add" ? rawTotalUnits : unitCount;
+  const calculatedOutgoingUnits =
+    stockAction === "reduce" ? rawTotalUnits : unitCount;
+  const isOutgoingOverStock =
+    stockAction === "reduce" && calculatedOutgoingUnits > currentStock;
 
   return (
     <>
@@ -539,9 +615,7 @@ export default function StockManagement() {
                 value={effectiveSelectedCategory}
                 onChange={(e) => {
                   const nextValue = e.target.value;
-                  setSelectedCategory(
-                    nextValue === "all" ? "" : nextValue,
-                  );
+                  setSelectedCategory(nextValue === "all" ? "" : nextValue);
                 }}
                 className="bg-transparent border-none outline-none font-medium text-gray-700 cursor-pointer text-sm w-full"
               >
@@ -596,72 +670,77 @@ export default function StockManagement() {
                     <td colSpan={7} className="px-6 py-24 text-center">
                       <div className="flex flex-col items-center justify-center gap-4">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                        <p className="text-gray-500 font-medium animate-pulse">Sedang memuat data stok...</p>
+                        <p className="text-gray-500 font-medium animate-pulse">
+                          Sedang memuat data stok...
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ) : paginatedProducts.map((product) => {
-                  const branch = product.branch || user?.branch || "Palembang";
-                  const uniqueKey = `${branch}|${product.id}`;
-                  return (
-                    <tr
-                      key={uniqueKey}
-                      className="hover:bg-blue-50/30 transition-colors group"
-                    >
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-mono text-gray-400">
-                        {product.id}
-                      </td>
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900">
-                            {product.name}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {product.category}
-                          </span>
-                        </div>
-                      </td>
-                      {isSuperAdmin && (
+                ) : (
+                  paginatedProducts.map((product) => {
+                    const branch =
+                      product.branch || user?.branch || "Palembang";
+                    const uniqueKey = `${branch}|${product.id}`;
+                    return (
+                      <tr
+                        key={uniqueKey}
+                        className="hover:bg-blue-50/30 transition-colors group"
+                      >
+                        <td className="px-6 py-5 whitespace-nowrap text-sm font-mono text-gray-400">
+                          {product.id}
+                        </td>
                         <td className="px-6 py-5 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700">
-                            {branch}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">
+                              {product.name}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {product.category}
+                            </span>
+                          </div>
+                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-6 py-5 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700">
+                              {branch}
+                            </span>
+                          </td>
+                        )}
+                        <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-emerald-600 font-medium">
+                          +{product.totalIn}
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-rose-600 font-medium">
+                          -{product.totalOut}
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-center">
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}
+                          >
+                            {product.stock}
                           </span>
                         </td>
-                      )}
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-emerald-600 font-medium">
-                        +{product.totalIn}
-                      </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-center text-rose-600 font-medium">
-                        -{product.totalOut}
-                      </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-center">
-                        <span
-                          className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}
-                        >
-                          {product.stock}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-right flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openStockModal(uniqueKey, 'reduce')}
-                          className="inline-flex items-center gap-1.5 text-rose-600 hover:text-rose-700 font-bold text-sm bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-xl transition-all active:scale-95"
-                          title="Kurangi Stok"
-                        >
-                          <TrendingDown className="w-4 h-4" />
-                          Keluar
-                        </button>
-                        <button
-                          onClick={() => openStockModal(uniqueKey, 'add')}
-                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-bold text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all active:scale-95"
-                          title="Tambah Stok"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Masuk
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <td className="px-6 py-5 whitespace-nowrap text-right flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openStockModal(uniqueKey, "reduce")}
+                            className="inline-flex items-center gap-1.5 text-rose-600 hover:text-rose-700 font-bold text-sm bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-xl transition-all active:scale-95"
+                            title="Kurangi Stok"
+                          >
+                            <TrendingDown className="w-4 h-4" />
+                            Keluar
+                          </button>
+                          <button
+                            onClick={() => openStockModal(uniqueKey, "add")}
+                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-bold text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all active:scale-95"
+                            title="Tambah Stok"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Masuk
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -671,93 +750,101 @@ export default function StockManagement() {
             {isLoading ? (
               <div className="p-12 flex flex-col items-center justify-center gap-4">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                <p className="text-gray-500 font-medium animate-pulse">Sedang memuat...</p>
+                <p className="text-gray-500 font-medium animate-pulse">
+                  Sedang memuat...
+                </p>
               </div>
-            ) : paginatedProducts.map((product) => {
-              const branch = product.branch || user?.branch || "Palembang";
-              const uniqueKey = `${branch}|${product.id}`;
-              return (
-                <div key={uniqueKey} className="p-5 space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs font-mono text-gray-400 mb-1">
-                        {product.id}
-                      </p>
-                      <h3 className="text-base font-bold text-gray-900">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {product.category}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}
-                    >
-                      {product.stock} Sisa
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
-                    <div className="text-center border-r border-gray-200">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
-                        Masuk
-                      </p>
-                      <p className="text-sm font-semibold text-emerald-600">
-                        +{product.totalIn}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
-                        Keluar
-                      </p>
-                      <p className="text-sm font-semibold text-rose-600">
-                        -{product.totalOut}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    {isSuperAdmin && (
-                      <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                        {branch}
+            ) : (
+              paginatedProducts.map((product) => {
+                const branch = product.branch || user?.branch || "Palembang";
+                const uniqueKey = `${branch}|${product.id}`;
+                return (
+                  <div key={uniqueKey} className="p-5 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-mono text-gray-400 mb-1">
+                          {product.id}
+                        </p>
+                        <h3 className="text-base font-bold text-gray-900">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {product.category}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-3 py-1.5 rounded-xl text-sm font-bold ring-1 ring-inset ${getStockStatusColor(product.stock)}`}
+                      >
+                        {product.stock} Sisa
                       </span>
-                    )}
-                    <button
-                      onClick={() => openStockModal(uniqueKey, 'reduce')}
-                      className="flex-1 inline-flex items-center justify-center gap-2 text-rose-600 bg-rose-50 hover:bg-rose-100 font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
-                    >
-                      <TrendingDown className="w-4 h-4" />
-                      Keluar
-                    </button>
-                    <button
-                      onClick={() => openStockModal(uniqueKey, 'add')}
-                      className="flex-1 inline-flex items-center justify-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Masuk
-                    </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-2xl">
+                      <div className="text-center border-r border-gray-200">
+                        <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
+                          Masuk
+                        </p>
+                        <p className="text-sm font-semibold text-emerald-600">
+                          +{product.totalIn}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
+                          Keluar
+                        </p>
+                        <p className="text-sm font-semibold text-rose-600">
+                          -{product.totalOut}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      {isSuperAdmin && (
+                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
+                          {branch}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => openStockModal(uniqueKey, "reduce")}
+                        className="flex-1 inline-flex items-center justify-center gap-2 text-rose-600 bg-rose-50 hover:bg-rose-100 font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
+                      >
+                        <TrendingDown className="w-4 h-4" />
+                        Keluar
+                      </button>
+                      <button
+                        onClick={() => openStockModal(uniqueKey, "add")}
+                        className="flex-1 inline-flex items-center justify-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Masuk
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Pagination Controls */}
           {!isLoading && totalPages > 1 && (
             <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between flex-wrap gap-4">
               <span className="text-sm text-gray-500 font-medium">
-                Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} dari {totalItems} produk
+                Menampilkan {(currentPage - 1) * itemsPerPage + 1} -{" "}
+                {Math.min(currentPage * itemsPerPage, totalItems)} dari{" "}
+                {totalItems} produk
               </span>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
                 >
                   Sebelumnya
                 </button>
                 <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   disabled={currentPage === totalPages}
                   className="px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
                 >
@@ -794,14 +881,18 @@ export default function StockManagement() {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {stockAction === 'add' ? 'Tambah Stok' : 'Kurangi Stok'}
+                  {stockAction === "add" ? "Tambah Stok" : "Kurangi Stok"}
                 </h2>
                 <p className="text-gray-500 mt-1">
-                  {stockAction === 'add' ? 'Perbarui jumlah unit masuk.' : 'Perbarui jumlah unit keluar.'}
+                  {stockAction === "add"
+                    ? "Perbarui jumlah unit masuk."
+                    : "Perbarui jumlah unit keluar."}
                 </p>
               </div>
-              <div className={`p-3 rounded-2xl ${stockAction === 'add' ? 'bg-blue-50' : 'bg-rose-50'}`}>
-                {stockAction === 'add' ? (
+              <div
+                className={`p-3 rounded-2xl ${stockAction === "add" ? "bg-blue-50" : "bg-rose-50"}`}
+              >
+                {stockAction === "add" ? (
                   <ArrowUpRight className="w-6 h-6 text-blue-600" />
                 ) : (
                   <TrendingDown className="w-6 h-6 text-rose-600" />
@@ -838,22 +929,25 @@ export default function StockManagement() {
             )}
 
             <div className="mb-8 space-y-4">
-              {stockAction === 'add' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
-                    Jumlah Karton Masuk
+                    {stockAction === "add" ? "Karton Masuk" : "Karton Keluar"}
                   </label>
                   <input
                     type="number"
                     min={0}
                     value={stockCartonAmount}
-                    onChange={(e) => setStockCartonAmount(e.target.value)}
+                    onChange={(e) => {
+                      const cartons = Number(e.target.value) || 0;
+                      const currentUnits = Number(stockAmount) || 0;
+                      const totalUnits = cartonInputDisabled
+                        ? currentUnits
+                        : cartons * selectedUnitsPerCarton + currentUnits;
+                      applyNormalizedQuantity(totalUnits);
+                    }}
                     className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                    placeholder={
-                      cartonInputDisabled
-                        ? "0"
-                        : `Contoh: 5 karton (isi ${selectedUnitsPerCarton} unit/karton)`
-                    }
+                    placeholder={cartonInputDisabled ? "0" : `Contoh: 2`}
                     disabled={cartonInputDisabled}
                     readOnly={cartonInputDisabled}
                   />
@@ -863,63 +957,54 @@ export default function StockManagement() {
                     </p>
                   )}
                 </div>
-              )}
-              {stockAction === 'reduce' && (
+
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
-                    Jumlah Karton Keluar
+                    {stockAction === "add" ? "Unit Masuk" : "Unit Keluar"}
                   </label>
                   <input
                     type="number"
+                    value={stockAmount}
+                    onChange={(e) => {
+                      const totalUnits = Number(e.target.value) || 0;
+                      applyNormalizedQuantity(totalUnits);
+                    }}
+                    className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-bold"
+                    placeholder={cartonInputDisabled ? "0" : "Contoh: 44"}
                     min={0}
-                    value={stockCartonAmount}
-                    onChange={(e) => setStockCartonAmount(e.target.value)}
-                    className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none transition-all text-lg font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                    placeholder={
-                      cartonInputDisabled
-                        ? "0"
-                        : `Contoh: 1 karton (isi ${selectedUnitsPerCarton} unit/karton)`
-                    }
-                    disabled={cartonInputDisabled}
-                    readOnly={cartonInputDisabled}
+                    autoFocus
                   />
-                  {cartonInputDisabled && (
-                    <p className="mt-2 text-xs text-gray-500 ml-1">
-                      Karton dinonaktifkan karena isi per karton = 0
-                    </p>
-                  )}
                 </div>
-              )}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
-                  {stockAction === 'add' ? 'Jumlah Unit Masuk' : 'Jumlah Unit Keluar'}
-                </label>
-                <input
-                  type="number"
-                  value={stockAmount}
-                  onChange={(e) => setStockAmount(e.target.value)}
-                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-bold"
-                  placeholder="0"
-                  min={0}
-                  autoFocus
-                />
               </div>
-              {stockAction === 'add' && (
-                <p className="text-xs text-gray-500 ml-1">
-                  Total unit masuk: {calculatedIncomingUnits}
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-1">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-gray-500">Isi per karton</span>
+                  <span className="font-bold text-gray-800">
+                    {selectedUnitsPerCarton > 0
+                      ? `${selectedUnitsPerCarton} unit/karton`
+                      : "Tidak berlaku"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-gray-500">Setara</span>
+                  <span className="font-black text-gray-900">
+                    {normalizedBreakdown.cartons} karton +{" "}
+                    {normalizedBreakdown.units} unit
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-gray-500">Total unit</span>
+                  <span className="font-black text-blue-600">
+                    {rawTotalUnits}
+                  </span>
+                </div>
+              </div>
+
+              {stockAction === "reduce" && isOutgoingOverStock && (
+                <p className="text-xs font-bold text-rose-600 ml-1">
+                  Jumlah barang keluar melebihi stok yang tersedia!
                 </p>
-              )}
-              {stockAction === 'reduce' && (
-                <>
-                  <p className="text-xs text-gray-500 ml-1">
-                    Total unit keluar: {calculatedOutgoingUnits}
-                  </p>
-                  {isOutgoingOverStock && (
-                    <p className="text-xs font-bold text-rose-600 ml-1">
-                      Jumlah barang keluar melebihi stok yang tersedia!
-                    </p>
-                  )}
-                </>
               )}
             </div>
 
@@ -930,6 +1015,7 @@ export default function StockManagement() {
                   setShowStockModal(false);
                   setSelectedProductKey(null);
                   setStockAmount("");
+                  setStockCartonAmount("0");
                 }}
                 disabled={isSubmitting}
                 className="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -938,14 +1024,17 @@ export default function StockManagement() {
               </button>
               <button
                 onClick={handleStockAction}
-                disabled={isSubmitting || (stockAction === 'reduce' && isOutgoingOverStock)}
+                disabled={
+                  isSubmitting ||
+                  (stockAction === "reduce" && isOutgoingOverStock)
+                }
                 className={`flex-[2] text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-                  stockAction === 'reduce'
+                  stockAction === "reduce"
                     ? isOutgoingOverStock
-                      ? 'bg-rose-300 shadow-none cursor-not-allowed'
-                      : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
-                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-                  }`}
+                      ? "bg-rose-300 shadow-none cursor-not-allowed"
+                      : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"
+                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"
+                }`}
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
@@ -953,7 +1042,7 @@ export default function StockManagement() {
                     Memproses...
                   </span>
                 ) : (
-                  `Konfirmasi ${stockAction === 'add' ? 'Masuk' : 'Keluar'}`
+                  `Konfirmasi ${stockAction === "add" ? "Masuk" : "Keluar"}`
                 )}
               </button>
             </div>
@@ -971,9 +1060,7 @@ export default function StockManagement() {
           <div className="bg-white rounded-[2.5rem] max-w-md w-full p-8 shadow-2xl relative animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Cek Produk
-                </h2>
+                <h2 className="text-2xl font-bold text-gray-900">Cek Produk</h2>
                 <p className="text-gray-500 mt-1">
                   Validasi dan lihat informasi stok produk.
                 </p>
@@ -991,7 +1078,7 @@ export default function StockManagement() {
                   setCheckProductId(e.target.value);
                   setCheckProductResult(null);
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && handleCheckProduct()}
+                onKeyDown={(e) => e.key === "Enter" && handleCheckProduct()}
                 className="flex-1 px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-lg font-mono font-bold"
                 placeholder="Scan / Masukkan ID Produk"
                 autoFocus
@@ -1010,7 +1097,9 @@ export default function StockManagement() {
                   <div className="bg-emerald-100 p-1.5 rounded-full">
                     <Check className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <span className="text-sm font-bold text-emerald-700">Produk Valid</span>
+                  <span className="text-sm font-bold text-emerald-700">
+                    Produk Valid
+                  </span>
                 </div>
                 <p className="text-lg font-bold text-gray-900 mb-1">
                   {checkProductResult.name}
@@ -1029,7 +1118,9 @@ export default function StockManagement() {
                     <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
                       Stok
                     </p>
-                    <p className={`text-xl font-bold ${checkProductResult.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <p
+                      className={`text-xl font-bold ${checkProductResult.stock > 0 ? "text-emerald-600" : "text-rose-600"}`}
+                    >
                       {checkProductResult.stock}
                     </p>
                   </div>
@@ -1038,7 +1129,7 @@ export default function StockManagement() {
                       Cabang
                     </p>
                     <p className="text-sm font-bold text-gray-700 mt-1">
-                      {checkProductResult.branch || user?.branch || 'Palembang'}
+                      {checkProductResult.branch || user?.branch || "Palembang"}
                     </p>
                   </div>
                 </div>
@@ -1051,10 +1142,13 @@ export default function StockManagement() {
                   <div className="bg-rose-100 p-1.5 rounded-full">
                     <AlertTriangle className="w-4 h-4 text-rose-600" />
                   </div>
-                  <span className="text-sm font-bold text-rose-700">Tidak Ditemukan</span>
+                  <span className="text-sm font-bold text-rose-700">
+                    Tidak Ditemukan
+                  </span>
                 </div>
                 <p className="text-sm text-rose-600">
-                  Produk dengan ID <strong>{checkProductId}</strong> tidak ditemukan di database. Pastikan ID produk benar.
+                  Produk dengan ID <strong>{checkProductId}</strong> tidak
+                  ditemukan di database. Pastikan ID produk benar.
                 </p>
               </div>
             )}

@@ -6,6 +6,7 @@ export interface Product {
   category: string;
   stock: number;
   price: number;
+  unitsPerCarton?: number;
   totalIn: number;
   totalOut: number;
   unit?: "Dus" | "Pack" | "Pcs";
@@ -681,55 +682,68 @@ export const getOrders = (): Order[] => {
 export const deleteHistoryBefore = (targetDate: Date) => {
   if (!isClient) return 0;
   let deletedCount = 0;
-  
+
   getBranches().forEach((branch) => {
     const ordersKey = getBranchKey(STORAGE_KEYS.ORDERS, branch);
     const receivablesKey = getBranchKey(STORAGE_KEYS.RECEIVABLES, branch);
-    
+
     const orders: Order[] = JSON.parse(safeGet(ordersKey) || "[]");
-    const receivables: Receivable[] = JSON.parse(safeGet(receivablesKey) || "[]");
-    
+    const receivables: Receivable[] = JSON.parse(
+      safeGet(receivablesKey) || "[]",
+    );
+
     const initialOrdersLength = orders.length;
-    
+
     // Filter out orders that are on or before the targetDate
-    const filteredOrders = orders.filter((o) => new Date(o.createdAt) > targetDate);
-    
+    const filteredOrders = orders.filter(
+      (o) => new Date(o.createdAt) > targetDate,
+    );
+
     // Find the deleted order IDs
     const deletedOrderIds = new Set(
-      orders.filter((o) => new Date(o.createdAt) <= targetDate).map(o => o.id)
+      orders
+        .filter((o) => new Date(o.createdAt) <= targetDate)
+        .map((o) => o.id),
     );
-    
+
     deletedCount += initialOrdersLength - filteredOrders.length;
-    
+
     // Delete associated receivables
-    const filteredReceivables = receivables.filter(r => !deletedOrderIds.has(r.orderId));
-    const deletedReceivables = receivables.filter(r => deletedOrderIds.has(r.orderId));
-    
+    const filteredReceivables = receivables.filter(
+      (r) => !deletedOrderIds.has(r.orderId),
+    );
+    const deletedReceivables = receivables.filter((r) =>
+      deletedOrderIds.has(r.orderId),
+    );
+
     // Adjust store totalDebt for deleted unpaid receivables
-    if (deletedReceivables.some(r => !r.isPaid)) {
+    if (deletedReceivables.some((r) => !r.isPaid)) {
       const storesKey = getBranchKey(STORAGE_KEYS.STORES, branch);
       const stores: Store[] = JSON.parse(safeGet(storesKey) || "[]");
       let storesUpdated = false;
-      
-      deletedReceivables.forEach(r => {
+
+      deletedReceivables.forEach((r) => {
         if (!r.isPaid) {
-          const storeIndex = stores.findIndex(s => s.id === r.storeId);
+          const storeIndex = stores.findIndex((s) => s.id === r.storeId);
           if (storeIndex !== -1) {
-            stores[storeIndex].totalDebt = Math.max(0, (Number(stores[storeIndex].totalDebt) || 0) - Number(r.amount));
+            stores[storeIndex].totalDebt = Math.max(
+              0,
+              (Number(stores[storeIndex].totalDebt) || 0) - Number(r.amount),
+            );
             storesUpdated = true;
           }
         }
       });
-      
+
       if (storesUpdated) {
         safeSet(storesKey, JSON.stringify(stores));
       }
     }
-    
+
     safeSet(ordersKey, JSON.stringify(filteredOrders));
     safeSet(receivablesKey, JSON.stringify(filteredReceivables));
   });
-  
+
   return deletedCount;
 };
 
