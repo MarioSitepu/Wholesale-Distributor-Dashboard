@@ -75,6 +75,11 @@ export default function OrderPage() {
   const [draftQuantities, setDraftQuantities] = useState<
     Record<string, string>
   >({});
+  // Draft state untuk input karton dan unit di panel keranjang
+  // key: `${productId}:carton` atau `${productId}:unit`
+  const [draftCartInputs, setDraftCartInputs] = useState<
+    Record<string, string>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -344,6 +349,12 @@ export default function OrderPage() {
       delete next[productId];
       return next;
     });
+    setDraftCartInputs((current) => {
+      const next = { ...current };
+      delete next[`${productId}:carton`];
+      delete next[`${productId}:unit`];
+      return next;
+    });
   };
 
   const getCartQuantity = (productId: string) => {
@@ -378,25 +389,112 @@ export default function OrderPage() {
     nextQuantity: number,
     stock: number,
   ) => {
+    // Biarkan 0 — jangan hapus item. Penghapusan hanya via tombol X eksplisit.
     const safeQuantity = Math.max(0, Math.min(stock, Math.floor(nextQuantity)));
-    if (safeQuantity <= 0) {
-      removeCartItem(productId);
-      setDraftQuantities((current) => {
-        const next = { ...current };
-        delete next[productId];
-        return next;
-      });
-      return;
-    }
-
-    setDraftQuantities((current) => {
-      const next = { ...current };
-      delete next[productId];
-      return next;
-    });
     setCartQuantity(productId, safeQuantity);
   };
 
+  // --- Helpers untuk draft karton/unit di panel keranjang ---
+
+  const getCartonDraftKey = (productId: string) => `${productId}:carton`;
+  const getUnitDraftKey = (productId: string) => `${productId}:unit`;
+
+  const setCartInputDraft = (key: string, value: string) =>
+    setDraftCartInputs((prev) => ({ ...prev, [key]: value }));
+
+  const clearCartInputDraft = (key: string) =>
+    setDraftCartInputs((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+  // Nilai yang ditampilkan di input (draft lebih prioritas dari computed)
+  const getCartonInputValue = (productId: string, computedCartons: number) => {
+    const key = getCartonDraftKey(productId);
+    return key in draftCartInputs ? draftCartInputs[key] : String(computedCartons);
+  };
+
+  const getUnitInputValue = (productId: string, computedUnits: number) => {
+    const key = getUnitDraftKey(productId);
+    return key in draftCartInputs ? draftCartInputs[key] : String(computedUnits);
+  };
+
+  // --- Handlers karton ---
+
+  const handleCartonFocus = (productId: string, computedCartons: number) =>
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      setCartInputDraft(getCartonDraftKey(productId), String(computedCartons));
+      e.currentTarget.select();
+    };
+
+  const handleCartonChange = (productId: string) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      // Izinkan string kosong sementara user sedang mengetik
+      if (val === "" || /^\d+$/.test(val)) {
+        setCartInputDraft(getCartonDraftKey(productId), val);
+      }
+    };
+
+  const handleCartonBlur = (productId: string, stock: number) =>
+    (_e: React.FocusEvent<HTMLInputElement>) => {
+      const key = getCartonDraftKey(productId);
+      const draftVal = draftCartInputs[key] ?? "";
+      clearCartInputDraft(key);
+
+      const unitsPerCarton = getProductUnitsPerCarton(productId);
+      if (unitsPerCarton <= 0) return;
+
+      const parsedCarton = draftVal === "" ? 0 : Number(draftVal);
+      if (Number.isNaN(parsedCarton)) return;
+
+      const currentQuantity = getCartQuantity(productId);
+      const currentUnits = currentQuantity % unitsPerCarton;
+      updateCartQuantity(
+        productId,
+        Math.max(0, Math.floor(parsedCarton)) * unitsPerCarton + currentUnits,
+        stock,
+      );
+    };
+
+  // --- Handlers unit ---
+
+  const handleUnitFocus = (productId: string, computedUnits: number) =>
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      setCartInputDraft(getUnitDraftKey(productId), String(computedUnits));
+      e.currentTarget.select();
+    };
+
+  const handleUnitChange = (productId: string) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      if (val === "" || /^\d+$/.test(val)) {
+        setCartInputDraft(getUnitDraftKey(productId), val);
+      }
+    };
+
+  const handleUnitBlur = (productId: string, stock: number) =>
+    (_e: React.FocusEvent<HTMLInputElement>) => {
+      const key = getUnitDraftKey(productId);
+      const draftVal = draftCartInputs[key] ?? "";
+      clearCartInputDraft(key);
+
+      const unitsPerCarton = getProductUnitsPerCarton(productId);
+      const parsedUnit = draftVal === "" ? 0 : Number(draftVal);
+      if (Number.isNaN(parsedUnit)) return;
+
+      const currentQuantity = getCartQuantity(productId);
+      const currentCartons =
+        unitsPerCarton > 0 ? Math.floor(currentQuantity / unitsPerCarton) : 0;
+      updateCartQuantity(
+        productId,
+        currentCartons * unitsPerCarton + Math.max(0, Math.floor(parsedUnit)),
+        stock,
+      );
+    };
+
+  // Kept for stepper buttons (+/-)
   const handleCartonQuantityChange = (
     productId: string,
     cartonValue: string,
@@ -502,6 +600,7 @@ export default function OrderPage() {
       setInvoiceNumber("");
       setOrderDate(new Date().toLocaleDateString("en-CA"));
       setDraftQuantities({});
+      setDraftCartInputs({});
 
       // Refresh produk agar sisa stok terbaru tampil
       fetchInitialData();
@@ -967,16 +1066,13 @@ export default function OrderPage() {
                                 Karton
                               </label>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 min={0}
-                                value={displayValues.cartons}
-                                onChange={(event) =>
-                                  handleCartonQuantityChange(
-                                    item.productId,
-                                    event.target.value,
-                                    product.stock,
-                                  )
-                                }
+                                value={getCartonInputValue(item.productId, displayValues.cartons)}
+                                onFocus={handleCartonFocus(item.productId, displayValues.cartons)}
+                                onChange={handleCartonChange(item.productId)}
+                                onBlur={handleCartonBlur(item.productId, product.stock)}
                                 disabled={isCartonFrozen}
                                 readOnly={isCartonFrozen}
                                 className="font-medium w-14 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1001,21 +1097,13 @@ export default function OrderPage() {
                                   <Minus className="w-4 h-4" />
                                 </button>
                                 <input
-                                  type="number"
+                                  type="text"
+                                  inputMode="numeric"
                                   min={0}
-                                  max={
-                                    displayValues.unitsPerCarton > 0
-                                      ? displayValues.unitsPerCarton - 1
-                                      : product.stock
-                                  }
-                                  value={displayValues.units}
-                                  onChange={(event) =>
-                                    handleUnitQuantityChange(
-                                      item.productId,
-                                      event.target.value,
-                                      product.stock,
-                                    )
-                                  }
+                                  value={getUnitInputValue(item.productId, displayValues.units)}
+                                  onFocus={handleUnitFocus(item.productId, displayValues.units)}
+                                  onChange={handleUnitChange(item.productId)}
+                                  onBlur={handleUnitBlur(item.productId, product.stock)}
                                   className="font-medium w-14 shrink-0 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   aria-label={`Jumlah unit ${product.name}`}
                                 />

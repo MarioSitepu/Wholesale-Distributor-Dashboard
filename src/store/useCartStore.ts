@@ -78,23 +78,17 @@ export const useCartStore = create<CartStore>()(
             (item) => item.productId === productId,
           );
 
-          if (quantity <= 0) {
-            const updatedCart = currentCart.filter(
-              (item) => item.productId !== productId,
-            );
-            return {
-              cart: updatedCart,
-              cartsByBranch: { ...state.cartsByBranch, [branch]: updatedCart },
-            };
-          }
+          // Biarkan quantity 0 — jangan hapus item otomatis
+          // Hanya negatif yang di-clamp ke 0
+          const safeQuantity = Math.max(0, quantity);
 
           let updatedCart: CartItem[];
           if (existingItem) {
             updatedCart = currentCart.map((item) =>
-              item.productId === productId ? { ...item, quantity } : item,
+              item.productId === productId ? { ...item, quantity: safeQuantity } : item,
             );
           } else {
-            updatedCart = [...currentCart, { productId, quantity }];
+            updatedCart = [...currentCart, { productId, quantity: safeQuantity }];
           }
 
           return {
@@ -111,19 +105,12 @@ export const useCartStore = create<CartStore>()(
           );
           if (!existingItem) return state;
 
-          if (existingItem.quantity === 1) {
-            const updatedCart = currentCart.filter(
-              (item) => item.productId !== productId,
-            );
-            return {
-              cart: updatedCart,
-              cartsByBranch: { ...state.cartsByBranch, [branch]: updatedCart },
-            };
-          }
+          // Biarkan qty turun ke 0, jangan hapus item
+          const newQuantity = Math.max(0, existingItem.quantity - 1);
 
           const updatedCart = currentCart.map((item) =>
             item.productId === productId
-              ? { ...item, quantity: item.quantity - 1 }
+              ? { ...item, quantity: newQuantity }
               : item,
           );
           return {
