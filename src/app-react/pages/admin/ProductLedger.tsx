@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { z } from "zod";
-import {
-  Product,
-  Order,
-  ScheduledPrice,
-} from "../../utils/mockData";
+import { Product, Order, ScheduledPrice } from "../../utils/mockData";
 import { api } from "../../utils/apiClient";
-import { fetchBranchesCached, fetchCategoriesCached, invalidateCategoriesCache } from "../../utils/globalCache";
+import {
+  fetchBranchesCached,
+  fetchCategoriesCached,
+  invalidateCategoriesCache,
+} from "../../utils/globalCache";
 import {
   Search,
   Package,
@@ -32,7 +32,10 @@ const addProductSchema = z.object({
   name: z.string().trim().min(1, "Nama Produk wajib diisi"),
   category: z.string().trim().min(1, "Kategori wajib diisi"),
   price: z.coerce.number().int().positive("Harga harus lebih dari 0"),
-  unitsPerCarton: z.coerce.number().int().min(0, "Jumlah unit per karton minimal 0"),
+  unitsPerCarton: z.coerce
+    .number()
+    .int()
+    .min(0, "Jumlah unit per karton minimal 0"),
   branch: z.string().trim().min(1, "Cabang wajib diisi"),
 });
 
@@ -51,6 +54,8 @@ export default function ProductLedger() {
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [editProductName, setEditProductName] = useState("");
   const [editProductPrice, setEditProductPrice] = useState(0);
+  const [editProductUnitsPerCarton, setEditProductUnitsPerCarton] =
+    useState("0");
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [newProductId, setNewProductId] = useState("");
   const [newProductName, setNewProductName] = useState("");
@@ -85,10 +90,18 @@ export default function ProductLedger() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [productsRes, ordersRes, pricesRes, categoriesList, branchesList] = await Promise.all([
+        const [
+          productsRes,
+          ordersRes,
+          pricesRes,
+          categoriesList,
+          branchesList,
+        ] = await Promise.all([
           api.get<Product[]>(`/api/products?branch=${selectedBranch}`),
           api.get<Order[]>(`/api/orders?branch=${selectedBranch}`),
-          api.get<ScheduledPrice[]>(`/api/scheduled-prices?branch=${selectedBranch}`),
+          api.get<ScheduledPrice[]>(
+            `/api/scheduled-prices?branch=${selectedBranch}`,
+          ),
           fetchCategoriesCached(),
           fetchBranchesCached(),
         ]);
@@ -113,7 +126,9 @@ export default function ProductLedger() {
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
     try {
-      const res = await api.post<string[]>('/api/categories', { name: newCategoryName.trim() });
+      const res = await api.post<string[]>("/api/categories", {
+        name: newCategoryName.trim(),
+      });
       setCategories(res);
       setNewCategoryName("");
       toast.success("Kategori berhasil ditambahkan");
@@ -154,7 +169,7 @@ export default function ProductLedger() {
     }
 
     try {
-      const newProduct = await api.post<Product>('/api/products', {
+      const newProduct = await api.post<Product>("/api/products", {
         ...parsed.data,
       });
 
@@ -173,13 +188,16 @@ export default function ProductLedger() {
 
   const handleAddScheduledPrice = async () => {
     if (!selectedProductId || !newSchedPrice || !newSchedDate) return;
-    
+
     try {
-      const newSchedule = await api.post<ScheduledPrice>('/api/scheduled-prices', {
-        productId: selectedProductId,
-        newPrice: Number(newSchedPrice),
-        startDate: newSchedDate,
-      });
+      const newSchedule = await api.post<ScheduledPrice>(
+        "/api/scheduled-prices",
+        {
+          productId: selectedProductId,
+          newPrice: Number(newSchedPrice),
+          startDate: newSchedDate,
+        },
+      );
 
       setScheduledPrices([...scheduledPrices, newSchedule]);
       setIsSchedulingPrice(false);
@@ -194,7 +212,7 @@ export default function ProductLedger() {
   const handleRemoveScheduledPrice = async (id: string) => {
     try {
       await api.delete(`/api/scheduled-prices/${id}`);
-      setScheduledPrices(scheduledPrices.filter(sp => sp.id !== id));
+      setScheduledPrices(scheduledPrices.filter((sp) => sp.id !== id));
       toast.success("Jadwal harga berhasil dihapus");
     } catch (e: any) {
       toast.error(e.message);
@@ -203,15 +221,22 @@ export default function ProductLedger() {
 
   const handleSaveProduct = async () => {
     if (!selectedProductId || !editProductName.trim()) return;
-    
-    try {
-      const updatedProduct = await api.put<Product>(`/api/products/${selectedProductId}`, {
-        name: editProductName.trim(),
-        price: Number(editProductPrice) || 0,
-        category: products.find((p) => p.id === selectedProductId)?.category || "",
-      });
 
-      setProducts(products.map(p => p.id === selectedProductId ? updatedProduct : p));
+    try {
+      const updatedProduct = await api.put<Product>(
+        `/api/products/${selectedProductId}`,
+        {
+          name: editProductName.trim(),
+          price: Number(editProductPrice) || 0,
+          unitsPerCarton: Number(editProductUnitsPerCarton) || 0,
+          category:
+            products.find((p) => p.id === selectedProductId)?.category || "",
+        },
+      );
+
+      setProducts(
+        products.map((p) => (p.id === selectedProductId ? updatedProduct : p)),
+      );
       setIsEditingProduct(false);
       toast.success("Produk berhasil diperbarui");
     } catch (error: any) {
@@ -223,7 +248,7 @@ export default function ProductLedger() {
     if (confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
       try {
         await api.delete(`/api/products/${id}`);
-        setProducts(products.filter(p => p.id !== id));
+        setProducts(products.filter((p) => p.id !== id));
         if (selectedProductId === id) setSelectedProductId("");
         toast.success("Produk berhasil dihapus");
       } catch (error: any) {
@@ -499,41 +524,42 @@ export default function ProductLedger() {
               </div>
             ) : (
               filteredProducts.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => {
-                  setSelectedProductId(product.id);
-                  setIsEditingProduct(false);
-                }}
-                className={`w-full text-left p-4 border-b border-gray-100 transition-colors hover:bg-gray-50 flex items-center gap-3
+                <button
+                  key={product.id}
+                  onClick={() => {
+                    setSelectedProductId(product.id);
+                    setIsEditingProduct(false);
+                  }}
+                  className={`w-full text-left p-4 border-b border-gray-100 transition-colors hover:bg-gray-50 flex items-center gap-3
                   ${selectedProductId === product.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""}
                 `}
-              >
-                <div
-                  className={`p-2 rounded-lg ${selectedProductId === product.id ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"}`}
                 >
-                  <Package className="w-5 h-5" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-center justify-between">
-                    <h3
-                      className={`font-medium truncate ${selectedProductId === product.id ? "text-blue-700" : "text-gray-800"}`}
-                    >
-                      {product.name}
-                    </h3>
-                    {scheduledPrices.some(
-                      (sp) => sp.productId === product.id,
-                    ) && (
-                      <Calendar className="w-3 h-3 text-orange-500 animate-pulse" />
-                    )}
+                  <div
+                    className={`p-2 rounded-lg ${selectedProductId === product.id ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"}`}
+                  >
+                    <Package className="w-5 h-5" />
                   </div>
-                  <div className="flex justify-between text-sm text-gray-500 mt-1">
-                    <span>{product.id}</span>
-                    <span>Stok: {product.stock}</span>
+                  <div className="flex-1 overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <h3
+                        className={`font-medium truncate ${selectedProductId === product.id ? "text-blue-700" : "text-gray-800"}`}
+                      >
+                        {product.name}
+                      </h3>
+                      {scheduledPrices.some(
+                        (sp) => sp.productId === product.id,
+                      ) && (
+                        <Calendar className="w-3 h-3 text-orange-500 animate-pulse" />
+                      )}
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500 mt-1">
+                      <span>{product.id}</span>
+                      <span>Stok: {product.stock}</span>
+                    </div>
                   </div>
-                </div>
-              </button>
-            )))}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -579,6 +605,24 @@ export default function ProductLedger() {
                             value={editProductPrice}
                             onChange={(e) =>
                               setEditProductPrice(Number(e.target.value))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">
+                            Unit per Karton
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="1"
+                            className="w-full border-b-2 border-gray-100 focus:border-blue-500 py-2 outline-none font-bold text-xl text-blue-600 transition-all"
+                            value={editProductUnitsPerCarton}
+                            onChange={(e) =>
+                              setEditProductUnitsPerCarton(e.target.value)
                             }
                           />
                         </div>
@@ -678,48 +722,53 @@ export default function ProductLedger() {
                             {selectedProduct.stock} pcs
                           </span>
                         </span>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <span>
+                          Isi/Karton:{" "}
+                          <span className="text-gray-700 font-bold">
+                            {selectedProduct.unitsPerCarton} unit
+                          </span>
+                        </span>
                       </p>
                     </div>
                   )}
 
                   {!isEditingProduct && (
-                    <div className="flex gap-4 items-center">
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-gray-400 uppercase mb-1">
+                    <div className="flex items-start gap-4 ml-auto">
+                      <div className="text-right min-w-[12rem]">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.28em] mb-2">
                           Harga Jual
                         </p>
-                        <div className="flex items-center gap-3">
-                          <p className="text-2xl font-black text-blue-600">
-                            Rp {selectedProduct.price.toLocaleString("id-ID")}
-                          </p>
-                          {isSuperAdmin && (
-                            <button
-                              onClick={() => {
-                                setEditProductName(selectedProduct.name);
-                                setEditProductPrice(selectedProduct.price);
-                                setIsEditingProduct(true);
-                              }}
-                              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95"
-                              title="Ubah Harga & Nama"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
+                        <p className="text-3xl font-black leading-none text-blue-600 tabular-nums whitespace-nowrap">
+                          Rp {selectedProduct.price.toLocaleString("id-ID")}
+                        </p>
                       </div>
                       {isSuperAdmin && (
-                        <>
-                          <div className="h-10 w-px bg-gray-200 mx-2"></div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditProductName(selectedProduct.name);
+                              setEditProductPrice(selectedProduct.price);
+                              setEditProductUnitsPerCarton(
+                                String(selectedProduct.unitsPerCarton ?? 0),
+                              );
+                              setIsEditingProduct(true);
+                            }}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-white text-blue-600 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 hover:shadow-md active:scale-95"
+                            title="Ubah Harga, Nama, dan Unit per Karton"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() =>
                               handleDeleteProduct(selectedProduct.id)
                             }
-                            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600 hover:shadow-md active:scale-95"
                             title="Hapus Produk"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   )}

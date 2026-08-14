@@ -1,6 +1,6 @@
-import { JwtPayload, Product } from '../types/index';
-import { ProductRepository } from '../repositories/product.repository';
-import { Errors } from '../utils/errors';
+import { JwtPayload, Product } from "../types/index";
+import { ProductRepository } from "../repositories/product.repository";
+import { Errors } from "../utils/errors";
 
 export class ProductService {
   private productRepo = new ProductRepository();
@@ -11,23 +11,42 @@ export class ProductService {
     page?: number,
     limit?: number,
     search?: string,
-    category?: string
+    category?: string,
   ): Promise<any> {
-    const targetBranch = user.branch === 'Pusat' ? branch : user.branch;
-    const rows = await this.productRepo.findByBranch(targetBranch, page, limit, search, category);
+    const targetBranch = user.branch === "Pusat" ? branch : user.branch;
+    const rows = await this.productRepo.findByBranch(
+      targetBranch,
+      page,
+      limit,
+      search,
+      category,
+    );
 
     let totalItems = 0;
     if (page !== undefined && limit !== undefined) {
-      totalItems = await this.productRepo.countByBranch(targetBranch, search, category);
+      totalItems = await this.productRepo.countByBranch(
+        targetBranch,
+        search,
+        category,
+      );
     }
 
     const data = rows.map((p: any) => {
-      const s = p.stockItems?.find((si: any) => si.branch === targetBranch) ?? p.stockItems?.[0];
+      const s =
+        p.stockItems?.find((si: any) => si.branch === targetBranch) ??
+        p.stockItems?.[0];
       const totalIn = s?.totalIn ?? 0;
       const totalOut = s?.totalOut ?? 0;
       return {
         id: p.id,
-        name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
+        name: p.name
+          .replace(/^\s*\d+\s+/, "")
+          .replace(/\s*\([^)]+\)\s*$/g, "")
+          .replace(
+            /\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i,
+            "",
+          )
+          .trim(),
         category: p.categoryName,
         price: Number(p.price),
         unitsPerCarton: (p as any).unitsPerCarton ?? 0,
@@ -42,7 +61,7 @@ export class ProductService {
         data,
         totalItems,
         totalPages: Math.ceil(totalItems / limit),
-        currentPage: page
+        currentPage: page,
       };
     }
 
@@ -50,7 +69,14 @@ export class ProductService {
   }
 
   async createProduct(
-    data: { id: string; name: string; category: string; price: number; unitsPerCarton?: number; branch?: string },
+    data: {
+      id: string;
+      name: string;
+      category: string;
+      price: number;
+      unitsPerCarton?: number;
+      branch?: string;
+    },
     user: JwtPayload,
   ): Promise<Product> {
     const exists = await this.productRepo.existsById(data.id);
@@ -62,13 +88,20 @@ export class ProductService {
       categoryName: data.category,
       price: data.price,
       unitsPerCarton: data.unitsPerCarton ?? 0,
-      branch: 'all',
+      branch: "all",
     });
 
     const s = p.stockItems[0];
     return {
       id: p.id,
-      name: p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim(),
+      name: p.name
+        .replace(/^\s*\d+\s+/, "")
+        .replace(/\s*\([^)]+\)\s*$/g, "")
+        .replace(
+          /\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i,
+          "",
+        )
+        .trim(),
       category: p.categoryName,
       price: Number(p.price),
       unitsPerCarton: (p as any).unitsPerCarton ?? 0,
@@ -80,7 +113,12 @@ export class ProductService {
 
   async updateProduct(
     id: string,
-    data: { name: string; price: number; category: string },
+    data: {
+      name: string;
+      price: number;
+      category: string;
+      unitsPerCarton: number;
+    },
   ): Promise<Product> {
     const existing = await this.productRepo.findById(id);
     if (!existing) throw Errors.notFound(`Produk '${id}' tidak ditemukan`);
@@ -89,6 +127,7 @@ export class ProductService {
       name: data.name,
       price: data.price,
       categoryName: data.category,
+      unitsPerCarton: data.unitsPerCarton,
     });
 
     const s = p.stockItems[0];
@@ -96,7 +135,16 @@ export class ProductService {
     const totalOut = s?.totalOut ?? 0;
     return {
       id: p.id,
-      name: p.name ? p.name.replace(/^\s*\d+\s+/, '').replace(/\s*\([^)]+\)\s*$/g, '').replace(/\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i, '').trim() : `Produk ${p.id}`,
+      name: p.name
+        ? p.name
+            .replace(/^\s*\d+\s+/, "")
+            .replace(/\s*\([^)]+\)\s*$/g, "")
+            .replace(
+              /\s*(?:\d+\s*(?:G|GR|KG|ML)?\s*[xX]\s*\d+|\d+\s*[xX]\s*\d+\s*(?:G|GR|KG|ML)?|\d+\s*(?:G|GR|KG|ML|PCS)\b|\bSZ\b|\d+$).*$/i,
+              "",
+            )
+            .trim()
+        : `Produk ${p.id}`,
       category: p.categoryName,
       price: Number(p.price),
       unitsPerCarton: (p as any).unitsPerCarton ?? 0,
@@ -111,7 +159,10 @@ export class ProductService {
     if (!exists) throw Errors.notFound(`Produk '${id}' tidak ditemukan`);
 
     const inUse = await this.productRepo.isUsedInOrder(id);
-    if (inUse) throw Errors.conflict('Produk sudah digunakan dalam order, tidak bisa dihapus');
+    if (inUse)
+      throw Errors.conflict(
+        "Produk sudah digunakan dalam order, tidak bisa dihapus",
+      );
 
     await this.productRepo.delete(id);
   }

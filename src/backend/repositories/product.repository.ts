@@ -1,22 +1,30 @@
-import { prisma } from '../config/prisma';
+import { prisma } from "../config/prisma";
 
 export class ProductRepository {
-  async findByBranch(branch: string, page?: number, limit?: number, search?: string, category?: string) {
-    const isUniversal = branch === 'all' || branch === 'Pusat';
-    const where: any = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
+  async findByBranch(
+    branch: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    category?: string,
+  ) {
+    const isUniversal = branch === "all" || branch === "Pusat";
+    const where: any = isUniversal
+      ? {}
+      : { branch: { in: [branch, "all", "Pusat"] } };
 
     const andConditions: any[] = [];
     if (search) {
       andConditions.push({
         OR: [
-          { id: { contains: search, mode: 'insensitive' } },
-          { name: { contains: search, mode: 'insensitive' } }
-        ]
+          { id: { contains: search, mode: "insensitive" } },
+          { name: { contains: search, mode: "insensitive" } },
+        ],
       });
     }
-    if (category && category !== 'all' && category !== 'Semua Kategori') {
+    if (category && category !== "all" && category !== "Semua Kategori") {
       andConditions.push({
-        categoryName: { equals: category, mode: 'insensitive' }
+        categoryName: { equals: category, mode: "insensitive" },
       });
     }
 
@@ -27,7 +35,7 @@ export class ProductRepository {
     const query: any = {
       where,
       include: { stockItems: true },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     };
 
     if (page !== undefined && limit !== undefined) {
@@ -38,22 +46,28 @@ export class ProductRepository {
     return prisma.product.findMany(query);
   }
 
-  async countByBranch(branch: string, search?: string, category?: string): Promise<number> {
-    const isUniversal = branch === 'all' || branch === 'Pusat';
-    const where: any = isUniversal ? {} : { branch: { in: [branch, 'all', 'Pusat'] } };
+  async countByBranch(
+    branch: string,
+    search?: string,
+    category?: string,
+  ): Promise<number> {
+    const isUniversal = branch === "all" || branch === "Pusat";
+    const where: any = isUniversal
+      ? {}
+      : { branch: { in: [branch, "all", "Pusat"] } };
 
     const andConditions: any[] = [];
     if (search) {
       andConditions.push({
         OR: [
-          { id: { contains: search, mode: 'insensitive' } },
-          { name: { contains: search, mode: 'insensitive' } }
-        ]
+          { id: { contains: search, mode: "insensitive" } },
+          { name: { contains: search, mode: "insensitive" } },
+        ],
       });
     }
-    if (category && category !== 'all' && category !== 'Semua Kategori') {
+    if (category && category !== "all" && category !== "Semua Kategori") {
       andConditions.push({
-        categoryName: { equals: category, mode: 'insensitive' }
+        categoryName: { equals: category, mode: "insensitive" },
       });
     }
 
@@ -95,7 +109,15 @@ export class ProductRepository {
     });
   }
 
-  async update(id: string, data: { name: string; price: number; categoryName: string }) {
+  async update(
+    id: string,
+    data: {
+      name: string;
+      price: number;
+      categoryName: string;
+      unitsPerCarton: number;
+    },
+  ) {
     return prisma.product.update({
       where: { id },
       data,

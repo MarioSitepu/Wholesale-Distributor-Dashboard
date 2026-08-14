@@ -26,7 +26,9 @@ export default function OrderPage() {
   const setSelectedCategory = useAppStore((state) => state.setSelectedCategory);
 
   const effectiveBranch = isSuperAdmin
-    ? (activeBranch === "all" ? "" : (activeBranch || ""))
+    ? activeBranch === "all"
+      ? ""
+      : activeBranch || ""
     : user?.branch || "Palembang";
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -70,7 +72,14 @@ export default function OrderPage() {
   const [orderDate, setOrderDate] = useState(
     new Date().toLocaleDateString("en-CA"),
   );
-  const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
+  const [draftQuantities, setDraftQuantities] = useState<
+    Record<string, string>
+  >({});
+  // Draft state untuk input karton dan unit di panel keranjang
+  // key: `${productId}:carton` atau `${productId}:unit`
+  const [draftCartInputs, setDraftCartInputs] = useState<
+    Record<string, string>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -86,7 +95,9 @@ export default function OrderPage() {
 
     if (effectiveBranch) {
       try {
-        storesRes = await api.get<any[]>(`/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`);
+        storesRes = await api.get<any[]>(
+          `/api/stores?branch=${encodeURIComponent(effectiveBranch)}&t=${Date.now()}`,
+        );
       } catch (error: any) {
         toast.error("Gagal memuat toko: " + (error.message || "Error"));
       }
@@ -107,10 +118,16 @@ export default function OrderPage() {
     setStores(Array.isArray(storesRes) ? storesRes : []);
 
     // Ensure branches and categories format aligns with backend response
-    const branchList = branchesRes?.branches ? branchesRes.branches.map((b: any) => b.name || b).filter((b: string) => b !== 'Pusat') : [];
+    const branchList = branchesRes?.branches
+      ? branchesRes.branches
+          .map((b: any) => b.name || b)
+          .filter((b: string) => b !== "Pusat")
+      : [];
     setBranches(branchList);
 
-    const catList = categoriesRes?.categories ? categoriesRes.categories.map((c: any) => c.name || c) : [];
+    const catList = categoriesRes?.categories
+      ? categoriesRes.categories.map((c: any) => c.name || c)
+      : [];
     setCategories(catList);
 
     if (catList.length > 0) {
@@ -123,13 +140,26 @@ export default function OrderPage() {
   };
 
   const fetchProducts = async () => {
-    if (!effectiveBranch) return;
+    if (!effectiveBranch || !selectedStore) {
+      setProducts([]);
+      setTotalPages(1);
+      setProductCache(new Map());
+      setIsProductsLoading(false);
+      return;
+    }
     setIsProductsLoading(true);
     try {
-      const categoryQuery = selectedCategory && selectedCategory !== 'Semua Kategori' ? `&category=${encodeURIComponent(selectedCategory)}` : '';
-      const searchQueryParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
+      const categoryQuery =
+        selectedCategory && selectedCategory !== "Semua Kategori"
+          ? `&category=${encodeURIComponent(selectedCategory)}`
+          : "";
+      const searchQueryParam = debouncedSearch
+        ? `&search=${encodeURIComponent(debouncedSearch)}`
+        : "";
 
-      const res = await api.get<any>(`/api/products?branch=${encodeURIComponent(effectiveBranch)}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${searchQueryParam}&t=${Date.now()}`);
+      const res = await api.get<any>(
+        `/api/products?branch=${encodeURIComponent(effectiveBranch)}&page=${currentPage}&limit=${itemsPerPage}${categoryQuery}${searchQueryParam}&t=${Date.now()}`,
+      );
 
       let productsData = [];
       let pages = 1;
@@ -144,19 +174,23 @@ export default function OrderPage() {
       const mappedProducts = productsData.map((p: any) => ({
         ...p,
         categoryName: p.categoryName || p.category,
-        stock: p.stock !== undefined ? p.stock : (p.stockItems?.[0] ? (p.stockItems[0].totalIn - p.stockItems[0].totalOut) : 0)
+        stock:
+          p.stock !== undefined
+            ? p.stock
+            : p.stockItems?.[0]
+              ? p.stockItems[0].totalIn - p.stockItems[0].totalOut
+              : 0,
       }));
 
       setProducts(mappedProducts);
       setTotalPages(pages);
 
       // Update cache
-      setProductCache(prev => {
+      setProductCache((prev) => {
         const next = new Map(prev);
         mappedProducts.forEach((p: any) => next.set(p.id, p));
         return next;
       });
-
     } catch (error: any) {
       toast.error("Gagal memuat produk: " + (error.message || "Error"));
     } finally {
@@ -174,7 +208,13 @@ export default function OrderPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [effectiveBranch, selectedCategory, currentPage, debouncedSearch]);
+  }, [
+    effectiveBranch,
+    selectedStore,
+    selectedCategory,
+    currentPage,
+    debouncedSearch,
+  ]);
 
   const handleStoreChange = (storeId: string) => {
     if (!storeId) {
@@ -197,7 +237,12 @@ export default function OrderPage() {
     // Check if cart already has items from a different category
     if (cart.length > 0) {
       const firstItem = productCache.get(cart[0].productId);
-      if (firstItem && product.categoryName && firstItem.categoryName?.toLowerCase() !== product.categoryName.toLowerCase()) {
+      if (
+        firstItem &&
+        product.categoryName &&
+        firstItem.categoryName?.toLowerCase() !==
+          product.categoryName.toLowerCase()
+      ) {
         toast.warning("Keranjang Terkunci", {
           description: "Tidak bisa menggabung kategori dalam satu bon.",
           duration: 5000,
@@ -262,7 +307,8 @@ export default function OrderPage() {
     setCartQuantity(productId, safeQuantity);
   };
 
-  const handleQuantityFocus = (productId: string, value: number) =>
+  const handleQuantityFocus =
+    (productId: string, value: number) =>
     (event: React.FocusEvent<HTMLInputElement>) => {
       setDraftQuantities((current) => ({
         ...current,
@@ -271,8 +317,8 @@ export default function OrderPage() {
       event.currentTarget.select();
     };
 
-  const handleQuantityChange = (productId: string) =>
-    (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQuantityChange =
+    (productId: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
       const rawValue = event.target.value;
       if (rawValue === "") {
         setDraftQuantities((current) => ({
@@ -290,7 +336,8 @@ export default function OrderPage() {
       }));
     };
 
-  const handleQuantityBlur = (productId: string, stock: number) =>
+  const handleQuantityBlur =
+    (productId: string, stock: number) =>
     (event: React.FocusEvent<HTMLInputElement>) => {
       commitQuantity(productId, event.target.value, stock);
     };
@@ -300,6 +347,12 @@ export default function OrderPage() {
     setDraftQuantities((current) => {
       const next = { ...current };
       delete next[productId];
+      return next;
+    });
+    setDraftCartInputs((current) => {
+      const next = { ...current };
+      delete next[`${productId}:carton`];
+      delete next[`${productId}:unit`];
       return next;
     });
   };
@@ -331,26 +384,117 @@ export default function OrderPage() {
     };
   };
 
-  const updateCartQuantity = (productId: string, nextQuantity: number, stock: number) => {
+  const updateCartQuantity = (
+    productId: string,
+    nextQuantity: number,
+    stock: number,
+  ) => {
+    // Biarkan 0 — jangan hapus item. Penghapusan hanya via tombol X eksplisit.
     const safeQuantity = Math.max(0, Math.min(stock, Math.floor(nextQuantity)));
-    if (safeQuantity <= 0) {
-      removeCartItem(productId);
-      setDraftQuantities((current) => {
-        const next = { ...current };
-        delete next[productId];
-        return next;
-      });
-      return;
-    }
-
-    setDraftQuantities((current) => {
-      const next = { ...current };
-      delete next[productId];
-      return next;
-    });
     setCartQuantity(productId, safeQuantity);
   };
 
+  // --- Helpers untuk draft karton/unit di panel keranjang ---
+
+  const getCartonDraftKey = (productId: string) => `${productId}:carton`;
+  const getUnitDraftKey = (productId: string) => `${productId}:unit`;
+
+  const setCartInputDraft = (key: string, value: string) =>
+    setDraftCartInputs((prev) => ({ ...prev, [key]: value }));
+
+  const clearCartInputDraft = (key: string) =>
+    setDraftCartInputs((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+  // Nilai yang ditampilkan di input (draft lebih prioritas dari computed)
+  const getCartonInputValue = (productId: string, computedCartons: number) => {
+    const key = getCartonDraftKey(productId);
+    return key in draftCartInputs ? draftCartInputs[key] : String(computedCartons);
+  };
+
+  const getUnitInputValue = (productId: string, computedUnits: number) => {
+    const key = getUnitDraftKey(productId);
+    return key in draftCartInputs ? draftCartInputs[key] : String(computedUnits);
+  };
+
+  // --- Handlers karton ---
+
+  const handleCartonFocus = (productId: string, computedCartons: number) =>
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      setCartInputDraft(getCartonDraftKey(productId), String(computedCartons));
+      e.currentTarget.select();
+    };
+
+  const handleCartonChange = (productId: string) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      // Izinkan string kosong sementara user sedang mengetik
+      if (val === "" || /^\d+$/.test(val)) {
+        setCartInputDraft(getCartonDraftKey(productId), val);
+      }
+    };
+
+  const handleCartonBlur = (productId: string, stock: number) =>
+    (_e: React.FocusEvent<HTMLInputElement>) => {
+      const key = getCartonDraftKey(productId);
+      const draftVal = draftCartInputs[key] ?? "";
+      clearCartInputDraft(key);
+
+      const unitsPerCarton = getProductUnitsPerCarton(productId);
+      if (unitsPerCarton <= 0) return;
+
+      const parsedCarton = draftVal === "" ? 0 : Number(draftVal);
+      if (Number.isNaN(parsedCarton)) return;
+
+      const currentQuantity = getCartQuantity(productId);
+      const currentUnits = currentQuantity % unitsPerCarton;
+      updateCartQuantity(
+        productId,
+        Math.max(0, Math.floor(parsedCarton)) * unitsPerCarton + currentUnits,
+        stock,
+      );
+    };
+
+  // --- Handlers unit ---
+
+  const handleUnitFocus = (productId: string, computedUnits: number) =>
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      setCartInputDraft(getUnitDraftKey(productId), String(computedUnits));
+      e.currentTarget.select();
+    };
+
+  const handleUnitChange = (productId: string) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      if (val === "" || /^\d+$/.test(val)) {
+        setCartInputDraft(getUnitDraftKey(productId), val);
+      }
+    };
+
+  const handleUnitBlur = (productId: string, stock: number) =>
+    (_e: React.FocusEvent<HTMLInputElement>) => {
+      const key = getUnitDraftKey(productId);
+      const draftVal = draftCartInputs[key] ?? "";
+      clearCartInputDraft(key);
+
+      const unitsPerCarton = getProductUnitsPerCarton(productId);
+      const parsedUnit = draftVal === "" ? 0 : Number(draftVal);
+      if (Number.isNaN(parsedUnit)) return;
+
+      const currentQuantity = getCartQuantity(productId);
+      const currentCartons =
+        unitsPerCarton > 0 ? Math.floor(currentQuantity / unitsPerCarton) : 0;
+      updateCartQuantity(
+        productId,
+        currentCartons * unitsPerCarton + Math.max(0, Math.floor(parsedUnit)),
+        stock,
+      );
+    };
+
+  // Kept for stepper buttons (+/-)
   const handleCartonQuantityChange = (
     productId: string,
     cartonValue: string,
@@ -366,7 +510,7 @@ export default function OrderPage() {
     const currentUnits = currentQuantity % unitsPerCarton;
     updateCartQuantity(
       productId,
-      (Math.max(0, Math.floor(parsedCarton)) * unitsPerCarton) + currentUnits,
+      Math.max(0, Math.floor(parsedCarton)) * unitsPerCarton + currentUnits,
       stock,
     );
   };
@@ -381,12 +525,11 @@ export default function OrderPage() {
     if (Number.isNaN(parsedUnit)) return;
 
     const currentQuantity = getCartQuantity(productId);
-    const currentCartons = unitsPerCarton > 0
-      ? Math.floor(currentQuantity / unitsPerCarton)
-      : 0;
+    const currentCartons =
+      unitsPerCarton > 0 ? Math.floor(currentQuantity / unitsPerCarton) : 0;
     updateCartQuantity(
       productId,
-      (currentCartons * unitsPerCarton) + Math.max(0, Math.floor(parsedUnit)),
+      currentCartons * unitsPerCarton + Math.max(0, Math.floor(parsedUnit)),
       stock,
     );
   };
@@ -442,7 +585,7 @@ export default function OrderPage() {
     try {
       setIsSubmitting(true);
       toastId = toast.loading("Sedang memproses pesanan...");
-      await api.post('/api/orders', newOrder);
+      await api.post("/api/orders", newOrder);
       toast.success("Pesanan Berhasil Dibuat!", {
         id: toastId,
         description: "Nomor Faktur: " + invoiceNumber,
@@ -457,22 +600,24 @@ export default function OrderPage() {
       setInvoiceNumber("");
       setOrderDate(new Date().toLocaleDateString("en-CA"));
       setDraftQuantities({});
+      setDraftCartInputs({});
 
       // Refresh produk agar sisa stok terbaru tampil
       fetchInitialData();
     } catch (error: any) {
-      toast.error(error.message || "Gagal menyimpan pesanan. Silakan coba lagi.", {
-        id: toastId,
-      });
+      toast.error(
+        error.message || "Gagal menyimpan pesanan. Silakan coba lagi.",
+        {
+          id: toastId,
+        },
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const cartCategory =
-    cart.length > 0
-      ? productCache.get(cart[0].productId)?.categoryName
-      : null;
+    cart.length > 0 ? productCache.get(cart[0].productId)?.categoryName : null;
 
   const getDisplayQuantity = (productId: string, fallbackQuantity: number) =>
     draftQuantities[productId] ?? String(fallbackQuantity);
@@ -500,9 +645,15 @@ export default function OrderPage() {
                 value={effectiveBranch}
                 onChange={(e) => setActiveBranch(e.target.value)}
               >
-                <option value="" disabled>Pilih Cabang</option>
+                <option value="" disabled>
+                  Pilih Cabang
+                </option>
                 {branches.map((branch) => (
-                  <option key={branch} value={branch} className="text-gray-900 font-medium">
+                  <option
+                    key={branch}
+                    value={branch}
+                    className="text-gray-900 font-medium"
+                  >
                     {branch}
                   </option>
                 ))}
@@ -523,20 +674,24 @@ export default function OrderPage() {
                 disabled={isLoading || (isSuperAdmin && !effectiveBranch)}
                 className="border-none outline-none bg-transparent text-gray-900 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="">{isLoading ? "Memuat Toko..." : "Pilih Toko..."}</option>
-                {!isLoading && stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name}
-                  </option>
-                ))}
+                <option value="">
+                  {isLoading ? "Memuat Toko..." : "Pilih Toko..."}
+                </option>
+                {!isLoading &&
+                  stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <button
               onClick={() => setShowCart(true)}
-              className={`relative px-6 py-3 rounded-lg flex items-center gap-2 transition-all shadow-sm font-medium ${cart.length > 0
+              className={`relative px-6 py-3 rounded-lg flex items-center gap-2 transition-all shadow-sm font-medium ${
+                cart.length > 0
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-gray-100 text-gray-400 cursor-default"
-                }`}
+              }`}
             >
               <ShoppingCart className="w-5 h-5" />
               <div className="flex flex-col items-start leading-tight">
@@ -566,48 +721,54 @@ export default function OrderPage() {
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSelectedCategory(cat)}
-                className={`flex-1 min-w-[120px] py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${selectedCategory && cat.toLowerCase() === selectedCategory.toLowerCase()
+                className={`flex-1 min-w-[120px] py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                  selectedCategory &&
+                  cat.toLowerCase() === selectedCategory.toLowerCase()
                     ? "bg-white text-blue-600 shadow-md"
                     : "text-gray-500 hover:text-gray-700"
-                  } ${cartCategory && cartCategory.toLowerCase() !== cat.toLowerCase() ? "opacity-50" : ""}`}
+                } ${cartCategory && cartCategory.toLowerCase() !== cat.toLowerCase() ? "opacity-50" : ""}`}
               >
                 {cat.toUpperCase()}
-                {cartCategory && cartCategory.toLowerCase() === cat.toLowerCase() && (
-                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                )}
+                {cartCategory &&
+                  cartCategory.toLowerCase() === cat.toLowerCase() && (
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  )}
               </motion.button>
             ))}
           </div>
 
-          {cartCategory && selectedCategory && cartCategory.toLowerCase() !== selectedCategory.toLowerCase() && (
-            <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-              <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
-                <ShoppingCart className="w-5 h-5" />
+          {cartCategory &&
+            selectedCategory &&
+            cartCategory.toLowerCase() !== selectedCategory.toLowerCase() && (
+              <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-orange-800 font-medium">
+                    Keranjang Terkunci ke {cartCategory}
+                  </p>
+                  <p className="text-orange-600 text-sm mt-0.5">
+                    Anda tidak dapat menambahkan produk {selectedCategory}{" "}
+                    karena keranjang sudah berisi produk {cartCategory}.
+                    Selesaikan pesanan atau kosongkan keranjang untuk mengganti
+                    kategori.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (
+                      confirm("Kosongkan keranjang untuk mengganti kategori?")
+                    ) {
+                      clearCart();
+                    }
+                  }}
+                  className="text-orange-700 font-semibold text-sm hover:underline"
+                >
+                  Kosongkan Keranjang
+                </button>
               </div>
-              <div className="flex-1">
-                <p className="text-orange-800 font-medium">
-                  Keranjang Terkunci ke {cartCategory}
-                </p>
-                <p className="text-orange-600 text-sm mt-0.5">
-                  Anda tidak dapat menambahkan produk {selectedCategory} karena
-                  keranjang sudah berisi produk {cartCategory}. Selesaikan
-                  pesanan atau kosongkan keranjang untuk mengganti kategori.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  if (
-                    confirm("Kosongkan keranjang untuk mengganti kategori?")
-                  ) {
-                    clearCart();
-                  }
-                }}
-                className="text-orange-700 font-semibold text-sm hover:underline"
-              >
-                Kosongkan Keranjang
-              </button>
-            </div>
-          )}
+            )}
         </div>
 
         {/* Search Input */}
@@ -621,376 +782,393 @@ export default function OrderPage() {
           />
         </div>
 
-        {/* Wrapper relative: katalog + overlay "Pilih Toko" ditumpuk di sini */}
-        <div className={`relative w-full rounded-2xl ${!selectedStore ? "h-[450px] overflow-hidden" : "min-h-[400px]"}`}>
+        <div className="relative w-full rounded-2xl min-h-[400px]">
+          {!selectedStore ? (
+            <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-12 text-center">
+              <div className="max-w-sm">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                  {isLoading ? (
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                  ) : (
+                    <Store className="h-8 w-8" />
+                  )}
+                </div>
+                <h3 className="mb-2 text-xl font-bold text-gray-900">
+                  {isLoading
+                    ? "Memuat Data..."
+                    : isSuperAdmin && !effectiveBranch
+                      ? "Pilih Cabang Dahulu"
+                      : stores.length === 0
+                        ? "Belum Ada Toko"
+                        : "Pilih Toko Dahulu"}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {isLoading
+                    ? "Sedang menyinkronkan data toko dan produk..."
+                    : isSuperAdmin && !effectiveBranch
+                      ? "Silakan pilih cabang pada menu di atas untuk memuat daftar toko."
+                      : stores.length === 0
+                        ? "Cabang ini belum memiliki toko. Produk tidak ditampilkan sampai toko tersedia."
+                        : "Silakan pilih toko pada menu di atas untuk mulai melihat stok dan melakukan pemesanan."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-all duration-300">
+                <AnimatePresence mode="popLayout">
+                  {products.map((product) => {
+                    const inCart = getCartQuantity(product.id);
+                    const isRestricted = !!(
+                      cartCategory &&
+                      product.categoryName &&
+                      cartCategory.toLowerCase() !==
+                        product.categoryName.toLowerCase()
+                    );
 
-          {/* Katalog produk ΓÇö blur & non-interaktif saat belum pilih toko */}
-          <motion.div
-            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-all duration-300 ${!selectedStore ? "blur-[2.8px] pointer-events-none select-none" : ""
-              }`}
-          >
-            <AnimatePresence mode="popLayout">
-              {products.map((product) => {
-                const inCart = getCartQuantity(product.id);
-                const isRestricted = !!(
-                  cartCategory && product.categoryName && cartCategory.toLowerCase() !== product.categoryName.toLowerCase()
-                );
+                    return (
+                      <motion.div
+                        layout
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                        key={product.id}
+                        className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden group ${
+                          isRestricted
+                            ? "opacity-60 grayscale-[0.5] border-gray-100"
+                            : "border-gray-200 hover:shadow-md hover:border-blue-200"
+                        }`}
+                      >
+                        <div className="p-6">
+                          <div className="mb-4 flex justify-between items-start">
+                            <div>
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">
+                                {product.categoryName}
+                              </p>
+                              <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">
+                                {product.name}
+                              </h3>
+                            </div>
+                          </div>
 
-                return (
-                  <motion.div
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.2 }}
-                    key={product.id}
-                    className={`bg-white rounded-2xl shadow-sm border transition-all overflow-hidden group ${isRestricted
-                        ? "opacity-60 grayscale-[0.5] border-gray-100"
-                        : "border-gray-200 hover:shadow-md hover:border-blue-200"
-                      }`}
-                  >
-                    <div className="p-6">
-                      <div className="mb-4 flex justify-between items-start">
-                        <div>
-                          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">
-                            {product.categoryName}
-                          </p>
-                          <h3 className="font-bold text-gray-900 text-lg leading-tight group-hover:text-blue-600 transition-colors">
-                            {product.name}
-                          </h3>
-                        </div>
-                      </div>
-
-                      <div className="mb-6">
-                        <p className="text-2xl font-black text-gray-900">
-                          <span className="text-sm font-normal text-gray-500 mr-1">
-                            Rp
-                          </span>
-                          {product.price.toLocaleString("id-ID")}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <div
-                            className={`w-2 h-2 rounded-full ${product.stock > 20 ? "bg-green-500" : "bg-red-500"}`}
-                          />
-                          <p className="text-xs text-gray-500 font-medium">
-                            Stok: {product.stock} pcs
-                          </p>
-                        </div>
-                      </div>
-
-                      {product.stock > 0 ? (
-                        <div className="flex items-center gap-3">
-                          {inCart > 0 ? (
-                            <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
-                              <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => decreaseQuantity(product.id)}
-                                className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                              >
-                                <Minus className="w-4 h-4" />
-                              </motion.button>
-                              <input
-                                type="number"
-                                min={0}
-                                max={product.stock}
-                                value={getDisplayQuantity(product.id, inCart)}
-                                onFocus={handleQuantityFocus(product.id, inCart)}
-                                onChange={handleQuantityChange(product.id)}
-                                onBlur={handleQuantityBlur(product.id, product.stock)}
-                                className="font-bold text-blue-700 flex-1 text-center text-lg bg-transparent border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                aria-label={`Jumlah ${product.name}`}
+                          <div className="mb-6">
+                            <p className="text-2xl font-black text-gray-900">
+                              <span className="text-sm font-normal text-gray-500 mr-1">
+                                Rp
+                              </span>
+                              {product.price.toLocaleString("id-ID")}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div
+                                className={`w-2 h-2 rounded-full ${product.stock > 20 ? "bg-green-500" : "bg-red-500"}`}
                               />
-                              <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => addToCart(product.id)}
-                                className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </motion.button>
+                              <p className="text-xs text-gray-500 font-medium">
+                                Stok: {product.stock} pcs
+                              </p>
+                            </div>
+                          </div>
+
+                          {product.stock > 0 ? (
+                            <div className="flex items-center gap-3">
+                              {inCart > 0 ? (
+                                <div className="flex items-center gap-3 flex-1 bg-blue-50 p-1.5 rounded-xl border border-blue-100">
+                                  <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => decreaseQuantity(product.id)}
+                                    className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                                  >
+                                    <Minus className="w-4 h-4" />
+                                  </motion.button>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={product.stock}
+                                    value={getDisplayQuantity(
+                                      product.id,
+                                      inCart,
+                                    )}
+                                    onFocus={handleQuantityFocus(
+                                      product.id,
+                                      inCart,
+                                    )}
+                                    onChange={handleQuantityChange(product.id)}
+                                    onBlur={handleQuantityBlur(
+                                      product.id,
+                                      product.stock,
+                                    )}
+                                    className="font-bold text-blue-700 flex-1 text-center text-lg bg-transparent border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    aria-label={`Jumlah ${product.name}`}
+                                  />
+                                  <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => addToCart(product.id)}
+                                    className="bg-white text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </motion.button>
+                                </div>
+                              ) : (
+                                <motion.button
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => addToCart(product.id)}
+                                  disabled={isRestricted}
+                                  className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                                    isRestricted
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                                  }`}
+                                >
+                                  <Plus className="w-5 h-5" />
+                                  Tambah Ke Bon
+                                </motion.button>
+                              )}
                             </div>
                           ) : (
-                            <motion.button
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => addToCart(product.id)}
-                              disabled={isRestricted}
-                              className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${isRestricted
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
-                                }`}
-                            >
-                              <Plus className="w-5 h-5" />
-                              Tambah Ke Bon
-                            </motion.button>
+                            <div className="text-center py-3 bg-gray-50 rounded-xl text-gray-400 font-bold text-sm">
+                              STOK HABIS
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <div className="text-center py-3 bg-gray-50 rounded-xl text-gray-400 font-bold text-sm">
-                          STOK HABIS
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4 mt-8 pb-4">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg disabled:opacity-50 font-medium"
-              >
-                Sebelumnya
-              </button>
-              <span className="font-medium text-gray-600">
-                Halaman {currentPage} dari {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg disabled:opacity-50 font-medium"
-              >
-                Selanjutnya
-              </button>
-            </div>
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-8 pb-4">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-lg disabled:opacity-50 font-medium"
+                  >
+                    Sebelumnya
+                  </button>
+                  <span className="font-medium text-gray-600">
+                    Halaman {currentPage} dari {totalPages}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-lg disabled:opacity-50 font-medium"
+                  >
+                    Selanjutnya
+                  </button>
+                </div>
+              )}
+            </>
           )}
-
-          {/* Overlay "Pilih Toko Dahulu" – tetap tampil selama belum memilih toko */}
-  {
-    !selectedStore && (
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl">
-        <div className="bg-white p-6 rounded-2xl shadow-2xl border border-blue-100 flex flex-col items-center text-center max-w-sm mx-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            {isLoading ? (
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <Store className="w-8 h-8 text-blue-600" />
-            )}
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            {isLoading ? "Memuat Data..." : isSuperAdmin && !effectiveBranch ? "Pilih Cabang Dahulu" : "Pilih Toko Dahulu"}
-          </h3>
-          <p className="text-gray-500 text-sm">
-            {isLoading ? "Sedang menyinkronkan data toko dan produk..." : isSuperAdmin && !effectiveBranch
-              ? "Silakan pilih cabang pada menu di atas untuk memuat daftar toko."
-              : "Silakan pilih toko pada menu di atas untuk mulai melihat stok dan melakukan pemesanan."}
-          </p>
         </div>
       </div>
-    )
-  }
-        </div >
-      </div >
 
-    <AnimatePresence>
-      {showCart && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-white w-full h-full md:h-auto md:max-w-2xl md:rounded-lg max-h-screen md:max-h-[90vh] flex flex-col"
-          >
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Keranjang Belanja
-              </h2>
-              <button
-                onClick={() => setShowCart(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="px-6 pt-6 pb-4 border-b border-gray-100 bg-blue-50/50">
-              <div className="mb-4 flex items-center gap-2">
-                <Store className="w-5 h-5 text-blue-600" />
-                <span className="font-medium text-gray-800">
-                  Pesanan Untuk:{" "}
-                  <span className="font-bold text-blue-700 text-lg ml-1">
-                    {stores.find((s) => s.id === selectedStore)?.name ||
-                      "Pilih Toko..."}
-                  </span>
-                </span>
+      <AnimatePresence>
+        {showCart && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white w-full h-full md:h-auto md:max-w-2xl md:rounded-lg max-h-screen md:max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Keranjang Belanja
+                </h2>
+                <button
+                  onClick={() => setShowCart(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nomor Faktur
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Masukkan nomor faktur (contoh: FKT-001)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                  />
+
+              <div className="px-6 pt-6 pb-4 border-b border-gray-100 bg-blue-50/50">
+                <div className="mb-4 flex items-center gap-2">
+                  <Store className="w-5 h-5 text-blue-600" />
+                  <span className="font-medium text-gray-800">
+                    Pesanan Untuk:{" "}
+                    <span className="font-bold text-blue-700 text-lg ml-1">
+                      {stores.find((s) => s.id === selectedStore)?.name ||
+                        "Pilih Toko..."}
+                    </span>
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tanggal Pesanan
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nomor Faktur
+                    </label>
                     <input
-                      type="date"
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                      value={orderDate}
-                      onChange={(e) => setOrderDate(e.target.value)}
+                      type="text"
+                      placeholder="Masukkan nomor faktur (contoh: FKT-001)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tanggal Pesanan
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      <input
+                        type="date"
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                        value={orderDate}
+                        onChange={(e) => setOrderDate(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              {cart.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  Keranjang kosong
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {cart.map((item) => {
-                    const product = productCache.get(item.productId);
-                    if (!product) return null;
-
-                    const displayValues = getCartDisplayValues(item.productId, item.quantity);
-                    const isCartonFrozen = displayValues.unitsPerCarton <= 0;
-
-                    return (
-                      <div
-                        key={item.productId}
-                        className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full bg-gray-50 p-4 rounded-lg"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">
-                            {product.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            Rp {product.price.toLocaleString("id-ID")}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            (Isi {displayValues.unitsPerCarton} unit/karton)
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-6 flex-wrap md:flex-nowrap md:justify-end">
-                          <div className="flex flex-col items-center gap-1 shrink-0">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase">
-                              Karton
-                            </label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={displayValues.cartons}
-                              onChange={(event) =>
-                                handleCartonQuantityChange(
-                                  item.productId,
-                                  event.target.value,
-                                  product.stock,
-                                )
-                              }
-                              disabled={isCartonFrozen}
-                              readOnly={isCartonFrozen}
-                              className="font-medium w-14 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              aria-label={`Jumlah karton ${product.name}`}
-                            />
-                          </div>
-                          <div className="flex flex-col items-center gap-1 shrink-0">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase">
-                              Unit
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() =>
-                                  handleUnitQuantityStep(
-                                    item.productId,
-                                    -1,
-                                    product.stock,
-                                  )
-                                }
-                                className="bg-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 shrink-0"
-                              >
-                                <Minus className="w-4 h-4" />
-                              </button>
-                              <input
-                                type="number"
-                                min={0}
-                                max={displayValues.unitsPerCarton > 0 ? displayValues.unitsPerCarton - 1 : product.stock}
-                                value={displayValues.units}
-                                onChange={(event) =>
-                                  handleUnitQuantityChange(
-                                    item.productId,
-                                    event.target.value,
-                                    product.stock,
-                                  )
-                                }
-                                className="font-medium w-14 shrink-0 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                aria-label={`Jumlah unit ${product.name}`}
-                              />
-                              <button
-                                onClick={() =>
-                                  handleUnitQuantityStep(
-                                    item.productId,
-                                    1,
-                                    product.stock,
-                                  )
-                                }
-                                className="bg-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 shrink-0"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="text-right min-w-[100px] shrink-0 font-semibold text-gray-900 whitespace-nowrap">
-                            Rp {(product.price * item.quantity).toLocaleString("id-ID")}
-                          </div>
-                          <button
-                            onClick={() => removeFromCart(item.productId)}
-                            className="text-red-600 hover:text-red-700 shrink-0"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-lg font-medium text-gray-700">
-                  Total
-                </span>
-                <span className="text-2xl font-semibold text-gray-900">
-                  Rp {cartTotal.toLocaleString("id-ID")}
-                </span>
-              </div>
-              <button
-                onClick={handleCheckout}
-                disabled={cart.length === 0 || isSubmitting}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Memproses...
-                  </span>
+              <div className="flex-1 overflow-y-auto p-6">
+                {cart.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    Keranjang kosong
+                  </div>
                 ) : (
-                  "Checkout"
+                  <div className="space-y-4">
+                    {cart.map((item) => {
+                      const product = productCache.get(item.productId);
+                      if (!product) return null;
+
+                      const displayValues = getCartDisplayValues(
+                        item.productId,
+                        item.quantity,
+                      );
+                      const isCartonFrozen = displayValues.unitsPerCarton <= 0;
+
+                      return (
+                        <div
+                          key={item.productId}
+                          className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full bg-gray-50 p-4 rounded-lg"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-gray-900 truncate">
+                              {product.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              Rp {product.price.toLocaleString("id-ID")}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              (Isi {displayValues.unitsPerCarton} unit/karton)
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-6 flex-wrap md:flex-nowrap md:justify-end">
+                            <div className="flex flex-col items-center gap-1 shrink-0">
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                Karton
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                min={0}
+                                value={getCartonInputValue(item.productId, displayValues.cartons)}
+                                onFocus={handleCartonFocus(item.productId, displayValues.cartons)}
+                                onChange={handleCartonChange(item.productId)}
+                                onBlur={handleCartonBlur(item.productId, product.stock)}
+                                disabled={isCartonFrozen}
+                                readOnly={isCartonFrozen}
+                                className="font-medium w-14 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                aria-label={`Jumlah karton ${product.name}`}
+                              />
+                            </div>
+                            <div className="flex flex-col items-center gap-1 shrink-0">
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                Unit
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() =>
+                                    handleUnitQuantityStep(
+                                      item.productId,
+                                      -1,
+                                      product.stock,
+                                    )
+                                  }
+                                  className="bg-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 shrink-0"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  min={0}
+                                  value={getUnitInputValue(item.productId, displayValues.units)}
+                                  onFocus={handleUnitFocus(item.productId, displayValues.units)}
+                                  onChange={handleUnitChange(item.productId)}
+                                  onBlur={handleUnitBlur(item.productId, product.stock)}
+                                  className="font-medium w-14 shrink-0 text-center text-base bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  aria-label={`Jumlah unit ${product.name}`}
+                                />
+                                <button
+                                  onClick={() =>
+                                    handleUnitQuantityStep(
+                                      item.productId,
+                                      1,
+                                      product.stock,
+                                    )
+                                  }
+                                  className="bg-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 shrink-0"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="text-right min-w-[100px] shrink-0 font-semibold text-gray-900 whitespace-nowrap">
+                              Rp{" "}
+                              {(product.price * item.quantity).toLocaleString(
+                                "id-ID",
+                              )}
+                            </div>
+                            <button
+                              onClick={() => removeFromCart(item.productId)}
+                              className="text-red-600 hover:text-red-700 shrink-0"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-lg font-medium text-gray-700">
+                    Total
+                  </span>
+                  <span className="text-2xl font-semibold text-gray-900">
+                    Rp {cartTotal.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0 || isSubmitting}
+                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Memproses...
+                    </span>
+                  ) : (
+                    "Checkout"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

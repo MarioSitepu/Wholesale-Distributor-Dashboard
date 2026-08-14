@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { ProductService } from '../../../../backend/services/product.service';
-import { getAuthenticatedUser, handleUnauthorized, handleError } from '../../../../backend/utils/authHelper';
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { ProductService } from "../../../../backend/services/product.service";
+import {
+  getAuthenticatedUser,
+  handleUnauthorized,
+  handleError,
+} from "../../../../backend/utils/authHelper";
 
 const productService = new ProductService();
 
@@ -9,14 +13,18 @@ const updateProductSchema = z.object({
   name: z.string().min(1),
   price: z.number().nonnegative(),
   category: z.string().min(1),
+  unitsPerCarton: z.number().int().nonnegative().default(0),
 });
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const user = getAuthenticatedUser(request);
   if (!user) return handleUnauthorized();
 
-  if (user.role !== 'admin' && user.role !== 'superadmin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (user.role !== "admin" && user.role !== "superadmin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -29,12 +37,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const user = getAuthenticatedUser(request);
   if (!user) return handleUnauthorized();
 
-  if (user.role !== 'admin' && user.role !== 'superadmin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (user.role !== "admin" && user.role !== "superadmin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
